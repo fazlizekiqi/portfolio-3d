@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { LAYER } from './layers.js';
 
 // ── Renderer ──────────────────────────────────────────────────────────────────
 export const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -24,6 +25,9 @@ export const camera = new THREE.PerspectiveCamera(
   100
 );
 camera.position.set(0, 1.2, 5.0);
+// Blue world is the default starting state — enable its layer.
+// SHARED (0) is always on by default in Three.js.
+camera.layers.enable(LAYER.BLUE);
 
 // ── Controls ──────────────────────────────────────────────────────────────────
 export const controls = new OrbitControls(camera, renderer.domElement);

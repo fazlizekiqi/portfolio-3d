@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { scene } from './scene.js';
+import { LAYER, setWorldLayer } from './layers.js';
 
 // ── Nimbus / glowing platform rings ──────────────────────────────────────────
 const ringGeo = new THREE.TorusGeometry(0.9, 0.018, 12, 80);
@@ -7,6 +8,7 @@ const ringMat = new THREE.MeshBasicMaterial({ color: 0x00aacc, transparent: true
 const ring = new THREE.Mesh(ringGeo, ringMat);
 ring.rotation.x = Math.PI / 2;
 ring.position.y = -0.95;
+setWorldLayer(ring, LAYER.BLUE);
 scene.add(ring);
 
 const ringGeo2 = new THREE.TorusGeometry(0.93, 0.006, 8, 80);
@@ -14,6 +16,7 @@ const ringMat2 = new THREE.MeshBasicMaterial({ color: 0x0055aa, transparent: tru
 const ring2 = new THREE.Mesh(ringGeo2, ringMat2);
 ring2.rotation.x = Math.PI / 2;
 ring2.position.y = -0.95;
+setWorldLayer(ring2, LAYER.BLUE);
 scene.add(ring2);
 
 export function tickCloud(elapsed) {
@@ -43,6 +46,7 @@ const pMat = new THREE.PointsMaterial({
   depthWrite: false, blending: THREE.AdditiveBlending,
 });
 const pPoints = new THREE.Points(pGeo, pMat);
+setWorldLayer(pPoints, LAYER.BLUE);
 scene.add(pPoints);
 
 export function tickParticles(delta, elapsed) {
@@ -60,12 +64,11 @@ const cubeMat = new THREE.MeshStandardMaterial({ color: 0x00ccff, roughness: 0.4
 const cube = new THREE.Mesh(cubeGeo, cubeMat);
 cube.position.set(1.4, 0.2, 0);
 cube.castShadow = true;
+setWorldLayer(cube, LAYER.BLUE);
 scene.add(cube);
 
-// ── Blue-world visibility toggle (called by transition) ───────────────────────
-export function setEnvironmentVisible(visible) {
-  ring.visible    = visible;
-  ring2.visible   = visible;
-  pPoints.visible = visible;
-  cube.visible    = visible;
-}
+// ── Blue-world visibility toggle ──────────────────────────────────────────────
+// Kept as a shim for backwards compatibility — layer switching is now handled
+// by the camera in model.js (enterWhiteWorld / exitWhiteWorld).
+// eslint-disable-next-line no-unused-vars
+export function setEnvironmentVisible(_visible) {}

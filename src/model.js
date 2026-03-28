@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { scene } from './scene.js';
+import { scene, camera } from './scene.js';
+import { LAYER } from './layers.js';
 import { aimLights } from './lighting.js';
 import { initExplode, setOnReassembled } from './explode.js';
-import { setEnvironmentVisible } from './environment.js';
 
 // ── Wireframe overlay state ───────────────────────────────────────────────────
 export const wireState     = { opacity: 0.045 };
@@ -77,6 +77,7 @@ export function loadModel(onReady) {
         wireMaterials.push(wireMat);
         const clone = new THREE.Mesh(child.geometry, wireMat);
         clone.scale.setScalar(1.002);
+        clone.layers.set(LAYER.BLUE);
         child.add(clone);
       });
 
@@ -104,11 +105,11 @@ export function loadModel(onReady) {
 // "White world" = environment hidden, character renders on plain background.
 
 export function enterWhiteWorld() {
-  setEnvironmentVisible(false);
-  wireMaterials.forEach(m => { m.opacity = 0; });
+  camera.layers.disable(LAYER.BLUE);
+  camera.layers.enable(LAYER.WHITE);
 }
 
 export function exitWhiteWorld() {
-  setEnvironmentVisible(true);
-  wireMaterials.forEach(m => { m.opacity = wireState.opacity; });
+  camera.layers.disable(LAYER.WHITE);
+  camera.layers.enable(LAYER.BLUE);
 }

@@ -27,22 +27,14 @@ loadModel(() => {
   // ── Character on-top render pass ──────────────────────────────────────────
   // Re-renders only the character after the burn overlay so it's always
   // fully visible regardless of where the iris circle is.
+  // Uses camera layer masking instead of traversal — no scene.traverse needed.
   function renderCharOnTop() {
     if (!charMeshes.length) return;
-    scene.traverse(obj => {
-      if (obj.isMesh || obj.isPoints) {
-        obj.userData._vis = obj.visible;
-        if (!charMeshes.includes(obj)) obj.visible = false;
-      }
-    });
+    const savedMask = camera.layers.mask;
+    camera.layers.set(0); // LAYER.SHARED only — character mesh lives here
     renderer.clearDepth();
     renderer.render(scene, camera);
-    scene.traverse(obj => {
-      if ((obj.isMesh || obj.isPoints) && obj.userData._vis !== undefined) {
-        obj.visible = obj.userData._vis;
-        delete obj.userData._vis;
-      }
-    });
+    camera.layers.mask = savedMask; // restore full world mask
   }
 
   const clock = new THREE.Clock();
@@ -91,12 +83,15 @@ loadModel(() => {
     renderer.render(scene, camera);
 
     // ── 7. Burn-iris overlay (ortho pass, composites on top of scene) ─────────
-    tickTransition(delta);
+    const postFrame = tickTransition(delta);
 
     // ── 8. Character on-top pass ──────────────────────────────────────────────
-    // During transition or in white world the character is re-rendered after the
-    // iris overlay so it's never hidden by the white mask or the fire ring.
     if (transitioning || inWhite) renderCharOnTop();
+
+    // ── 9. Post-frame world switch ────────────────────────────────────────────
+    // Layer changes happen here — after everything is drawn — so they never
+    // affect the frame that was just composited.
+    if (postFrame) postFrame();
   }
 
   animate();
