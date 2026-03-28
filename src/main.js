@@ -7,6 +7,7 @@ import { tickBackground } from './background.js';
 import { tickCloud, tickParticles } from './environment.js';
 import { tickExplode, updateExplodeLights, getExplodeGroup } from './explode.js';
 import { tickTransition, isWhiteWorld, isTransitioning } from './transition.js';
+import { tickWhiteWorld } from './whiteworld.js';
 import { tickFps } from './fps.js';
 import './gui.js';
 
@@ -77,13 +78,37 @@ loadModel(() => {
     tickExplode(delta);
     if (mixer) mixer.update(delta);
 
+    // ── 5b. White world shader uniforms ───────────────────────────────────────
+    tickWhiteWorld(delta);
+
     tickFps();
 
     // ── 6. Main scene render ──────────────────────────────────────────────────
+    // During transitions both WHITE and BLUE layers may be enabled on the camera.
+    // We must NOT render white objects here — they need to go on top of the
+    // burn-iris overlay.  Temporarily disable WHITE for the main pass.
+    let whiteWasEnabled = false;
+    if (transitioning) {
+      whiteWasEnabled = (camera.layers.mask & (1 << 2)) !== 0; // LAYER.WHITE
+      if (whiteWasEnabled) camera.layers.disable(2);
+    }
     renderer.render(scene, camera);
+    if (transitioning && whiteWasEnabled) camera.layers.enable(2);
 
     // ── 7. Burn-iris overlay (ortho pass, composites on top of scene) ─────────
     const postFrame = tickTransition(delta);
+
+    // ── 7b. White world objects on top of the burn overlay ────────────────────
+    // Render white-layer objects AFTER the iris so they appear outside the
+    // shrinking / expanding circle.  Their shader alpha handles per-pixel
+    // visibility in sync with the iris radius.
+    if (transitioning) {
+      const savedMask = camera.layers.mask;
+      camera.layers.set(2); // LAYER.WHITE only
+      renderer.clearDepth();
+      renderer.render(scene, camera);
+      camera.layers.mask = savedMask;
+    }
 
     // ── 8. Character on-top pass ──────────────────────────────────────────────
     if (transitioning || inWhite) renderCharOnTop();

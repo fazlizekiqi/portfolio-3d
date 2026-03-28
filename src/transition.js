@@ -1,6 +1,7 @@
 import * as THREE from 'three';
-import { renderer } from './scene.js';
+import { renderer, camera } from './scene.js';
 import { enterWhiteWorld, exitWhiteWorld } from './model.js';
+import { LAYER } from './layers.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Burn-iris transition
@@ -38,16 +39,19 @@ const FRAG = /* glsl */`
     float dist   = length(cent);
     float maxD   = length(vec2(0.5 * aspect.x, 0.5));
 
+    // Ease the progress for smoother acceleration / deceleration
+    float eased = uProgress * uProgress * (3.0 - 2.0 * uProgress);
+
     float sinA  = cent.y / max(dist, 0.0001);
     float cosA  = cent.x / max(dist, 0.0001);
     vec2  nUV   = vec2(cosA * 0.8 + sinA * 0.6, dist * 2.5) + vec2(uTime*0.6, uTime*0.4);
 
     float edgeW  = 0.055 * maxD;
     float warp   = fbm(nUV * 3.0 + uTime * 0.3) * 2.0 - 1.0;
-    float radius = uProgress * maxD * 1.08
+    float radius = eased * maxD * 1.08
                  + warp * edgeW * 1.6
-                 * smoothstep(0.0, 0.1, uProgress)
-                 * smoothstep(1.0, 0.9, uProgress);
+                 * smoothstep(0.0, 0.1, eased)
+                 * smoothstep(1.0, 0.9, eased);
 
     float inside    = smoothstep(radius, radius - edgeW * 0.25, dist);
     float outerEdge = radius + edgeW * (0.8 + 0.5 * fbm(nUV * 1.5));
@@ -63,7 +67,7 @@ const FRAG = /* glsl */`
 
     vec3  color = mix(vec3(0.94, 0.94, 0.91), flame, burnRing);
     float alpha = max((1.0 - inside) * (1.0 - burnRing), burnRing * 0.97);
-    alpha      *= 1.0 - smoothstep(0.92, 1.0, uProgress);
+    alpha      *= 1.0 - smoothstep(0.92, 1.0, eased);
 
     gl_FragColor = vec4(color, alpha);
   }
@@ -96,6 +100,8 @@ const SPEED       = 0.32;
 
 export function isWhiteWorld()    { return _inWhiteWorld; }
 export function isTransitioning() { return _direction !== 0; }
+export function getProgress()     { return _progress; }
+export function getElapsed()      { return _elapsed; }
 
 // ── Go to white world (iris closes: 1 → 0) ───────────────────────────────────
 export function goToWhiteWorld() {
@@ -103,15 +109,20 @@ export function goToWhiteWorld() {
   _progress  = 1.0;
   _elapsed   = 0.0;
   _direction = -1;
+  // Enable WHITE layer immediately so the iris-alpha shader can reveal
+  // white objects outside the shrinking circle during the transition.
+  camera.layers.enable(LAYER.WHITE);
 }
 
 // ── Return to blue world (iris opens: 0 → 1) ─────────────────────────────────
 export function goToBlueWorld() {
   if (!_inWhiteWorld) return;
-  // Switch to blue immediately — the iris starts fully closed (progress = 0)
-  // so the scene is completely hidden. Blue objects are ready as it opens.
+  // Mark state as no longer in white world, but keep the WHITE layer enabled
+  // so white objects remain visible and fade out via their shader alpha
+  // as the iris circle expands.  The layer is disabled once fully open.
   _inWhiteWorld = false;
-  exitWhiteWorld();
+  // Re-enable BLUE layer now so blue objects are ready behind the iris
+  camera.layers.enable(LAYER.BLUE);
   _progress  = 0.0;
   _elapsed   = 0.0;
   _direction = 1;
@@ -144,14 +155,17 @@ export function tickTransition(delta) {
     _quad.visible = false;
     return () => {
       _inWhiteWorld = true;
-      enterWhiteWorld();
+      enterWhiteWorld();       // disables BLUE, keeps WHITE enabled
     };
   }
 
-  // Iris fully open → nothing left to do
+  // Iris fully open → transition complete, clean up white layer
   if (_progress >= 1.0 && _direction === 1) {
     _direction    = 0;
     _quad.visible = false;
+    // Now that the iris is fully open and white objects are completely hidden
+    // by the shader alpha, safely disable the WHITE layer.
+    exitWhiteWorld();          // disables WHITE (BLUE already re-enabled)
   }
 
   return null;
