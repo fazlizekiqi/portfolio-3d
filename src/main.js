@@ -1,137 +1,70 @@
 import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import * as dat from 'dat.gui';
+import { renderer, scene, camera } from './scene.js';
+import { tickLighting } from './lighting.js';
+import { loadModel, mixer } from './model.js';
+import { tickPresentation, initCameraState } from './presentation.js';
+import { tickBackground } from './background.js';
+import { fpsEl, pGeo, pPhase, PARTICLE_COUNT, tickCloud } from './environment.js';
+import { tickExplode, updateExplodeLights } from './explode.js';
+import './gui.js';
 
-// ================= SCENE =================
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0a0a0a); // dark cinematic background
-scene.fog = new THREE.Fog(0x0a0a0a, 5, 15);
-
-// ================= CAMERA =================
-const camera = new THREE.PerspectiveCamera(
-  60,
-  window.innerWidth / window.innerHeight,
-  0.1,
-  1000
-);
-camera.position.set(0, 1.2, 3);
-
-// ================= RENDERER =================
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.shadowMap.enabled = true;
-renderer.outputColorSpace = THREE.SRGBColorSpace;
-document.body.appendChild(renderer.domElement);
-
-// ================= LIGHTING =================
-
-// Very low ambient light (almost dark)
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.05);
-scene.add(ambientLight);
-
-// Spotlight on character
-const spotLight = new THREE.SpotLight(0xffffff, 2);
-spotLight.position.set(0.2, 2.1, 0.7);      // light position
-spotLight.angle = Math.PI / 6;        // spotlight cone
-spotLight.penumbra = 0.4;             // soft edges
-spotLight.decay = 2;
-spotLight.distance = 20;
-spotLight.intensity = 10;  // strong spotlight
-spotLight.angle = Math.PI / 6;
-spotLight.castShadow = true;
-scene.add(spotLight);
-scene.add(spotLight.target);
-
-// Optional subtle fill light
-const fillLight = new THREE.DirectionalLight(0xffffff, 0.2);
-fillLight.position.set(-3, 2, -3);
-scene.add(fillLight);
-
-// ================= FLOOR =================
-const floorGeometry = new THREE.PlaneGeometry(5, 5);
-const floorMaterial = new THREE.MeshStandardMaterial({ color: 0x111111 }); // dark floor
-const floor = new THREE.Mesh(floorGeometry, floorMaterial);
-floor.rotation.x = -Math.PI / 2;
-floor.position.y = -1;
-floor.receiveShadow = true;
-scene.add(floor);
-
-// ================= CONTROLS =================
-const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
-
-// ================= LOAD GLB =================
-const loader = new GLTFLoader();
-
-loader.load(
-  '/models/good-alt-less-faces-15000.glb',
-  (gltf) => {
-    const model = gltf.scene;
-
-    // Center + scale
-    const box = new THREE.Box3().setFromObject(model);
-    const center = box.getCenter(new THREE.Vector3());
-    const size = box.getSize(new THREE.Vector3());
-
-    model.position.sub(center);
-    const maxDim = Math.max(size.x, size.y, size.z);
-    const scale = 2 / maxDim;
-    model.scale.setScalar(scale);
-
-    // Ensure materials react to light and cast/receive shadows
-    model.traverse((child) => {
-      if (child.isMesh) {
-        const mat = child.material;
-        mat.side = THREE.FrontSide;
-
-        if (mat.map) mat.map.colorSpace = THREE.SRGBColorSpace;
-        mat.needsUpdate = true;
-
-        child.castShadow = true;
-        child.receiveShadow = true;
-      }
-    });
-
-    scene.add(model);
-
-    // Make spotlight target the character
-    spotLight.target = model;
-  },
-  (progress) => {
-    console.log('Loading:', (progress.loaded / progress.total) * 100);
-  },
-  (error) => {
-    console.error('Error loading GLB:', error);
+// ── FPS counter ───────────────────────────────────────────────────────────────
+let frameCount = 0, lastFpsTime = performance.now();
+function updateFps() {
+  frameCount++;
+  const now = performance.now();
+  if (now - lastFpsTime >= 600) {
+    fpsEl.textContent = `FPS ${Math.round(frameCount * 1000 / (now - lastFpsTime))}`;
+    frameCount = 0; lastFpsTime = now;
   }
-);
-
-// ================= WINDOW RESIZE =================
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-});
-
-// ================= ANIMATE =================
-function animate() {
-  requestAnimationFrame(animate);
-  controls.update();
-  renderer.render(scene, camera);
 }
 
-const gui = new dat.GUI();
+// ── Load model, then start loop ───────────────────────────────────────────────
+loadModel(() => {
+  initCameraState();
 
-const lightFolder = gui.addFolder('SpotLight');
-lightFolder.add(spotLight, 'intensity', 0, 5, 0.1);
-lightFolder.add(spotLight, 'angle', 0, Math.PI / 2, 0.01);
-lightFolder.add(spotLight.position, 'x', -10, 10, 0.1);
-lightFolder.add(spotLight.position, 'y', 0, 10, 0.1);
-lightFolder.add(spotLight.position, 'z', -10, 10, 0.1);
-lightFolder.open();
+  const clock = new THREE.Clock();
+  let elapsed = 0;
 
-const ambientFolder = gui.addFolder('AmbientLight');
-ambientFolder.add(ambientLight, 'intensity', 0, 1, 0.01);
-ambientFolder.open();
+  function animate() {
+    requestAnimationFrame(animate);
+    const delta = clock.getDelta();
+    elapsed += delta;
 
-animate();
+    // 1. Shader background (renders first, no depth clear)
+    tickBackground(renderer, elapsed);
+
+    // 2. Camera — presentation drives it, otherwise free orbit
+    tickPresentation(delta, elapsed);
+
+    // 3. Fill light follows camera
+    tickLighting(camera);
+
+    // 4. Nimbus cloud platform animation
+    tickCloud(elapsed);
+
+    // 5. Exploding-object effect + sync lights
+    updateExplodeLights();
+    tickExplode(delta);
+
+
+    // 4. Dust particles drift upward
+    const pos = pGeo.attributes.position.array;
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      pos[i * 3 + 1] += delta * (0.03 + 0.018 * Math.sin(pPhase[i] + elapsed * 0.4));
+      if (pos[i * 3 + 1] > 2.8) pos[i * 3 + 1] = -0.8;
+    }
+    pGeo.attributes.position.needsUpdate = true;
+
+    // 5. Animation mixer
+    const m = mixer;
+    if (m) m.update(delta);
+
+    updateFps();
+
+    // 6. Main scene on top of background
+    renderer.render(scene, camera);
+  }
+
+  animate();
+});
