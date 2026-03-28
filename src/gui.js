@@ -1,7 +1,7 @@
 import { GUI } from 'dat.gui';
 import { wireMaterials, wireState, playClip } from './model.js';
 import { toggleExplode, explodeParams, applyExplodeParams, triggerExplode, triggerReassemble } from './explode.js';
-import { startBurnTransition, reverseBurnTransition, isCartoonMode } from './transition.js';
+import { goToWhiteWorld, goToBlueWorld, isWhiteWorld } from './transition.js';
 
 // ── Keyboard shortcuts ────────────────────────────────────────────────────────
 window.addEventListener('keydown', (e) => {
@@ -12,7 +12,7 @@ window.addEventListener('keydown', (e) => {
       break;
     }
     case 'e': toggleExplode(); break;
-    case 't': isCartoonMode() ? reverseBurnTransition() : startBurnTransition(); break;
+    case 't': isWhiteWorld() ? goToBlueWorld() : goToWhiteWorld(); break;
     case '1': case '2': case '3': case '4': case '5':
       playClip(parseInt(e.key) - 1);
       break;
@@ -56,7 +56,7 @@ fFa.add(explodeParams, 'fadeEnd',   0.0, 1.0, 0.01).name('Fade end').onChange(ap
 const actions = {
   explode:    () => triggerExplode(),
   reassemble: () => triggerReassemble(),
-  transition: () => isCartoonMode() ? reverseBurnTransition() : startBurnTransition(),
+  transition: () => isWhiteWorld() ? goToBlueWorld() : goToWhiteWorld(),
 };
 const fAc = gui.addFolder('▶ Actions');
 fAc.add(actions, 'explode').name('Explode  [E]');

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { renderer } from './scene.js';
-import { enterCartoonMode, exitCartoonMode } from './model.js';
+import { enterWhiteWorld, exitWhiteWorld } from './model.js';
 import { setEnvironmentVisible } from './environment.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -107,19 +107,17 @@ window.addEventListener('resize', () => {
 });
 
 // ── State ─────────────────────────────────────────────────────────────────────
-let _progress    = 1.0;
-let _direction   = 0;
-let _elapsed     = 0.0;
-let _cartoonMode = false;
-const SPEED      = 0.32;
+let _progress     = 1.0;
+let _direction    = 0;      // -1 = going to white world,  1 = going to blue world
+let _elapsed      = 0.0;
+let _inWhiteWorld = false;
+const SPEED       = 0.32;
 
-export function isCartoonMode()   { return _cartoonMode; }
+export function isWhiteWorld()    { return _inWhiteWorld; }
 export function isTransitioning() { return _direction !== 0; }
-export function isExiting()       { return _direction === 1; } // circle growing back to 3D
 
-// ── Public API ────────────────────────────────────────────────────────────────
-
-export function startBurnTransition() {
+// ── Go to white world: circle shrinks (progress 1 → 0) ───────────────────────
+export function goToWhiteWorld() {
   if (_direction === -1) return;
   _progress     = 1.0;
   _elapsed      = 0.0;
@@ -127,11 +125,12 @@ export function startBurnTransition() {
   _quad.visible = true;
 }
 
-export function reverseBurnTransition() {
-  if (!_cartoonMode) return;
-  setEnvironmentVisible(true);  // restore env immediately so it shows inside the growing circle
+// ── Return to blue world: circle grows (progress 0 → 1) ──────────────────────
+export function goToBlueWorld() {
+  if (!_inWhiteWorld) return;
+  setEnvironmentVisible(true);
   _direction    = 1;
-  _elapsed      = 0.0;          // reset time so fire flicker restarts cleanly
+  _elapsed      = 0.0;
   _quad.visible = true;
 }
 
@@ -158,19 +157,17 @@ export function tickTransition(delta) {
   renderer.render(_orthoScene, _orthoCam);
   renderer.autoClear = false; // keep false (main.js relies on it)
 
-  // Circle fully closed → white world
   if (_progress <= 0.0 && _direction === -1) {
     _direction    = 0;
-    _cartoonMode  = true;
+    _inWhiteWorld = true;
     _quad.visible = false;
-    enterCartoonMode();
+    enterWhiteWorld();
   }
 
-  // Circle fully open → back to 3D
   if (_progress >= 1.0 && _direction === 1) {
     _direction    = 0;
-    _cartoonMode  = false;
+    _inWhiteWorld = false;
     _quad.visible = false;
-    exitCartoonMode();
+    exitWhiteWorld();
   }
 }

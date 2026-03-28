@@ -5,17 +5,17 @@ import { aimLights } from './lighting.js';
 import { initExplode, setOnReassembled } from './explode.js';
 import { setEnvironmentVisible } from './environment.js';
 
+// ── Wireframe overlay state ───────────────────────────────────────────────────
 export const wireState     = { opacity: 0.045 };
 export const wireMaterials = [];
 
-// Cartoon mode state — just tracks whether env is hidden
-let _cartoonActive = false;
-const _modelMeshes = [];   // all scene meshes
-
+// ── Animation state ───────────────────────────────────────────────────────────
 export let mixer        = null;
 export let clips        = [];
 export let activeAction = null;
-export let modelGroup   = null;   // set after load, used for always-on-top pass
+
+// ── Model group reference (set after load) ────────────────────────────────────
+export let modelGroup = null;
 
 export function playClip(index, timeScale = 1.0) {
   if (!mixer || !clips.length) return;
@@ -26,23 +26,20 @@ export function playClip(index, timeScale = 1.0) {
   activeAction.reset().setEffectiveTimeScale(timeScale).setEffectiveWeight(1).fadeIn(0.5).play();
 }
 
-// Smoothly fade out the running animation, then call onDone once it's silent.
-// fadeDuration – seconds for the crossfade out
 export function fadeOutAnimation(fadeDuration = 0.5, onDone) {
   if (!activeAction) { if (onDone) onDone(); return; }
   activeAction.fadeOut(fadeDuration);
-  // Wait for the fade to finish before calling back
   setTimeout(() => {
     if (activeAction) { activeAction.stop(); activeAction = null; }
     if (onDone) onDone();
   }, fadeDuration * 1000);
 }
 
-// Fade the idle clip back in (used after reassembly)
 export function fadeInAnimation(index = 0) {
   playClip(index);
 }
 
+// ── Load ──────────────────────────────────────────────────────────────────────
 export function loadModel(onReady) {
   new GLTFLoader().load(
     '/models/good-result.glb',
@@ -56,15 +53,9 @@ export function loadModel(onReady) {
       model.scale.setScalar(2 / Math.max(size.x, size.y, size.z));
 
       const meshes = [];
-      model.traverse((child) => {
-        if (child.isMesh) {
-          meshes.push(child);
-          _modelMeshes.push(child);
-        }
-      });
+      model.traverse(child => { if (child.isMesh) meshes.push(child); });
 
-      // 1. Fix up original materials first
-      meshes.forEach((child) => {
+      meshes.forEach(child => {
         const mat = child.material;
         mat.side = THREE.FrontSide;
         if (mat.map) mat.map.colorSpace = THREE.SRGBColorSpace;
@@ -76,11 +67,9 @@ export function loadModel(onReady) {
       scene.add(model);
       modelGroup = model;
 
-      // 2. Exploding-object effect (hides originals, plays intro reassembly)
       initExplode(meshes, model);
 
-      // 3. Wireframe overlays
-      meshes.forEach((child) => {
+      meshes.forEach(child => {
         const wireMat = new THREE.MeshBasicMaterial({
           color: 0x0088aa, wireframe: true,
           transparent: true, opacity: wireState.opacity, depthWrite: false,
@@ -91,13 +80,11 @@ export function loadModel(onReady) {
         child.add(clone);
       });
 
-
       const targetPos = new THREE.Vector3();
       new THREE.Box3().setFromObject(model).getCenter(targetPos);
       targetPos.y += 0.2;
       aimLights(targetPos);
 
-      // 4. Set up animation mixer — play only after intro reassembly finishes
       if (gltf.animations?.length) {
         clips = gltf.animations;
         mixer = new THREE.AnimationMixer(model);
@@ -111,16 +98,15 @@ export function loadModel(onReady) {
   );
 }
 
-// ── Cartoon mode ──────────────────────────────────────────────────────────────
-export function enterCartoonMode() {
-  if (_cartoonActive) return;
-  _cartoonActive = true;
+// ── World switching ───────────────────────────────────────────────────────────
+// Called by transition.js when the burn iris completes.
+// "Blue world"  = environment visible, PBR lighting active.
+// "White world" = environment hidden, character renders on plain background.
+
+export function enterWhiteWorld() {
   setEnvironmentVisible(false);
 }
 
-export function exitCartoonMode() {
-  if (!_cartoonActive) return;
-  _cartoonActive = false;
+export function exitWhiteWorld() {
   setEnvironmentVisible(true);
 }
-
