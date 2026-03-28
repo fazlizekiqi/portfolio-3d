@@ -1,6 +1,7 @@
 import { GUI } from 'dat.gui';
 import { wireMaterials, wireState, playClip } from './model.js';
 import { toggleExplode, explodeParams, applyExplodeParams, triggerExplode, triggerReassemble } from './explode.js';
+import { startBurnTransition, reverseBurnTransition, isCartoonMode } from './transition.js';
 
 // ── Keyboard shortcuts ────────────────────────────────────────────────────────
 window.addEventListener('keydown', (e) => {
@@ -11,6 +12,7 @@ window.addEventListener('keydown', (e) => {
       break;
     }
     case 'e': toggleExplode(); break;
+    case 't': isCartoonMode() ? reverseBurnTransition() : startBurnTransition(); break;
     case '1': case '2': case '3': case '4': case '5':
       playClip(parseInt(e.key) - 1);
       break;
@@ -54,10 +56,12 @@ fFa.add(explodeParams, 'fadeEnd',   0.0, 1.0, 0.01).name('Fade end').onChange(ap
 const actions = {
   explode:    () => triggerExplode(),
   reassemble: () => triggerReassemble(),
+  transition: () => isCartoonMode() ? reverseBurnTransition() : startBurnTransition(),
 };
 const fAc = gui.addFolder('▶ Actions');
 fAc.add(actions, 'explode').name('Explode  [E]');
 fAc.add(actions, 'reassemble').name('Reassemble  [E]');
+fAc.add(actions, 'transition').name('🔥 Toggle world  [T]');
 fAc.open();
 
 // ── Small hint label ─────────────────────────────────────────────────────────
@@ -67,5 +71,5 @@ hint.style.cssText = `
   font-family:'Share Tech Mono','Courier New',monospace;
   font-size:10px;color:#224455;letter-spacing:.06em;
   pointer-events:none;line-height:1.8;text-align:right;`;
-hint.innerHTML = `[W] wireframe &nbsp; [E] explode &nbsp; [1-5] clip`;
+hint.innerHTML = `[W] wireframe &nbsp; [E] explode &nbsp; [T] transition &nbsp; [1-5] clip`;
 document.body.appendChild(hint);

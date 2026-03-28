@@ -3,13 +3,19 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { scene } from './scene.js';
 import { aimLights } from './lighting.js';
 import { initExplode, setOnReassembled } from './explode.js';
+import { setEnvironmentVisible } from './environment.js';
 
 export const wireState     = { opacity: 0.045 };
 export const wireMaterials = [];
 
+// Cartoon mode state — just tracks whether env is hidden
+let _cartoonActive = false;
+const _modelMeshes = [];   // all scene meshes
+
 export let mixer        = null;
 export let clips        = [];
 export let activeAction = null;
+export let modelGroup   = null;   // set after load, used for always-on-top pass
 
 export function playClip(index, timeScale = 1.0) {
   if (!mixer || !clips.length) return;
@@ -50,7 +56,12 @@ export function loadModel(onReady) {
       model.scale.setScalar(2 / Math.max(size.x, size.y, size.z));
 
       const meshes = [];
-      model.traverse((child) => { if (child.isMesh) meshes.push(child); });
+      model.traverse((child) => {
+        if (child.isMesh) {
+          meshes.push(child);
+          _modelMeshes.push(child);
+        }
+      });
 
       // 1. Fix up original materials first
       meshes.forEach((child) => {
@@ -63,6 +74,7 @@ export function loadModel(onReady) {
       });
 
       scene.add(model);
+      modelGroup = model;
 
       // 2. Exploding-object effect (hides originals, plays intro reassembly)
       initExplode(meshes, model);
@@ -98,3 +110,17 @@ export function loadModel(onReady) {
     (err) => console.error('GLB error:', err)
   );
 }
+
+// ── Cartoon mode ──────────────────────────────────────────────────────────────
+export function enterCartoonMode() {
+  if (_cartoonActive) return;
+  _cartoonActive = true;
+  setEnvironmentVisible(false);
+}
+
+export function exitCartoonMode() {
+  if (!_cartoonActive) return;
+  _cartoonActive = false;
+  setEnvironmentVisible(true);
+}
+

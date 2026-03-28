@@ -33,6 +33,7 @@ export function tickCloud(elapsed) {
   ring2.rotation.z = -elapsed * 0.18;
 }
 
+
 // ── Dust / sparkle particles ──────────────────────────────────────────────────
 export const PARTICLE_COUNT = 180;
 
@@ -58,5 +59,12 @@ const pMat = new THREE.PointsMaterial({
   blending: THREE.AdditiveBlending,
 });
 
-scene.add(new THREE.Points(pGeo, pMat));
+const pPoints = new THREE.Points(pGeo, pMat);
+scene.add(pPoints);
+
+export function setEnvironmentVisible(visible) {
+  ring.visible    = visible;
+  ring2.visible   = visible;
+  pPoints.visible = visible;
+}
 

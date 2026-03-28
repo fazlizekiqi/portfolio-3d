@@ -225,7 +225,7 @@ export function tickPresentation(delta, elapsed) {
 
     if (slideTimer <= 0) {
       slideIndex++;
-      if (slideIndex >= SLIDES.length) end();
+      if (slideIndex >= SLIDES.length) end(true);  // natural end → burn transition
       else { showSlide(slideIndex); progressBar.style.width = '0%'; }
     }
   } else if (rawT >= 1.0) {

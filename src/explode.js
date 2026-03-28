@@ -210,6 +210,8 @@ const originalMeshes = [];
 let   explodeGroup   = null;
 let   onReassembled  = null;
 
+export function getExplodeGroup() { return explodeGroup; }
+
 export function setOnReassembled(fn) { onReassembled = fn; }
 
 // Sync all tunable params to the shader uniforms
