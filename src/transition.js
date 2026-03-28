@@ -38,8 +38,10 @@ const FRAG = /* glsl */`
     float dist   = length(cent);
     float maxD   = length(vec2(0.5 * aspect.x, 0.5));
 
-    float angle = atan(cent.y, cent.x);
-    vec2  nUV   = vec2(angle * 0.8, dist * 2.5) + vec2(uTime*0.6, uTime*0.4);
+    // Use sin/cos instead of raw atan() angle to avoid the ±π seam on the left
+    float sinA  = cent.y / max(dist, 0.0001);
+    float cosA  = cent.x / max(dist, 0.0001);
+    vec2  nUV   = vec2(cosA * 0.8 + sinA * 0.6, dist * 2.5) + vec2(uTime*0.6, uTime*0.4);
     float warp  = fbm(nUV * 3.0 + uTime * 0.3) * 2.0 - 1.0;
 
     float edgeW  = 0.055 * maxD;
@@ -135,16 +137,31 @@ export function goToBlueWorld() {
 }
 
 export function tickTransition(delta) {
-  if (_direction === 0 && _progress >= 1.0) {
+  if (_direction === 0) {
     _quad.visible = false;
     return;
   }
 
   _elapsed += delta;
 
-  if (_direction !== 0) {
-    _progress += _direction * SPEED * delta;
-    _progress  = Math.max(0, Math.min(1, _progress));
+  _progress += _direction * SPEED * delta;
+  _progress  = Math.max(0, Math.min(1, _progress));
+
+  // ── Check completion BEFORE rendering so we never draw at the boundary ──
+  if (_progress <= 0.0 && _direction === -1) {
+    _direction    = 0;
+    _inWhiteWorld = true;
+    _quad.visible = false;
+    enterWhiteWorld();
+    return;
+  }
+
+  if (_progress >= 1.0 && _direction === 1) {
+    _direction    = 0;
+    _inWhiteWorld = false;
+    _quad.visible = false;
+    exitWhiteWorld();
+    return;
   }
 
   _uniforms.uProgress.value = _progress;
@@ -156,18 +173,4 @@ export function tickTransition(delta) {
   renderer.clearDepth();
   renderer.render(_orthoScene, _orthoCam);
   renderer.autoClear = false; // keep false (main.js relies on it)
-
-  if (_progress <= 0.0 && _direction === -1) {
-    _direction    = 0;
-    _inWhiteWorld = true;
-    _quad.visible = false;
-    enterWhiteWorld();
-  }
-
-  if (_progress >= 1.0 && _direction === 1) {
-    _direction    = 0;
-    _inWhiteWorld = false;
-    _quad.visible = false;
-    exitWhiteWorld();
-  }
 }

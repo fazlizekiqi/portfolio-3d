@@ -105,8 +105,10 @@ export function loadModel(onReady) {
 
 export function enterWhiteWorld() {
   setEnvironmentVisible(false);
+  wireMaterials.forEach(m => { m.opacity = 0; });
 }
 
 export function exitWhiteWorld() {
   setEnvironmentVisible(true);
+  wireMaterials.forEach(m => { m.opacity = wireState.opacity; });
 }

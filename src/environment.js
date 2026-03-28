@@ -54,9 +54,18 @@ export function tickParticles(delta, elapsed) {
   pGeo.attributes.position.needsUpdate = true;
 }
 
+// ── Blue-world-only test cube ─────────────────────────────────────────────────
+const cubeGeo = new THREE.BoxGeometry(0.4, 0.4, 0.4);
+const cubeMat = new THREE.MeshStandardMaterial({ color: 0x00ccff, roughness: 0.4, metalness: 0.3 });
+const cube = new THREE.Mesh(cubeGeo, cubeMat);
+cube.position.set(1.4, 0.2, 0);
+cube.castShadow = true;
+scene.add(cube);
+
 // ── Blue-world visibility toggle (called by transition) ───────────────────────
 export function setEnvironmentVisible(visible) {
   ring.visible    = visible;
   ring2.visible   = visible;
   pPoints.visible = visible;
+  cube.visible    = visible;
 }
