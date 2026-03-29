@@ -42,7 +42,7 @@ export function fadeInAnimation(index = 0) {
 // ── Load ──────────────────────────────────────────────────────────────────────
 export function loadModel(onReady) {
   new GLTFLoader().load(
-    '/models/good-result.glb',
+      '/models/animation-different-working.glb',
     (gltf) => {
       const model = gltf.scene;
       const box    = new THREE.Box3().setFromObject(model);
@@ -56,12 +56,22 @@ export function loadModel(onReady) {
       model.traverse(child => { if (child.isMesh) meshes.push(child); });
 
       meshes.forEach(child => {
-        const mat = child.material;
-        mat.side = THREE.FrontSide;
-        if (mat.map) mat.map.colorSpace = THREE.SRGBColorSpace;
-        mat.envMapIntensity = 0.5;
-        child.castShadow = true;
-        child.receiveShadow = true;
+        // Disable frustum culling on skinned meshes — Three.js computes the
+        // bounding sphere from the rest pose, so bones that move parts far
+        // from their origin (eyes, accessories, etc.) get incorrectly culled
+        // and disappear the moment the animation starts.
+        if (child.isSkinnedMesh) child.frustumCulled = false;
+
+        const mats = Array.isArray(child.material) ? child.material : [child.material];
+        mats.forEach(mat => {
+          // Do NOT force FrontSide — eyes/eyelashes/accessories are often
+          // exported as DoubleSide planes; overriding them makes them invisible.
+          if (mat.map) mat.map.colorSpace = THREE.SRGBColorSpace;
+          mat.envMapIntensity = 0.5;
+          mat.needsUpdate = true;
+        });
+        child.castShadow    = true;
+        child.receiveShadow = false;  // skinned mesh self-shadow = acne
       });
 
       scene.add(model);
@@ -69,17 +79,17 @@ export function loadModel(onReady) {
 
       initExplode(meshes, model);
 
-      meshes.forEach(child => {
-        const wireMat = new THREE.MeshBasicMaterial({
-          color: 0x0088aa, wireframe: true,
-          transparent: true, opacity: wireState.opacity, depthWrite: false,
-        });
-        wireMaterials.push(wireMat);
-        const clone = new THREE.Mesh(child.geometry, wireMat);
-        clone.scale.setScalar(1.002);
-        clone.layers.set(LAYER.BLUE);
-        child.add(clone);
-      });
+      // meshes.forEach(child => {
+      //   const wireMat = new THREE.MeshBasicMaterial({
+      //     color: 0x0088aa, wireframe: true,
+      //     transparent: true, opacity: wireState.opacity, depthWrite: false,
+      //   });
+      //   wireMaterials.push(wireMat);
+      //   const clone = new THREE.Mesh(child.geometry, wireMat);
+      //   clone.scale.setScalar(1.002);
+      //   clone.layers.set(LAYER.BLUE);
+      //   child.add(clone);
+      // });
 
       const targetPos = new THREE.Vector3();
       new THREE.Box3().setFromObject(model).getCenter(targetPos);

@@ -9,13 +9,15 @@ scene.add(ambient);
 const keyLight = new THREE.DirectionalLight(0xfff0dd, 1.6);
 keyLight.position.set(3, 5, 4);
 keyLight.castShadow = true;
-keyLight.shadow.mapSize.set(1024, 1024);
+keyLight.shadow.mapSize.set(2048, 2048);
 keyLight.shadow.camera.near = 0.5;
 keyLight.shadow.camera.far = 20;
 keyLight.shadow.camera.left = -3;
 keyLight.shadow.camera.right = 3;
 keyLight.shadow.camera.top = 3;
 keyLight.shadow.camera.bottom = -3;
+keyLight.shadow.bias       = -0.001;  // pulls shadow back to prevent acne
+keyLight.shadow.normalBias =  0.02;   // offsets along normal for skinned meshes
 scene.add(keyLight);
 
 // ── Fill light (cool, left) ───────────────────────────────────────────────────
