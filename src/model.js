@@ -59,6 +59,37 @@ export function fadeInAnimation(index = 0) {
   playClip('idle');
 }
 
+// ── Root-motion stripping ─────────────────────────────────────────────────────
+// GLB animations exported from Mixamo / Blender often bake locomotion into
+// the root-bone position track.  When the clip loops, Three.js resets the
+// bone to its rest pose, snapping the visual mesh back to its origin.
+// We remove the XZ position tracks from the first bone in every clip so the
+// skeleton never drives world-space translation — player.js owns that instead.
+// The Y track is kept so idle breathing / crouch animations stay intact.
+function stripRootMotion(clip) {
+  // The root bone track names follow the pattern  "BoneName.position"
+  // It is always the first position track encountered (index 0 in the list).
+  let stripped = false;
+  clip.tracks = clip.tracks.filter(track => {
+    if (stripped) return true;                       // only touch the first bone
+    if (!track.name.endsWith('.position')) return true;
+
+    // This is the root bone's position track — split it into a Y-only track
+    // by zeroing out X and Z values across all keyframes.
+    const times  = track.times;
+    const values = track.values.slice();             // copy — don't mutate shared buffer
+    for (let i = 0; i < times.length; i++) {
+      values[i * 3 + 0] = 0;  // X → 0
+      // values[i * 3 + 1] unchanged — keep vertical (Y) motion
+      values[i * 3 + 2] = 0;  // Z → 0
+    }
+    // Rebuild the track in-place with zeroed XZ
+    track.values = values;
+    stripped = true;
+    return true;   // keep the track — just neutralised
+  });
+}
+
 // ── Load ──────────────────────────────────────────────────────────────────────
 export function loadModel(onReady) {
   new GLTFLoader().load(
@@ -105,6 +136,8 @@ export function loadModel(onReady) {
 
       if (gltf.animations?.length) {
         clips = gltf.animations;
+        console.log('[model] animation clips:', clips.map(c => c.name));
+        clips.forEach(stripRootMotion);
         mixer = new THREE.AnimationMixer(model);
         setOnReassembled(() => playClip('idle'));
       }

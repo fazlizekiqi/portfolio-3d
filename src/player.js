@@ -196,9 +196,9 @@ export function tickPlayer(delta) {
   if (velocityT < VT_WALK_IN) {
     setAnim('idle');
   } else if (velocityT < VT_RUN_IN) {
-    setAnim('walk');
+    setAnim('walking');
   } else {
-    setAnim('run');
+    setAnim('running');
   }
 
   // ── Third-person camera ───────────────────────────────────────────────────
