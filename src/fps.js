@@ -19,4 +19,3 @@ export function tickFps() {
     _lastTime   = now;
   }
 }
-

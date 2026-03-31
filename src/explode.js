@@ -1,6 +1,11 @@
 import * as THREE from 'three';
 import { scene } from './scene.js';
 import { fadeOutAnimation, fadeInAnimation } from './model.js';
+import VERT_PARS      from './shaders/explode.vert.pars.glsl?raw';
+import VERT_POSITION  from './shaders/explode.vert.position.glsl?raw';
+import VERT_NORMAL    from './shaders/explode.vert.normal.glsl?raw';
+import FRAG_PARS      from './shaders/explode.frag.pars.glsl?raw';
+import FRAG_ALPHA     from './shaders/explode.frag.alpha.glsl?raw';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Tunable parameters
@@ -26,97 +31,7 @@ export const explodeParams = {
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  GLSL snippets injected into MeshStandardMaterial via onBeforeCompile
-//  Three.js token replacement: we insert custom attributes/uniforms/logic
-//  right before the existing vertex/fragment chunks.
-// ─────────────────────────────────────────────────────────────────────────────
-
-const VERT_PARS = /* glsl */`
-  uniform float uProgress;
-  uniform float uStaggerSpread;
-  uniform float uStaggerWindow;
-  uniform float uFlyMin;
-  uniform float uFlyRand;
-  uniform float uCollapseAmt;
-  uniform float uRotTurns;
-  uniform float uRotRandTurns;
-
-  attribute vec3  aCenter;
-  attribute float aRand;
-
-  varying float vExplodeFade; // 0 = assembled, 1 = fully flown → frag uses this for alpha
-
-  mat4 buildRotMat(vec3 axis, float angle) {
-    axis = normalize(axis);
-    float s = sin(angle), c = cos(angle), oc = 1.0 - c;
-    return mat4(
-      oc*axis.x*axis.x + c,        oc*axis.x*axis.y - axis.z*s, oc*axis.z*axis.x + axis.y*s, 0.0,
-      oc*axis.x*axis.y + axis.z*s, oc*axis.y*axis.y + c,         oc*axis.y*axis.z - axis.x*s, 0.0,
-      oc*axis.z*axis.x - axis.y*s, oc*axis.y*axis.z + axis.x*s, oc*axis.z*axis.z + c,         0.0,
-      0.0, 0.0, 0.0, 1.0
-    );
-  }
-`;
-
-// Replaces Three.js's "#include <begin_vertex>" token
-const VERT_POSITION = /* glsl */`
-  // ── Standard Three.js begin_vertex ──────────────────────────────────────
-  vec3 transformed = vec3(position);
-
-  // ── Explode displacement ─────────────────────────────────────────────────
-  float faceStart = aRand * uStaggerSpread;
-  float faceEnd   = faceStart + uStaggerWindow;
-  float fp = clamp((uProgress - faceStart) / (faceEnd - faceStart), 0.0, 1.0);
-  vExplodeFade = fp;
-
-  float t = smoothstep(0.0, 1.0, fp);
-
-  vec3  toCenter  = aCenter - transformed;
-  transformed     = transformed + toCenter * t * uCollapseAmt;
-
-  vec3  flyDir   = normalize(aCenter);
-  float flyDist  = t * (uFlyMin + aRand * uFlyRand);
-  transformed   += flyDir * flyDist;
-
-  vec3  rotAxis  = normalize(vec3(aRand - 0.5, aRand * 2.0 - 1.0, aRand * 0.7 - 0.35));
-  float rotAngle = t * (3.14159265 * 2.0 * uRotTurns + aRand * 3.14159265 * 2.0 * uRotRandTurns);
-  mat4  rMat     = buildRotMat(rotAxis, rotAngle);
-
-  // Rotate position around face centroid
-  transformed = (rMat * vec4(transformed - aCenter, 1.0)).xyz + aCenter;
-`;
-
-// Replaces "#include <beginnormal_vertex>" — rotate the normal with the face
-const VERT_NORMAL = /* glsl */`
-  // ── Standard Three.js beginnormal_vertex ────────────────────────────────
-  vec3 objectNormal = vec3(normal);
-  #ifdef USE_TANGENT
-    vec3 objectTangent = vec3(tangent.xyz);
-  #endif
-
-  // ── Rotate normal with face so PBR lighting stays correct mid-flight ────
-  float _fp2 = clamp((uProgress - aRand * uStaggerSpread) /
-                     (uStaggerWindow), 0.0, 1.0);
-  float _t2  = smoothstep(0.0, 1.0, _fp2);
-  vec3  _rAxis2  = normalize(vec3(aRand - 0.5, aRand * 2.0 - 1.0, aRand * 0.7 - 0.35));
-  float _rAngle2 = _t2 * (3.14159265 * 2.0 * uRotTurns + aRand * 3.14159265 * 2.0 * uRotRandTurns);
-  mat4  _rMat2   = buildRotMat(_rAxis2, _rAngle2);
-  objectNormal   = normalize((_rMat2 * vec4(objectNormal, 0.0)).xyz);
-`;
-
-const FRAG_PARS = /* glsl */`
-  uniform float uFadeStart;
-  uniform float uFadeEnd;
-  varying float vExplodeFade;
-`;
-
-// Injected at the very end of the fragment shader, after all PBR lighting
-const FRAG_ALPHA = /* glsl */`
-  float _fade = 1.0 - smoothstep(uFadeStart, uFadeEnd, vExplodeFade);
-  float _flying = smoothstep(0.0, 0.05, vExplodeFade);
-  gl_FragColor.a *= mix(1.0, _fade, _flying);
-  if (gl_FragColor.a < 0.001) discard;
-`;
-
+//  (loaded from src/shaders/*.glsl via Vite ?raw imports at the top)
 // ─────────────────────────────────────────────────────────────────────────────
 //  Create the explode material by cloning MeshStandardMaterial and injecting
 // ─────────────────────────────────────────────────────────────────────────────

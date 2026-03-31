@@ -17,8 +17,11 @@ export let activeAction = null;
 // ── Model group reference (set after load) ────────────────────────────────────
 export let modelGroup = null;
 
-export function playClip(index, timeScale = 1.0) {
+export function playClip(indexOrName, timeScale = 1.0) {
   if (!mixer || !clips.length) return;
+  const index = typeof indexOrName === 'string'
+    ? clips.findIndex(c => c.name === indexOrName)
+    : indexOrName;
   const clip = clips[index];
   if (!clip) return;
   if (activeAction) activeAction.fadeOut(0.5);
@@ -36,13 +39,13 @@ export function fadeOutAnimation(fadeDuration = 0.5, onDone) {
 }
 
 export function fadeInAnimation(index = 0) {
-  playClip(index);
+  playClip('idle');
 }
 
 // ── Load ──────────────────────────────────────────────────────────────────────
 export function loadModel(onReady) {
   new GLTFLoader().load(
-      '/models/animation-different-working.glb',
+      '/models/locomotive-character.glb',
     (gltf) => {
       const model = gltf.scene;
       const box    = new THREE.Box3().setFromObject(model);
@@ -78,19 +81,6 @@ export function loadModel(onReady) {
       modelGroup = model;
 
       initExplode(meshes, model);
-
-      // meshes.forEach(child => {
-      //   const wireMat = new THREE.MeshBasicMaterial({
-      //     color: 0x0088aa, wireframe: true,
-      //     transparent: true, opacity: wireState.opacity, depthWrite: false,
-      //   });
-      //   wireMaterials.push(wireMat);
-      //   const clone = new THREE.Mesh(child.geometry, wireMat);
-      //   clone.scale.setScalar(1.002);
-      //   clone.layers.set(LAYER.BLUE);
-      //   child.add(clone);
-      // });
-
       const targetPos = new THREE.Vector3();
       new THREE.Box3().setFromObject(model).getCenter(targetPos);
       targetPos.y += 0.2;
@@ -99,7 +89,7 @@ export function loadModel(onReady) {
       if (gltf.animations?.length) {
         clips = gltf.animations;
         mixer = new THREE.AnimationMixer(model);
-        setOnReassembled(() => playClip(0));
+        setOnReassembled(() => playClip('idle'));
       }
 
       if (onReady) onReady();
