@@ -36,7 +36,7 @@ let _progress     = 1.0;
 let _direction    = 0;        // -1 = closing → white,  1 = opening → blue
 let _elapsed      = 0.0;
 let _inWhiteWorld = false;
-const SPEED       = 0.32;
+const SPEED       = 0.55;
 
 export function isWhiteWorld()    { return _inWhiteWorld; }
 export function isTransitioning() { return _direction !== 0; }

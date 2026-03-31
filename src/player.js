@@ -57,11 +57,11 @@ const CAM_DISTANCE  = 5.5;   // units behind character
 const CAM_HEIGHT    = 2.2;   // units above pivot
 const CAM_LERP      = 6.0;   // exponential lerp speed (per-second factor)
 
-const MOVE_EPSILON  = 0.001; // |velocityT| threshold below which camera is frozen
-
-// Velocity thresholds
+// Velocity thresholds — MOVE_EPSILON matches VT_WALK_IN exactly so character
+// translation and animation always unlock at the same velocityT value.
 const VT_WALK_IN    = 0.05;  // below → idle zone
 const VT_RUN_IN     = 0.85;  // above → run zone
+const MOVE_EPSILON  = VT_WALK_IN;  // was 0.001 — caused position to move before anim
 
 // One-shot transition durations (seconds)
 const TRANSITION_FADE = 0.18;
@@ -168,6 +168,19 @@ export function playerReleaseControl() {
   }
   controls.enabled = true;
   controls.update();
+}
+
+/**
+ * Stop all player writes and hide the HUD but do NOT touch controls.enabled.
+ * Use this when the caller needs to keep OrbitControls disabled for its own
+ * camera sequence (e.g. returnHome glide).
+ */
+export function playerStop() {
+  if (!active) return;
+  active       = false;
+  velocityT    = 0;
+  inTransition = false;
+  hideHint();
 }
 
 /** @returns {boolean} */

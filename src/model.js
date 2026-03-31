@@ -15,7 +15,9 @@ export let clips        = [];
 export let activeAction = null;
 
 // ── Model group reference (set after load) ────────────────────────────────────
-export let modelGroup = null;
+export let modelGroup      = null;
+export const spawnPosition = new THREE.Vector3();
+export const spawnRotation = new THREE.Euler();
 
 export function playClip(indexOrName, timeScale = 1.0, fadeDuration = 0.5) {
   if (!mixer || !clips.length) return;
@@ -26,19 +28,15 @@ export function playClip(indexOrName, timeScale = 1.0, fadeDuration = 0.5) {
   if (!clip) return;
 
   const next = mixer.clipAction(clip);
-
-  // Don't restart if already playing this clip
   if (next === activeAction) return;
 
   next.enabled   = true;
   next.timeScale = timeScale;
 
   if (activeAction) {
-    // crossFadeTo keeps total weight at 1.0 throughout — no T-pose flash
     next.reset();
     activeAction.crossFadeTo(next, fadeDuration, true);
   } else {
-    // Nothing playing yet — just fade in from zero
     next.reset().setEffectiveTimeScale(timeScale).setEffectiveWeight(1).fadeIn(fadeDuration);
   }
 
@@ -46,54 +44,27 @@ export function playClip(indexOrName, timeScale = 1.0, fadeDuration = 0.5) {
   activeAction = next;
 }
 
-export function fadeOutAnimation(fadeDuration = 0.5, onDone) {
-  if (!activeAction) { if (onDone) onDone(); return; }
-  activeAction.fadeOut(fadeDuration);
-  setTimeout(() => {
-    if (activeAction) { activeAction.stop(); activeAction = null; }
-    if (onDone) onDone();
-  }, fadeDuration * 1000);
-}
-
-export function fadeInAnimation(index = 0) {
-  playClip('idle');
-}
-
 // ── Root-motion stripping ─────────────────────────────────────────────────────
-// GLB animations exported from Mixamo / Blender often bake locomotion into
-// the root-bone position track.  When the clip loops, Three.js resets the
-// bone to its rest pose, snapping the visual mesh back to its origin.
-// We remove the XZ position tracks from the first bone in every clip so the
-// skeleton never drives world-space translation — player.js owns that instead.
-// The Y track is kept so idle breathing / crouch animations stay intact.
 function stripRootMotion(clip) {
-  // The root bone track names follow the pattern  "BoneName.position"
-  // It is always the first position track encountered (index 0 in the list).
   let stripped = false;
   clip.tracks = clip.tracks.filter(track => {
-    if (stripped) return true;                       // only touch the first bone
+    if (stripped) return true;
     if (!track.name.endsWith('.position')) return true;
-
-    // This is the root bone's position track — split it into a Y-only track
-    // by zeroing out X and Z values across all keyframes.
-    const times  = track.times;
-    const values = track.values.slice();             // copy — don't mutate shared buffer
-    for (let i = 0; i < times.length; i++) {
-      values[i * 3]     = 0;  // X → 0
-      // values[i * 3 + 1] unchanged — keep vertical (Y) motion
-      values[i * 3 + 2] = 0;  // Z → 0
+    const values = track.values.slice();
+    for (let i = 0; i < track.times.length; i++) {
+      values[i * 3]     = 0;
+      values[i * 3 + 2] = 0;
     }
-    // Rebuild the track in-place with zeroed XZ
     track.values = values;
     stripped = true;
-    return true;   // keep the track — just neutralised
+    return true;
   });
 }
 
 // ── Load ──────────────────────────────────────────────────────────────────────
 export function loadModel(onReady) {
   new GLTFLoader().load(
-      '/models/locomotive-character.glb',
+    '/models/locomotive-character.glb',
     (gltf) => {
       const model = gltf.scene;
       const box    = new THREE.Box3().setFromObject(model);
@@ -107,26 +78,21 @@ export function loadModel(onReady) {
       model.traverse(child => { if (child.isMesh) meshes.push(child); });
 
       meshes.forEach(child => {
-        // Disable frustum culling on skinned meshes — Three.js computes the
-        // bounding sphere from the rest pose, so bones that move parts far
-        // from their origin (eyes, accessories, etc.) get incorrectly culled
-        // and disappear the moment the animation starts.
         if (child.isSkinnedMesh) child.frustumCulled = false;
-
         const mats = Array.isArray(child.material) ? child.material : [child.material];
         mats.forEach(mat => {
-          // Do NOT force FrontSide — eyes/eyelashes/accessories are often
-          // exported as DoubleSide planes; overriding them makes them invisible.
           if (mat.map) mat.map.colorSpace = THREE.SRGBColorSpace;
           mat.envMapIntensity = 0.5;
           mat.needsUpdate = true;
         });
         child.castShadow    = true;
-        child.receiveShadow = false;  // skinned mesh self-shadow = acne
+        child.receiveShadow = false;
       });
 
       scene.add(model);
       modelGroup = model;
+      spawnPosition.copy(model.position);
+      spawnRotation.copy(model.rotation);
 
       initExplode(meshes, model);
       const targetPos = new THREE.Vector3();
@@ -136,24 +102,22 @@ export function loadModel(onReady) {
 
       if (gltf.animations?.length) {
         clips = gltf.animations;
-        console.log('[model] animation clips:', clips.map(c => c.name));
         clips.forEach(stripRootMotion);
         mixer = new THREE.AnimationMixer(model);
+
+        playClip('idle', 1.0, 0);
+
         setOnReassembled(() => playClip('idle'));
       }
 
       if (onReady) onReady();
     },
-    (xhr) => console.log(`Loading: ${((xhr.loaded / xhr.total) * 100).toFixed(1)}%`),
+    undefined,
     (err) => console.error('GLB error:', err)
   );
 }
 
 // ── World switching ───────────────────────────────────────────────────────────
-// Called by transition.js when the burn iris completes.
-// "Blue world"  = environment visible, PBR lighting active.
-// "White world" = environment hidden, character renders on plain background.
-
 export function enterWhiteWorld() {
   camera.layers.disable(LAYER.BLUE);
   camera.layers.enable(LAYER.WHITE);

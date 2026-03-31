@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { camera, controls } from './scene.js';
-import { playClip } from './model.js';
+import { playClip, modelGroup, spawnPosition, spawnRotation } from './model.js';
 import { goToWhiteWorld, goToBlueWorld, isWhiteWorld } from './transition.js';
-import { isPlayerActive, playerTakeControl, playerReleaseControl } from './player.js';
+import { isPlayerActive, playerTakeControl, playerReleaseControl, playerStop } from './player.js';
+import { explodeAndThen, triggerReassemble, setOnReassembled, resetExplodeGroupTransform } from './explode.js';
 
 
 // ── Easing library ────────────────────────────────────────────────────────────
@@ -107,7 +108,8 @@ let slideTimer   = 0;
 let slideElapsed = 0;
 let settledTime  = 0;
 let ctaTimeout   = null;
-let frozen       = false;  // blocks camera writes once the white-world transition fires
+let frozen       = false;
+let glideDuration = 1400; // ms — set by glideHome(), used by tickPresentation
 
 const camPosStart   = new THREE.Vector3();
 const camLookStart  = new THREE.Vector3();
@@ -232,11 +234,17 @@ function startCameraMove(toPos, toLook) {
 }
 
 function glideHome() {
-  startCameraMove(
-    new THREE.Vector3(0, 1.8, 11.0),
-    new THREE.Vector3(0, 0.6, 0),
-  );
-  slideTimer = 1400;
+  const homePos  = new THREE.Vector3(0, 1.8, 11.0);
+  const homeLook = new THREE.Vector3(0, 0.6, 0);
+
+  // Scale duration by distance — feels consistent speed no matter where camera is.
+  const dist     = camera.position.distanceTo(homePos);
+  const duration = THREE.MathUtils.clamp(dist * 80, 900, 2200); // ms
+
+  startCameraMove(homePos, homeLook);
+  slideTimer    = duration;
+  glideDuration = duration;
+  return duration;
 }
 
 // ── Presentation flow ─────────────────────────────────────────────────────────
@@ -297,10 +305,11 @@ function endPresentation() {
   resetPresentBtn();
   showIdleUI();
 
-  controls.enabled     = true;
+  controls.enabled     = false;
   controls.maxDistance = 20;
   playClip(slideByName['intro'].clip);
-  glideHome();
+  const dur = glideHome();
+  setTimeout(() => { controls.enabled = true; }, dur + 200);
 }
 
 function endFromCta() {
@@ -323,33 +332,63 @@ function endFromCta() {
   setTimeout(() => {
     frozen = false;
     controls.target.copy(currentCamLook);
-    // controls.enabled = true;
     playerTakeControl();
     backBtn.style.display = 'block';
   }, 3200);
 }
 
 function returnHome() {
-  // Shared logic for the back button — transition out of white world if needed,
-  // then glide the camera back to the default position.
+  // ── Step 1 — stop player writes; keep controls disabled throughout ─────────
   frozen           = true;
+  active           = false;
   controls.enabled = false;
+  playerStop();   // stops player tick + hides HUD, does NOT re-enable controls
 
-  const arrive = () => {
-    frozen               = false;
-    active               = false;
+  if (!isWhiteWorld()) {
+    // Not in white world — glide straight home
     controls.maxDistance = 20;
-    controls.enabled     = true;
-    showIdleUI();
-    glideHome();
-  };
-
-  if (isWhiteWorld()) {
-    goToBlueWorld();
-    setTimeout(arrive, 3200);
-  } else {
-    arrive();
+    frozen = false;
+    const dur = glideHome();
+    setTimeout(() => {
+      controls.enabled = true;
+      showIdleUI();
+    }, dur + 200);
+    return;
   }
+
+  // ── Step 2 — explode the character in the white world ─────────────────────
+  explodeAndThen(() => {
+
+    // ── Step 3 — open the burn-iris back to blue world ──────────────────────
+    goToBlueWorld();
+
+    // ── Step 4 — wait for iris to fully open ─────────────────────────────────
+    const irisOpenMs = (1.0 / 0.55 + 0.1) * 1000;
+    setTimeout(() => {
+
+      // ── Step 5 — teleport character to spawn, start camera glide ─────────
+      if (modelGroup) {
+        modelGroup.position.copy(spawnPosition);
+        modelGroup.rotation.copy(spawnRotation);
+      }
+      resetExplodeGroupTransform(spawnPosition, spawnRotation);
+
+      controls.maxDistance = 20;
+      frozen = false;
+      const dur = glideHome();
+
+      // ── Step 6 — reassemble in parallel with the camera glide ────────────
+      setOnReassembled(() => { playClip('idle'); });
+      triggerReassemble();
+
+      // ── Step 7 — re-enable controls once glide settles ───────────────────
+      setTimeout(() => {
+        controls.enabled = true;
+        showIdleUI();
+      }, dur + 200);
+
+    }, irisOpenMs);
+  });
 }
 
 // ── Button wiring ─────────────────────────────────────────────────────────────
@@ -389,7 +428,7 @@ export function tickPresentation(delta, elapsed) {
   }
 
   slideElapsed += delta * 1000;
-  const totalDur = active ? currentSlide.duration : 1400;
+  const totalDur = active ? currentSlide.duration : glideDuration;
   const rawT     = Math.min(slideElapsed / totalDur, 1.0);
   const easeFn   = active ? EASE[currentSlide.easing] ?? EASE.inOut : EASE.out;
   const easedT   = easeFn(rawT);
