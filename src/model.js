@@ -17,16 +17,33 @@ export let activeAction = null;
 // ── Model group reference (set after load) ────────────────────────────────────
 export let modelGroup = null;
 
-export function playClip(indexOrName, timeScale = 1.0) {
+export function playClip(indexOrName, timeScale = 1.0, fadeDuration = 0.5) {
   if (!mixer || !clips.length) return;
   const index = typeof indexOrName === 'string'
     ? clips.findIndex(c => c.name === indexOrName)
     : indexOrName;
   const clip = clips[index];
   if (!clip) return;
-  if (activeAction) activeAction.fadeOut(0.5);
-  activeAction = mixer.clipAction(clip);
-  activeAction.reset().setEffectiveTimeScale(timeScale).setEffectiveWeight(1).fadeIn(0.5).play();
+
+  const next = mixer.clipAction(clip);
+
+  // Don't restart if already playing this clip
+  if (next === activeAction) return;
+
+  next.enabled   = true;
+  next.timeScale = timeScale;
+
+  if (activeAction) {
+    // crossFadeTo keeps total weight at 1.0 throughout — no T-pose flash
+    next.reset();
+    activeAction.crossFadeTo(next, fadeDuration, true);
+  } else {
+    // Nothing playing yet — just fade in from zero
+    next.reset().setEffectiveTimeScale(timeScale).setEffectiveWeight(1).fadeIn(fadeDuration);
+  }
+
+  next.play();
+  activeAction = next;
 }
 
 export function fadeOutAnimation(fadeDuration = 0.5, onDone) {

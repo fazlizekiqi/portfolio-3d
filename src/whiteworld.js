@@ -68,7 +68,7 @@ function makeCartoonObject(geometry, position, rotation = null) {
 
 // ── White world objects ───────────────────────────────────────────────────────
 const whitePlane = makeCartoonObject(
-  new THREE.PlaneGeometry(6, 6, 3, 3),
+  new THREE.PlaneGeometry(60, 60, 20, 20),
   new THREE.Vector3(0, -0.95, 0),
   new THREE.Euler(-Math.PI / 2, 0, 0)
 );

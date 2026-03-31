@@ -24,7 +24,7 @@ export const camera = new THREE.PerspectiveCamera(
   0.1,
   100
 );
-camera.position.set(0, 1.2, 5.0);
+camera.position.set(0, 1.8, 8.0);
 // Blue world is the default starting state — enable its layer.
 // SHARED (0) is always on by default in Three.js.
 camera.layers.enable(LAYER.BLUE);
@@ -34,7 +34,7 @@ export const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.05;
 controls.minDistance = 3.0;
-controls.maxDistance = 12;
+controls.maxDistance = 20;
 controls.target.set(0, 0.6, 0);
 controls.maxPolarAngle = Math.PI * 0.60;
 controls.enabled = true;
