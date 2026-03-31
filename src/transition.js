@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { renderer, camera } from './scene.js';
-import { enterWhiteWorld, exitWhiteWorld } from './model.js';
+import { enterWhiteWorld, exitWhiteWorld } from './character/model.js';
 import { LAYER } from './layers.js';
 import FRAG from './shaders/transition.frag.glsl?raw';
 

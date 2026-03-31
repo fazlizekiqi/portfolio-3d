@@ -1,18 +1,18 @@
 import * as THREE from 'three';
-import { scene } from './scene.js';
+import { scene } from '../scene.js';
 import { playClip, modelGroup } from './model.js';
-import VERT_PARS      from './shaders/explode.vert.pars.glsl?raw';
-import VERT_POSITION  from './shaders/explode.vert.position.glsl?raw';
-import VERT_NORMAL    from './shaders/explode.vert.normal.glsl?raw';
-import FRAG_PARS      from './shaders/explode.frag.pars.glsl?raw';
-import FRAG_ALPHA     from './shaders/explode.frag.alpha.glsl?raw';
+import VERT_PARS      from '../shaders/explode.vert.pars.glsl?raw';
+import VERT_POSITION  from '../shaders/explode.vert.position.glsl?raw';
+import VERT_NORMAL    from '../shaders/explode.vert.normal.glsl?raw';
+import FRAG_PARS      from '../shaders/explode.frag.pars.glsl?raw';
+import FRAG_ALPHA     from '../shaders/explode.frag.alpha.glsl?raw';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Tunable parameters
 // ─────────────────────────────────────────────────────────────────────────────
 export const explodeParams = {
-  speed:         0.9,
-  animDelay:     0.6,
+  speed:         0.9, animDelay:     0.6,
+
   explodeDelay:  0.1,
 
   staggerSpread: 0.6,
@@ -194,6 +194,47 @@ export function resetExplodeGroupTransform(position, rotation) {
   if (!explodeGroup) return;
   explodeGroup.position.copy(position);
   if (rotation) explodeGroup.rotation.copy(rotation);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  introScene — initial reveal on first load
+// ─────────────────────────────────────────────────────────────────────────────
+
+const INTRO_SPEED  = 0.18;  // slow, cinematic reassembly for the intro
+const NORMAL_SPEED = 0.9;   // speed used for all subsequent explode/reassemble
+
+/**
+ * Call once after loadModel() completes.
+ * Starts the character fully scattered, then slowly reassembles it into
+ * the blue world — the first thing the user sees is the character
+ * piecing itself together from nothing.
+ *
+ * When reassembly finishes the normal speed is restored and the
+ * onReassembled callback fires (model.js → playClip('idle')).
+ */
+export function introScene() {
+  // Slow speed for the cinematic intro only
+  explodeParams.speed = INTRO_SPEED;
+
+  // Hide skinned originals — explode group owns the visuals
+  originalMeshes.forEach(m => { m.visible = false; });
+
+  // Seed to fully exploded state so pieces start scattered
+  explodeState.progress  = 1;
+  explodeState.direction = 0;
+  _setProgress(1);
+  explodeGroup.visible = true;
+
+  // Wrap the existing onReassembled so we can restore speed first,
+  // then let the original callback (playClip('idle')) run normally.
+  const existingCb = onReassembled;
+  onReassembled = () => {
+    explodeParams.speed = NORMAL_SPEED;   // back to normal for all future interactions
+    if (existingCb) existingCb();
+  };
+
+  // Begin reassembly — tickExplode drives progress 1 → 0
+  triggerReassemble();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

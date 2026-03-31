@@ -1,6 +1,6 @@
 import { GUI } from 'dat.gui';
-import { wireMaterials, wireState, playClip } from './model.js';
-import { toggleExplode, explodeParams, applyExplodeParams, triggerExplode, triggerReassemble } from './explode.js';
+import { wireMaterials, wireState, playClip } from './character/model.js';
+import { toggleExplode, explodeParams, applyExplodeParams, triggerExplode, triggerReassemble } from './character/explode.js';
 import { goToWhiteWorld, goToBlueWorld, isWhiteWorld } from './transition.js';
 
 // ── Keyboard shortcuts ────────────────────────────────────────────────────────

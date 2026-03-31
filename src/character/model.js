@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { scene, camera } from './scene.js';
-import { LAYER } from './layers.js';
-import { aimLights } from './lighting.js';
+import { scene, camera } from '../scene.js';
+import { LAYER } from '../layers.js';
+import { aimLights } from '../world/blueworld.js';
 import { initExplode, setOnReassembled } from './explode.js';
 
 // ── Wireframe overlay state ───────────────────────────────────────────────────
@@ -104,8 +104,6 @@ export function loadModel(onReady) {
         clips = gltf.animations;
         clips.forEach(stripRootMotion);
         mixer = new THREE.AnimationMixer(model);
-
-        playClip('idle', 1.0, 0);
 
         setOnReassembled(() => playClip('idle'));
       }

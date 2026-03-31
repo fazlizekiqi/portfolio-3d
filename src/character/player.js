@@ -45,7 +45,7 @@
  */
 
 import * as THREE from 'three';
-import { camera, controls } from './scene.js';
+import { camera, controls } from '../scene.js';
 import { modelGroup, mixer, clips, playClip } from './model.js';
 
 // ── Tuning ────────────────────────────────────────────────────────────────────

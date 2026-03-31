@@ -1,23 +1,23 @@
 import * as THREE from 'three';
 import { renderer, scene, camera } from './scene.js';
-import { tickLighting } from './lighting.js';
-import { loadModel, mixer, modelGroup } from './model.js';
-import { tickPresentation, initCameraState } from './presentation.js';
-import { tickBackground } from './background.js';
-import { tickCloud, tickParticles } from './environment.js';
-import { tickExplode, updateExplodeLights, getExplodeGroup } from './explode.js';
+import { loadModel, mixer, modelGroup } from './character/model.js';
+import { tickExplode, getExplodeGroup, introScene } from './character/explode.js';
+import { tickPlayer } from './character/player.js';
+import { tickPresentation, initCameraState } from './presentation/presentation.js';
+import { initBlueWorld, tickBlueWorld } from './world/blueworld.js';
+import { tickWhiteWorld } from './world/whiteworld.js';
 import { tickTransition, isWhiteWorld, isTransitioning } from './transition.js';
-import { tickWhiteWorld } from './whiteworld.js';
 import { tickFps } from './fps.js';
-import { tickPlayer } from './player.js';
 import './gui.js';
+
+// ── Initialise blue world objects + lights ────────────────────────────────────
+initBlueWorld();
 
 // ── Load model, then start loop ───────────────────────────────────────────────
 loadModel(() => {
   initCameraState();
+  introScene(); // character starts scattered and reassembles into the blue world
 
-  // ── Character mesh collector ──────────────────────────────────────────────
-  // Rebuilt every frame so explode-group swaps are handled automatically.
   const charMeshes = [];
   function collectCharMeshes() {
     charMeshes.length = 0;
@@ -26,98 +26,74 @@ loadModel(() => {
     });
   }
 
-  // ── Character on-top render pass ──────────────────────────────────────────
-  // Re-renders only the character after the burn overlay so it's always
-  // fully visible regardless of where the iris circle is.
-  // Uses camera layer masking instead of traversal — no scene.traverse needed.
   function renderCharOnTop() {
     if (!charMeshes.length) return;
     const savedMask = camera.layers.mask;
-    camera.layers.set(0); // LAYER.SHARED only — character mesh lives here
+    camera.layers.set(0);
     renderer.clearDepth();
     renderer.render(scene, camera);
-    camera.layers.mask = savedMask; // restore full world mask
+    camera.layers.mask = savedMask;
   }
 
   const clock = new THREE.Clock();
-  let elapsed  = 0;
+  let elapsed = 0;
 
   function animate() {
     requestAnimationFrame(animate);
-    const delta        = clock.getDelta();
-    elapsed           += delta;
-    const inWhite      = isWhiteWorld();
+    const delta         = clock.getDelta();
+    elapsed            += delta;
+    const inWhite       = isWhiteWorld();
     const transitioning = isTransitioning();
 
     collectCharMeshes();
 
-    // ── 1. Background ─────────────────────────────────────────────────────────
-    // Blue world (and during any transition) → dark shader background.
-    // Settled white world → plain white clear.
+    // 1. Background
     if (inWhite && !transitioning) {
       renderer.setClearColor(0xf0efe8, 1);
       renderer.clearColor();
       renderer.clearDepth();
     } else {
-      tickBackground(renderer, elapsed);
+      tickBlueWorld(renderer, delta, elapsed);
     }
 
-    // ── 2. Camera ─────────────────────────────────────────────────────────────
+    // 2. Camera
     tickPresentation(delta, elapsed);
     tickPlayer(delta);
 
-    // ── 3. Lighting ───────────────────────────────────────────────────────────
-    tickLighting(camera);
-
-    // ── 4. Blue-world environment (rings + particles) ─────────────────────────
-    if (!inWhite || transitioning) {
-      tickCloud(elapsed);
-      tickParticles(delta, elapsed);
-    }
-
-    // ── 5. Explode effect + animation mixer ───────────────────────────────────
-    updateExplodeLights();
+    // 3. Explode + mixer
     tickExplode(delta);
     if (mixer) mixer.update(delta);
 
-    // ── 5b. White world shader uniforms ───────────────────────────────────────
-    tickWhiteWorld(delta);
+    // 4. White world uniforms
+    tickWhiteWorld();
 
     tickFps();
 
-    // ── 6. Main scene render ──────────────────────────────────────────────────
-    // During transitions both WHITE and BLUE layers may be enabled on the camera.
-    // We must NOT render white objects here — they need to go on top of the
-    // burn-iris overlay.  Temporarily disable WHITE for the main pass.
+    // 5. Main scene render
     let whiteWasEnabled = false;
     if (transitioning) {
-      whiteWasEnabled = (camera.layers.mask & (1 << 2)) !== 0; // LAYER.WHITE
+      whiteWasEnabled = (camera.layers.mask & (1 << 2)) !== 0;
       if (whiteWasEnabled) camera.layers.disable(2);
     }
     renderer.render(scene, camera);
     if (transitioning && whiteWasEnabled) camera.layers.enable(2);
 
-    // ── 7. Burn-iris overlay (ortho pass, composites on top of scene) ─────────
+    // 6. Iris overlay
     const postFrame = tickTransition(delta);
 
-    // ── 7b. White world objects on top of the burn overlay ────────────────────
-    // Render white-layer objects AFTER the iris so they appear outside the
-    // shrinking / expanding circle.  Their shader alpha handles per-pixel
-    // visibility in sync with the iris radius.
+    // 7. White objects over iris
     if (transitioning) {
       const savedMask = camera.layers.mask;
-      camera.layers.set(2); // LAYER.WHITE only
+      camera.layers.set(2);
       renderer.clearDepth();
       renderer.render(scene, camera);
       camera.layers.mask = savedMask;
     }
 
-    // ── 8. Character on-top pass ──────────────────────────────────────────────
+    // 8. Character on top
     if (transitioning || inWhite) renderCharOnTop();
 
-    // ── 9. Post-frame world switch ────────────────────────────────────────────
-    // Layer changes happen here — after everything is drawn — so they never
-    // affect the frame that was just composited.
+    // 9. Post-frame world switch
     if (postFrame) postFrame();
   }
 
