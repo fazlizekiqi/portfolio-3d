@@ -79,7 +79,7 @@ function stripRootMotion(clip) {
     const times  = track.times;
     const values = track.values.slice();             // copy — don't mutate shared buffer
     for (let i = 0; i < times.length; i++) {
-      values[i * 3 + 0] = 0;  // X → 0
+      values[i * 3]     = 0;  // X → 0
       // values[i * 3 + 1] unchanged — keep vertical (Y) motion
       values[i * 3 + 2] = 0;  // Z → 0
     }
