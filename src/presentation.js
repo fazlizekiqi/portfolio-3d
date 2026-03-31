@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { camera, controls } from './scene.js';
 import { playClip } from './model.js';
 import { goToWhiteWorld, goToBlueWorld, isWhiteWorld } from './transition.js';
+import { isPlayerActive, playerTakeControl, playerReleaseControl } from './player.js';
 
 
 // ── Easing library ────────────────────────────────────────────────────────────
@@ -281,6 +282,7 @@ function goToNextSlide() {
 function startPresentation() {
   active = true;
   controls.enabled = false;
+  playerReleaseControl();
   showPresentingUI();
   goToSlide('intro');
 }
@@ -321,7 +323,8 @@ function endFromCta() {
   setTimeout(() => {
     frozen = false;
     controls.target.copy(currentCamLook);
-    controls.enabled = true;
+    // controls.enabled = true;
+    playerTakeControl();
     backBtn.style.display = 'block';
   }, 3200);
 }
@@ -375,6 +378,11 @@ presentBtn.addEventListener('click', () => {
 
 // ── Per-frame tick ────────────────────────────────────────────────────────────
 export function tickPresentation(delta, elapsed) {
+  // Player mode owns the camera — skip all camera writes but keep
+  // slide timers / controls.update() suppressed so the presentation
+  // can resume cleanly when playerReleaseControl() is called.
+  if (isPlayerActive()) return false;
+
   if (!active && slideTimer <= 0) {
     if (!frozen) controls.update();
     return false;

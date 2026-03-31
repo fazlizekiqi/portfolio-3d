@@ -9,6 +9,7 @@ import { tickExplode, updateExplodeLights, getExplodeGroup } from './explode.js'
 import { tickTransition, isWhiteWorld, isTransitioning } from './transition.js';
 import { tickWhiteWorld } from './whiteworld.js';
 import { tickFps } from './fps.js';
+import { tickPlayer } from './player.js';
 import './gui.js';
 
 // ── Load model, then start loop ───────────────────────────────────────────────
@@ -63,6 +64,7 @@ loadModel(() => {
 
     // ── 2. Camera ─────────────────────────────────────────────────────────────
     tickPresentation(delta, elapsed);
+    tickPlayer(delta);
 
     // ── 3. Lighting ───────────────────────────────────────────────────────────
     tickLighting(camera);
