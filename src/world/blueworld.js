@@ -136,7 +136,7 @@ export const wwLightParams = {
   ambientIntensity: 1.2,
 
   keyColor:         '#ffffff',
-  keyIntensity:     4.0,
+  keyIntensity:     2.0,
   keyX:             0,
   keyY:             0,
   keyZ:             0,

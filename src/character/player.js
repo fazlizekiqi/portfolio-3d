@@ -56,6 +56,7 @@ export const playerParams = {
   camDistance:  5.5,
   camHeight:    2.2,
   camLerp:      6.0,
+  camEntryTime: 0.6,   // seconds to smoothly glide into position on takeover
 };
 
 // Keep local aliases that the code below reads — they now read from the object
@@ -73,6 +74,7 @@ let currentAnim = '';   // name of the clip currently playing
 let inTransition = false; // true while a one-shot (idle-to-walk / walking-to-idle) plays
 let transitionTimer = 0;  // counts down remaining one-shot time
 let transitionNext  = ''; // clip to crossfade into once one-shot finishes
+let entryTimer  = 0;      // counts down while camera glides into player position
 
 // Working vectors — allocated once
 const _camDesired = new THREE.Vector3();
@@ -143,6 +145,7 @@ export function playerTakeControl() {
   velocityT    = 0;
   currentAnim  = '';
   inTransition = false;
+  entryTimer   = playerParams.camEntryTime;   // start smooth glide
 
   controls.enabled = false;
 
@@ -150,7 +153,7 @@ export function playerTakeControl() {
 
   setAnim('idle', 0.3);
   showHint();
-  _snapCameraToDesired();
+  // Do NOT snap — entryTimer drives a smooth lerp in _tickCamera
 }
 
 export function playerReleaseControl() {
@@ -158,6 +161,7 @@ export function playerReleaseControl() {
   active       = false;
   velocityT    = 0;
   inTransition = false;
+  entryTimer   = 0;
 
   hideHint();
 
@@ -169,16 +173,12 @@ export function playerReleaseControl() {
   controls.update();
 }
 
-/**
- * Stop all player writes and hide the HUD but do NOT touch controls.enabled.
- * Use this when the caller needs to keep OrbitControls disabled for its own
- * camera sequence (e.g. returnHome glide).
- */
 export function playerStop() {
   if (!active) return;
   active       = false;
   velocityT    = 0;
   inTransition = false;
+  entryTimer   = 0;
   hideHint();
 }
 
@@ -302,12 +302,19 @@ function _tickCamera(isMoving, delta) {
     _pivotPos.z - Math.cos(facingAngle) * playerParams.camDistance,
   );
 
-  if (isMoving) {
+  if (entryTimer > 0) {
+    // Smooth entry glide — lerp regardless of movement until timer expires
+    entryTimer -= delta;
+    // Use a stronger lerp so it arrives well within the entry window
+    const t = 1.0 - Math.exp(-playerParams.camLerp * 1.5 * delta);
+    camera.position.lerp(_camDesired, t);
+    camera.lookAt(_pivotPos);
+  } else if (isMoving) {
     const t = 1.0 - Math.exp(-playerParams.camLerp * delta);
     camera.position.lerp(_camDesired, t);
     camera.lookAt(_pivotPos);
   }
-  // Idle / turning in place — camera frozen
+  // Idle after entry — camera frozen
 }
 
 function _getPivotPos(out) {
@@ -319,12 +326,3 @@ function _getPivotPos(out) {
   }
 }
 
-function _snapCameraToDesired() {
-  _getPivotPos(_pivotPos);
-  camera.position.set(
-    _pivotPos.x - Math.sin(facingAngle) * playerParams.camDistance,
-    _pivotPos.y + playerParams.camHeight,
-    _pivotPos.z - Math.cos(facingAngle) * playerParams.camDistance,
-  );
-  camera.lookAt(_pivotPos);
-}

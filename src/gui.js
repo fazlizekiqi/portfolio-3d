@@ -104,6 +104,7 @@ const fPC = gui.addFolder('🎮 Player Camera');
 fPC.add(playerParams, 'camDistance',  1.0, 20.0, 0.1).name('Distance');
 fPC.add(playerParams, 'camHeight',    0.0, 10.0, 0.1).name('Height');
 fPC.add(playerParams, 'camLerp',      0.5, 20.0, 0.1).name('Lerp speed');
+fPC.add(playerParams, 'camEntryTime', 0.1,  3.0, 0.1).name('Entry glide (s)');
 fPC.add(playerParams, 'walkSpeed',    0.5, 12.0, 0.1).name('Walk speed');
 fPC.add(playerParams, 'runSpeed',     1.0, 20.0, 0.1).name('Run speed');
 fPC.add(playerParams, 'rotateSpeed',  0.5,  8.0, 0.1).name('Rotate speed');
