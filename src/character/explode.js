@@ -6,6 +6,7 @@ import VERT_POSITION  from '../shaders/explode.vert.position.glsl?raw';
 import VERT_NORMAL    from '../shaders/explode.vert.normal.glsl?raw';
 import FRAG_PARS      from '../shaders/explode.frag.pars.glsl?raw';
 import FRAG_ALPHA     from '../shaders/explode.frag.alpha.glsl?raw';
+import CARTOON_EFFECT from '../shaders/cartoon.frag.glsl?raw';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Tunable parameters
@@ -59,10 +60,14 @@ function buildExplodeMaterial(srcMat) {
     uRotRandTurns:  { value: explodeParams.rotRandTurns },
     uFadeStart:     { value: explodeParams.fadeStart },
     uFadeEnd:       { value: explodeParams.fadeEnd },
+    uCartoon:       { value: 0.0 },
   };
 
   mat.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, mat.userData.explodeUniforms);
+
+    // Replace the cartoon placeholder with the actual GLSL snippet
+    const fragAlpha = FRAG_ALPHA.replace('%%CARTOON_EFFECT%%', CARTOON_EFFECT);
 
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>',        '#include <common>\n'        + VERT_PARS)
@@ -71,7 +76,7 @@ function buildExplodeMaterial(srcMat) {
 
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>',        '#include <common>\n'        + FRAG_PARS)
-      .replace('#include <dithering_fragment>', '#include <dithering_fragment>\n' + FRAG_ALPHA);
+      .replace('#include <dithering_fragment>', '#include <dithering_fragment>\n' + fragAlpha);
 
     mat.userData.shader = shader;
   };
@@ -147,6 +152,19 @@ function syncUniforms() {
 }
 export function applyExplodeParams() { syncUniforms(); }
 export function updateExplodeLights() {}   // no-op, kept for API compat
+
+/**
+ * Drive the cartoon effect on the explode meshes.
+ * t = 0 → normal PBR look,  t = 1 → full cel / cartoon style.
+ * Called by model.js which aggregates all character mesh uniforms.
+ */
+export function setExplodeCartoon(t) {
+  explodeMeshes.forEach(m => {
+    const u = m.material.userData.shader?.uniforms ?? m.material.userData.explodeUniforms;
+    if (u?.uCartoon) u.uCartoon.value = t;
+  });
+}
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  initExplode — called once after model load

@@ -1,7 +1,9 @@
 import { GUI } from 'dat.gui';
-import { wireMaterials, wireState, playClip } from './character/model.js';
+import { wireMaterials, wireState, playClip, modelGroup } from './character/model.js';
 import { toggleExplode, explodeParams, applyExplodeParams, triggerExplode, triggerReassemble } from './character/explode.js';
 import { goToWhiteWorld, goToBlueWorld, isWhiteWorld } from './transition.js';
+import { wwLightParams } from './world/blueworld.js';
+import { playerParams } from './character/player.js';
 
 // ── Keyboard shortcuts ────────────────────────────────────────────────────────
 window.addEventListener('keydown', (e) => {
@@ -52,6 +54,39 @@ fFa.add(explodeParams, 'fadeStart', 0.0, 1.0, 0.01).name('Fade start').onChange(
 fFa.add(explodeParams, 'fadeEnd',   0.0, 1.0, 0.01).name('Fade end').onChange(applyExplodeParams);
 
 
+// ── White-world lighting folder ───────────────────────────────────────────────
+const fWL = gui.addFolder('☀ White World Lighting');
+
+const fWLamb = fWL.addFolder('Ambient');
+fWLamb.addColor(wwLightParams, 'ambientColor'    ).name('Color');
+fWLamb.add(    wwLightParams,  'ambientIntensity', 0, 3, 0.01).name('Intensity');
+
+const fWLkey = fWL.addFolder('Key light');
+fWLkey.addColor(wwLightParams, 'keyColor'    ).name('Color');
+fWLkey.add(    wwLightParams,  'keyIntensity', 0, 4, 0.01).name('Intensity');
+fWLkey.add(    wwLightParams,  'keyX', -10, 10, 0.1).name('X');
+fWLkey.add(    wwLightParams,  'keyY',   0, 15, 0.1).name('Y');
+fWLkey.add(    wwLightParams,  'keyZ', -10, 10, 0.1).name('Z');
+
+const fWLfill = fWL.addFolder('Fill light');
+fWLfill.addColor(wwLightParams, 'fillColor'    ).name('Color');
+fWLfill.add(    wwLightParams,  'fillIntensity', 0, 3, 0.01).name('Intensity');
+
+const fWLrim = fWL.addFolder('Rim light');
+fWLrim.addColor(wwLightParams, 'rimColor'    ).name('Color');
+fWLrim.add(    wwLightParams,  'rimIntensity', 0, 2, 0.01).name('Intensity');
+
+const fWLback = fWL.addFolder('Back light');
+fWLback.addColor(wwLightParams, 'backLightColor'    ).name('Color');
+fWLback.add(    wwLightParams,  'backLightIntensity', 0, 10,  0.1 ).name('Intensity');
+fWLback.add(    wwLightParams,  'backLightHeight',    0,  5,  0.05).name('Height');
+fWLback.add(    wwLightParams,  'backLightDist',      0.5, 10, 0.1).name('Distance');
+fWLback.open();
+
+fWL.open();
+fWLamb.open();
+fWLkey.open();
+
 // ── Actions ───────────────────────────────────────────────────────────────────
 const actions = {
   explode:    () => triggerExplode(),
@@ -63,6 +98,51 @@ fAc.add(actions, 'explode').name('Explode  [E]');
 fAc.add(actions, 'reassemble').name('Reassemble  [E]');
 fAc.add(actions, 'transition').name('🔥 Toggle world  [T]');
 fAc.open();
+
+// ── Player camera folder ──────────────────────────────────────────────────────
+const fPC = gui.addFolder('🎮 Player Camera');
+fPC.add(playerParams, 'camDistance',  1.0, 20.0, 0.1).name('Distance');
+fPC.add(playerParams, 'camHeight',    0.0, 10.0, 0.1).name('Height');
+fPC.add(playerParams, 'camLerp',      0.5, 20.0, 0.1).name('Lerp speed');
+fPC.add(playerParams, 'walkSpeed',    0.5, 12.0, 0.1).name('Walk speed');
+fPC.add(playerParams, 'runSpeed',     1.0, 20.0, 0.1).name('Run speed');
+fPC.add(playerParams, 'rotateSpeed',  0.5,  8.0, 0.1).name('Rotate speed');
+fPC.open();
+
+// ── Character transform folder ────────────────────────────────────────────────
+// Proxy object — updated each frame so dat.gui always shows fresh values.
+const charDisplay = { x: 0, y: 0, z: 0, rotY: 0 };
+const fCh = gui.addFolder('🧍 Character');
+const _cX    = fCh.add(charDisplay, 'x'   ).name('Pos X').listen();
+const _cY    = fCh.add(charDisplay, 'y'   ).name('Pos Y').listen();
+const _cZ    = fCh.add(charDisplay, 'z'   ).name('Pos Z').listen();
+const _cRotY = fCh.add(charDisplay, 'rotY').name('Rot Y (°)').listen();
+
+// Make the position controllers read-only looking (grey them out via style)
+[_cX, _cY, _cZ, _cRotY].forEach(ctrl => {
+  ctrl.domElement.querySelector('input').readOnly = true;
+  ctrl.domElement.querySelector('input').style.color = '#aaa';
+});
+
+const charActions = {
+  resetPosition: () => {
+    if (!modelGroup) return;
+    modelGroup.position.set(0, modelGroup.position.y, 0);
+    modelGroup.rotation.set(0, 0, 0);
+  },
+};
+fCh.add(charActions, 'resetPosition').name('⟳ Reset to origin');
+fCh.open();
+
+// Refresh the character display every animation frame
+;(function _refreshChar() {
+  requestAnimationFrame(_refreshChar);
+  if (!modelGroup) return;
+  charDisplay.x    = parseFloat(modelGroup.position.x.toFixed(3));
+  charDisplay.y    = parseFloat(modelGroup.position.y.toFixed(3));
+  charDisplay.z    = parseFloat(modelGroup.position.z.toFixed(3));
+  charDisplay.rotY = parseFloat((modelGroup.rotation.y * (180 / Math.PI)).toFixed(1));
+})();
 
 // ── Small hint label ─────────────────────────────────────────────────────────
 const hint = document.createElement('div');

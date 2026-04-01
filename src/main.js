@@ -1,12 +1,12 @@
 import * as THREE from 'three';
 import { renderer, scene, camera } from './scene.js';
-import { loadModel, mixer, modelGroup } from './character/model.js';
+import { loadModel, mixer, modelGroup, setCharacterWhiteWorld } from './character/model.js';
 import { tickExplode, getExplodeGroup, introScene } from './character/explode.js';
 import { tickPlayer } from './character/player.js';
 import { tickPresentation, initCameraState } from './presentation/presentation.js';
-import { initBlueWorld, tickBlueWorld } from './world/blueworld.js';
+import { initBlueWorld, tickBlueWorld, tickLightsForWorld } from './world/blueworld.js';
 import { tickWhiteWorld } from './world/whiteworld.js';
-import { tickTransition, isWhiteWorld, isTransitioning } from './transition.js';
+import { tickTransition, isWhiteWorld, isTransitioning, getProgress } from './transition.js';
 import { tickFps } from './fps.js';
 import './gui.js';
 
@@ -64,8 +64,12 @@ loadModel(() => {
     tickExplode(delta);
     if (mixer) mixer.update(delta);
 
-    // 4. White world uniforms
+    // 4. White world uniforms + character cartoon effect + lighting
     tickWhiteWorld();
+    // progress 1.0 = blue world, 0.0 = white world → invert for cartoon/light amount
+    const wwAmount = 1.0 - getProgress();
+    setCharacterWhiteWorld(wwAmount);
+    tickLightsForWorld(1.0 - wwAmount, modelGroup);   // same t: 1=blue, 0=white
 
     tickFps();
 

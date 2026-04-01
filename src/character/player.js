@@ -48,22 +48,21 @@ import * as THREE from 'three';
 import { camera, controls } from '../scene.js';
 import { modelGroup, mixer, clips, playClip } from './model.js';
 
-// ── Tuning ────────────────────────────────────────────────────────────────────
-const WALK_SPEED    = 2.8;   // units / second
-const RUN_SPEED     = 6.2;   // units / second (Shift held)
-const ROTATE_SPEED  = 2.2;   // radians / second (A / D)
+// ── Tuning (exported so dat.gui can mutate them live) ─────────────────────────
+export const playerParams = {
+  walkSpeed:    2.8,
+  runSpeed:     6.2,
+  rotateSpeed:  2.2,
+  camDistance:  5.5,
+  camHeight:    2.2,
+  camLerp:      6.0,
+};
 
-const CAM_DISTANCE  = 5.5;   // units behind character
-const CAM_HEIGHT    = 2.2;   // units above pivot
-const CAM_LERP      = 6.0;   // exponential lerp speed (per-second factor)
-
-// Velocity thresholds — MOVE_EPSILON matches VT_WALK_IN exactly so character
-// translation and animation always unlock at the same velocityT value.
-const VT_WALK_IN    = 0.05;  // below → idle zone
-const VT_RUN_IN     = 0.85;  // above → run zone
-const MOVE_EPSILON  = VT_WALK_IN;  // was 0.001 — caused position to move before anim
-
-// One-shot transition durations (seconds)
+// Keep local aliases that the code below reads — they now read from the object
+// via the tick, so the constants are gone; just reference playerParams directly.
+const VT_WALK_IN    = 0.05;
+const VT_RUN_IN     = 0.85;
+const MOVE_EPSILON  = VT_WALK_IN;
 const TRANSITION_FADE = 0.18;
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -197,8 +196,8 @@ export function tickPlayer(delta) {
   const turnRight = keys['KeyD'];
 
   // ── Rotation ────────────────────────────────────────────────────────────
-  if (turnLeft)  facingAngle += ROTATE_SPEED * delta;
-  if (turnRight) facingAngle -= ROTATE_SPEED * delta;
+  if (turnLeft)  facingAngle += playerParams.rotateSpeed * delta;
+  if (turnRight) facingAngle -= playerParams.rotateSpeed * delta;
 
   // ── Signed target velocity ───────────────────────────────────────────────
   //   +1 = full forward run  |  +0.45 = walk  |  0 = idle  |  −0.45 = backward
@@ -218,8 +217,8 @@ export function tickPlayer(delta) {
   // ── Character translation ────────────────────────────────────────────────
   if (isMoving) {
     const speed = absVT > VT_RUN_IN
-      ? THREE.MathUtils.lerp(WALK_SPEED, RUN_SPEED, (absVT - VT_RUN_IN) / (1.0 - VT_RUN_IN))
-      : WALK_SPEED * Math.min(absVT / VT_WALK_IN, 1.0);
+      ? THREE.MathUtils.lerp(playerParams.walkSpeed, playerParams.runSpeed, (absVT - VT_RUN_IN) / (1.0 - VT_RUN_IN))
+      : playerParams.walkSpeed * Math.min(absVT / VT_WALK_IN, 1.0);
 
     const dir  = velocityT < 0 ? -1 : 1;
     const dist = speed * delta;
@@ -298,13 +297,13 @@ function _tickCamera(isMoving, delta) {
   _getPivotPos(_pivotPos);
 
   _camDesired.set(
-    _pivotPos.x - Math.sin(facingAngle) * CAM_DISTANCE,
-    _pivotPos.y + CAM_HEIGHT,
-    _pivotPos.z - Math.cos(facingAngle) * CAM_DISTANCE,
+    _pivotPos.x - Math.sin(facingAngle) * playerParams.camDistance,
+    _pivotPos.y + playerParams.camHeight,
+    _pivotPos.z - Math.cos(facingAngle) * playerParams.camDistance,
   );
 
   if (isMoving) {
-    const t = 1.0 - Math.exp(-CAM_LERP * delta);
+    const t = 1.0 - Math.exp(-playerParams.camLerp * delta);
     camera.position.lerp(_camDesired, t);
     camera.lookAt(_pivotPos);
   }
@@ -323,9 +322,9 @@ function _getPivotPos(out) {
 function _snapCameraToDesired() {
   _getPivotPos(_pivotPos);
   camera.position.set(
-    _pivotPos.x - Math.sin(facingAngle) * CAM_DISTANCE,
-    _pivotPos.y + CAM_HEIGHT,
-    _pivotPos.z - Math.cos(facingAngle) * CAM_DISTANCE,
+    _pivotPos.x - Math.sin(facingAngle) * playerParams.camDistance,
+    _pivotPos.y + playerParams.camHeight,
+    _pivotPos.z - Math.cos(facingAngle) * playerParams.camDistance,
   );
   camera.lookAt(_pivotPos);
 }

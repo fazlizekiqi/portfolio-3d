@@ -3,11 +3,16 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { scene, camera } from '../scene.js';
 import { LAYER } from '../layers.js';
 import { aimLights } from '../world/blueworld.js';
-import { initExplode, setOnReassembled } from './explode.js';
+import { initExplode, setOnReassembled, setExplodeCartoon } from './explode.js';
+import CARTOON_EFFECT from '../shaders/cartoon.frag.glsl?raw';
 
 // ── Wireframe overlay state ───────────────────────────────────────────────────
 export const wireState     = { opacity: 0.045 };
 export const wireMaterials = [];
+
+// ── Cartoon uniform tracking for skinned meshes ───────────────────────────────
+// Each entry: { value: 0.0} — direct reference so we can update in-place
+const _cartoonUniforms = [];
 
 // ── Animation state ───────────────────────────────────────────────────────────
 export let mixer        = null;
@@ -83,6 +88,28 @@ export function loadModel(onReady) {
         mats.forEach(mat => {
           if (mat.map) mat.map.colorSpace = THREE.SRGBColorSpace;
           mat.envMapIntensity = 0.5;
+
+          // ── Inject cartoon effect via onBeforeCompile ─────────────────────
+          const cartoonUniform = { value: 0.0 };
+          _cartoonUniforms.push(cartoonUniform);
+
+          const _prevOBC = mat.onBeforeCompile;
+          mat.onBeforeCompile = (shader) => {
+            if (_prevOBC) _prevOBC(shader);
+            shader.uniforms.uCartoon = cartoonUniform;
+
+            // Declare uniform in fragment shader
+            shader.fragmentShader = shader.fragmentShader
+              .replace(
+                '#include <common>',
+                '#include <common>\nuniform float uCartoon;'
+              )
+              .replace(
+                '#include <dithering_fragment>',
+                '#include <dithering_fragment>\n' + CARTOON_EFFECT
+              );
+          };
+
           mat.needsUpdate = true;
         });
         child.castShadow    = true;
@@ -125,3 +152,17 @@ export function exitWhiteWorld() {
   camera.layers.disable(LAYER.WHITE);
   camera.layers.enable(LAYER.BLUE);
 }
+
+/**
+ * Drive the cartoon / cel-shading effect on all character meshes.
+ *   t = 0 → normal PBR look (blue world)
+ *   t = 1 → full cartoon look (white world)
+ * Call this every frame (or on transition tick) with the transition progress.
+ */
+export function setCharacterWhiteWorld(t) {
+  // Skinned meshes
+  _cartoonUniforms.forEach(u => { u.value = t; });
+  // Explode meshes
+  setExplodeCartoon(t);
+}
+
