@@ -169,19 +169,15 @@ function _onWaypointClick(index) {
   _setButtonsEnabled(false);
 
   spawnCloud(meshes, modelGroup);
+  travelTo(destination, () => {
+    _setCharPos(destination.clone());
 
-  // After cloud fully forms, begin tornado travel
-  setTimeout(() => {
-    travelTo(destination, () => {
-      _setCharPos(destination.clone());
-
-      if (controls) {
-        controls.target.set(destination.x, destination.y + 1.0, destination.z);
-        controls.update();
-      }
-      _setButtonsEnabled(true);
-    });
-  }, 2400);
+    if (controls) {
+      controls.target.set(destination.x, destination.y + 1.0, destination.z);
+      controls.update();
+    }
+    _setButtonsEnabled(true);
+  });
 }
 
 // ── Per-frame tick ────────────────────────────────────────────────────────────

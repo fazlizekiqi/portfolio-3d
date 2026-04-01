@@ -24,7 +24,7 @@ import FRAG_ALPHA    from '../shaders/tornado.frag.alpha.glsl?raw';
 //  Tunable
 // ─────────────────────────────────────────────────────────────────────────────
 export const tornadoParams = {
-  // Cloud puff — gentle scatter, pieces drift lazily away from the body
+  // These are still passed to the shader (cloud phase at progress=0 = assembled)
   flyMin:         0.22,
   flyRand:        0.38,
   collapseAmt:    0.25,
@@ -37,12 +37,11 @@ export const tornadoParams = {
   rotTurns:       2.5,
   rotRandTurns:   3.0,
 
-  // Fade during arrival (keep opaque almost until the very end)
+  // Fade during arrival
   fadeStart:      0.88,
   fadeEnd:        1.0,
 
-  // Timing — everything is slow and cinematic
-  cloudSpeed:     0.45,   // cloud forms over ~2.2 s
+  // Timing
   travelSpeed:    0.10,   // tornado travels over ~10 s
   reassembleSpeed: 0.18,  // pieces converge at destination
 };
@@ -78,17 +77,17 @@ let   _originWorldPos     = new THREE.Vector3();   // world pos at start of trav
 
 // Settle after reassembly
 let   _settling           = false;
-const _settleTarget       = new THREE.Vector3();   // controls.target destination
-const _settleCamPos       = new THREE.Vector3();   // camera position destination
-const _camTargetSmoothed  = new THREE.Vector3();   // for settle panning
+const _settleTarget       = new THREE.Vector3();
+const _settleCamPos       = new THREE.Vector3();
+const _camTargetSmoothed  = new THREE.Vector3();
 const _prevSmoothedTarget = new THREE.Vector3();
-const CAM_SETTLE_LERP     = 1.5;
 
-// Camera placement params (how far behind / above the tornado)
-const CAM_FOLLOW_HEIGHT   = 6.0;   // metres above the tornado centroid
-const CAM_FOLLOW_DIST     = 10.0;  // metres behind (opposite travel dir)
-const CAM_LERP_POS        = 3.5;   // position smoothing speed
-const CAM_LERP_LOOK       = 2.5;   // look-at smoothing speed
+// Camera placement params
+const CAM_FOLLOW_HEIGHT   = 5.0;
+const CAM_FOLLOW_DIST     = 9.0;
+const CAM_LERP_POS        = 1.2;
+const CAM_LERP_LOOK       = 0.8;
+const CAM_SETTLE_LERP     = 0.9;
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Material builder — identical pattern to buildExplodeMaterial
@@ -230,9 +229,9 @@ export function spawnCloud(meshes, modelGroup) {
   _disposeCloud();
 
   _modelGroupRef = modelGroup;
-  _phase          = 0;
-  _cloudProgress  = 0;
-  _travelProgress = 0;
+  _phase          = 1;   // go straight to travel, no cloud scatter phase
+  _cloudProgress  = 0.0; // pieces start assembled
+  _travelProgress = 0.0;
   _tornadoMats    = [];
   _tornadoMeshes  = [];
   _originalMeshes = [];
@@ -309,11 +308,6 @@ export function tickTornado(delta) {
 
   if (_phase >= 0) _syncLocalPositions();
 
-  // ── Phase 0: cloud scatter ──────────────────────────────────────────────
-  if (_phase === 0) {
-    _cloudProgress = Math.min(_cloudProgress + tornadoParams.cloudSpeed * delta, 1.0);
-    _syncProgress();
-  }
 
   // ── Phase 1: tornado travel ─────────────────────────────────────────────
   if (_phase === 1) {
@@ -321,22 +315,25 @@ export function tickTornado(delta) {
     _syncProgress();
 
     if (_camFollowing) {
-      // Actual tornado centroid world position
+      // Tornado centroid world position
       _tornadoWorldPos.lerpVectors(_originWorldPos, _destination, _travelProgress);
       _tornadoWorldPos.y += 1.2;
 
-      // Travel direction (origin → destination, flat)
+      // Travel direction flat on XZ plane
       const travelDir = new THREE.Vector3()
         .subVectors(_destination, _originWorldPos)
-        .setY(0)
-        .normalize();
+        .setY(0).normalize();
 
-      // Camera desired: behind + above the centroid
+      // Preserve the user's current camera distance from the centroid
+      // so we never change the zoom level — just shift behind the tornado
+      const currentDist = _camPosSmoothed.distanceTo(_tornadoWorldPos);
+      const followDist  = Math.max(currentDist, CAM_FOLLOW_DIST);
+
+      // Desired: same radius, but positioned behind (−travelDir) and elevated
       _camPos.copy(_tornadoWorldPos)
-        .addScaledVector(travelDir, -CAM_FOLLOW_DIST)
+        .addScaledVector(travelDir, -followDist * 0.85)
         .setY(_tornadoWorldPos.y + CAM_FOLLOW_HEIGHT);
 
-      // Smooth both position and look-at
       const pt = 1.0 - Math.exp(-CAM_LERP_POS  * delta);
       const lt = 1.0 - Math.exp(-CAM_LERP_LOOK * delta);
       _camPosSmoothed.lerp(_camPos, pt);
@@ -356,7 +353,6 @@ export function tickTornado(delta) {
   // ── Phase 2: reassembly ─────────────────────────────────────────────────
   if (_phase === 2) {
     _travelProgress = Math.max(_travelProgress - tornadoParams.reassembleSpeed * delta, 0.0);
-    _cloudProgress  = Math.max(_cloudProgress  - tornadoParams.reassembleSpeed * delta, 0.0);
     _syncProgress();
 
     // Keep camera looking at the reassembly point
@@ -372,20 +368,20 @@ export function tickTornado(delta) {
       camera.lookAt(_camLookAtSmoothed);
     }
 
-    if (_travelProgress <= 0.0 && _cloudProgress <= 0.0) {
+    if (_travelProgress <= 0.0) {
       _phase        = -1;
       _camFollowing = false;
 
       // Build settle targets: camera behind the character, target at its head
       if (controls) {
-        // Direction from destination back toward where we came from
+        // backDir: from destination toward origin = behind the character
         const backDir = new THREE.Vector3()
           .subVectors(_originWorldPos, _destination)
           .setY(0).normalize();
 
         _settleTarget.set(_destination.x, _destination.y + 1.2, _destination.z);
         _settleCamPos.copy(_destination)
-          .addScaledVector(backDir, -5.5)
+          .addScaledVector(backDir, 5.5)   // positive = toward origin = behind char
           .setY(_destination.y + 3.5);
 
         _camTargetSmoothed.copy(_settleTarget);
