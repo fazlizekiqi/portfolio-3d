@@ -5,7 +5,8 @@ import { tickExplode, getExplodeGroup, introScene } from './character/explode.js
 import { tickPlayer } from './character/player.js';
 import { tickPresentation, initCameraState } from './presentation/presentation.js';
 import { initBlueWorld, tickBlueWorld, tickLightsForWorld } from './world/blueworld.js';
-import { tickWhiteWorld } from './world/whiteworld.js';
+import { tickWhiteWorld, setWhiteWorldCharacterRef, showWaypointButtons, hideWaypointButtons } from './world/whiteworld.js';
+import { isTornadoCameraActive } from './world/tornado-travel.js';
 import { tickTransition, isWhiteWorld, isTransitioning, getProgress } from './transition.js';
 import { tickFps } from './fps.js';
 import './gui.js';
@@ -17,6 +18,31 @@ initBlueWorld();
 loadModel(() => {
   initCameraState();
   introScene(); // character starts scattered and reassembles into the blue world
+
+  // ── Wire white-world character reference ────────────────────────────────
+  setWhiteWorldCharacterRef(
+    // getPos
+    () => modelGroup ? modelGroup.position.clone() : new THREE.Vector3(),
+    // getMeshes
+    () => {
+      const meshes = [];
+      if (modelGroup) {
+        modelGroup.traverse(obj => {
+          if (obj.isMesh && obj.visible) meshes.push(obj);
+        });
+      }
+      return meshes;
+    },
+    // setPos
+    (pos) => {
+      if (modelGroup) {
+        modelGroup.position.copy(pos);
+        modelGroup.position.y = 0;
+      }
+    },
+    // getModelGroup
+    () => modelGroup,
+  );
 
   const charMeshes = [];
   function collectCharMeshes() {
@@ -37,6 +63,7 @@ loadModel(() => {
 
   const clock = new THREE.Clock();
   let elapsed = 0;
+  let _wasInWhite = false;
 
   function animate() {
     requestAnimationFrame(animate);
@@ -44,6 +71,14 @@ loadModel(() => {
     elapsed            += delta;
     const inWhite       = isWhiteWorld();
     const transitioning = isTransitioning();
+
+    // Show / hide waypoint buttons when world state changes
+    if (inWhite && !_wasInWhite) {
+      showWaypointButtons();
+    } else if (!inWhite && _wasInWhite) {
+      hideWaypointButtons();
+    }
+    _wasInWhite = inWhite;
 
     collectCharMeshes();
 
@@ -56,16 +91,21 @@ loadModel(() => {
       tickBlueWorld(renderer, delta, elapsed);
     }
 
-    // 2. Camera
-    tickPresentation(delta, elapsed);
-    tickPlayer(delta);
+    // 2. White world tick (includes tornado camera — must run before tickPresentation
+    //    so OrbitControls damping in tickPresentation bakes our camera position)
+    tickWhiteWorld(delta);
 
-    // 3. Explode + mixer
+    // 3. Camera / player — skip while tornado owns the camera
+    if (!isTornadoCameraActive()) {
+      tickPresentation(delta, elapsed);
+      tickPlayer(delta);
+    }
+
+    // 4. Explode + mixer
     tickExplode(delta);
     if (mixer) mixer.update(delta);
 
-    // 4. White world uniforms + character cartoon effect + lighting
-    tickWhiteWorld();
+    // 5. Character cartoon effect + lighting
     // progress 1.0 = blue world, 0.0 = white world → invert for cartoon/light amount
     const wwAmount = 1.0 - getProgress();
     setCharacterWhiteWorld(wwAmount);
