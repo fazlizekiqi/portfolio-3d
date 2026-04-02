@@ -16,7 +16,7 @@
  */
 
 import * as THREE from 'three';
-import { scene, controls } from '../scene.js';
+import { scene, camera, controls } from '../scene.js';
 import { LAYER, setWorldLayer } from '../layers.js';
 import { getProgress, isTransitioning, isWhiteWorld, getElapsed } from '../transition.js';
 import { spawnCloud, travelTo, tickTornado, isTornadoActive, disposeCloud } from './tornado-travel.js';
@@ -167,6 +167,24 @@ function _onWaypointClick(index) {
   if (!modelGroup) return;
 
   _setButtonsEnabled(false);
+
+  // ── Focus camera on character BEFORE starting the tornado ──────────────
+  // The character may have walked away from where the camera is pointing.
+  // Snap controls target + camera to the character's current position so the
+  // tornado transition starts from the right viewpoint.
+  const charPos = _getCharPos();
+  if (controls && charPos) {
+    const lookAt = new THREE.Vector3(charPos.x, charPos.y + 1.0, charPos.z);
+    controls.target.copy(lookAt);
+
+    // Reposition camera to maintain a sensible offset relative to the character
+    const offset = new THREE.Vector3().subVectors(camera.position, controls.target);
+    const dist   = THREE.MathUtils.clamp(offset.length(), 4.5, 12.0);
+    offset.normalize().multiplyScalar(dist);
+    camera.position.copy(lookAt).add(offset);
+
+    controls.update();
+  }
 
   spawnCloud(meshes, modelGroup);
   travelTo(destination, () => {
