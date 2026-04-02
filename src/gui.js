@@ -1,58 +1,19 @@
 import { GUI } from 'dat.gui';
-import { wireMaterials, wireState, playClip, modelGroup } from './character/model.js';
-import { toggleExplode, explodeParams, applyExplodeParams, triggerExplode, triggerReassemble } from './character/explode.js';
 import { goToWhiteWorld, goToBlueWorld, isWhiteWorld } from './transition.js';
 import { wwLightParams } from './world/blueworld.js';
+import { tornadoCamParams, tornadoParams } from './world/tornado-travel.js';
 import { playerParams } from './character/player.js';
 
 // ── Keyboard shortcuts ────────────────────────────────────────────────────────
 window.addEventListener('keydown', (e) => {
   switch (e.key.toLowerCase()) {
-    case 'w': {
-      wireState.opacity = wireState.opacity > 0.01 ? 0 : 0.045;
-      wireMaterials.forEach(m => { m.opacity = wireState.opacity; });
-      break;
-    }
-    case 'e': toggleExplode(); break;
     case 't': isWhiteWorld() ? goToBlueWorld() : goToWhiteWorld(); break;
-    case '1': case '2': case '3': case '4': case '5':
-      playClip(parseInt(e.key) - 1);
-      break;
   }
 });
 
 // ── dat.gui panel ─────────────────────────────────────────────────────────────
 const gui = new GUI({ width: 280 });
 gui.domElement.style.cssText += 'z-index:200;';
-
-// ── Explosion folder ──────────────────────────────────────────────────────────
-const fEx = gui.addFolder('💥 Explosion');
-
-fEx.add(explodeParams, 'speed',        0.05, 2.0, 0.01).name('Speed');
-fEx.add(explodeParams, 'animDelay',    0.0,  5.0, 0.1 ).name('Anim delay (s)');
-fEx.add(explodeParams, 'explodeDelay', 0.0,  3.0, 0.1 ).name('Explode hold (s)');
-
-fEx.add(explodeParams, 'flyMin',     0.0,  8.0,  0.1 ).name('Fly min').onChange(applyExplodeParams);
-fEx.add(explodeParams, 'flyRand',    0.0,  8.0,  0.1 ).name('Fly random').onChange(applyExplodeParams);
-fEx.add(explodeParams, 'collapseAmt',0.0,  1.0,  0.01).name('Collapse amt').onChange(applyExplodeParams);
-
-fEx.open();
-
-// ── Stagger folder ────────────────────────────────────────────────────────────
-const fSt = gui.addFolder('⏱ Stagger');
-fSt.add(explodeParams, 'staggerSpread', 0.0, 1.0, 0.01).name('Spread').onChange(applyExplodeParams);
-fSt.add(explodeParams, 'staggerWindow', 0.1, 1.0, 0.01).name('Window').onChange(applyExplodeParams);
-
-// ── Rotation folder ───────────────────────────────────────────────────────────
-const fRo = gui.addFolder('🔄 Rotation');
-fRo.add(explodeParams, 'rotTurns',     0.0, 8.0, 0.1).name('Base turns').onChange(applyExplodeParams);
-fRo.add(explodeParams, 'rotRandTurns', 0.0, 8.0, 0.1).name('Random turns').onChange(applyExplodeParams);
-
-// ── Fade folder ───────────────────────────────────────────────────────────────
-const fFa = gui.addFolder('🌫 Fade');
-fFa.add(explodeParams, 'fadeStart', 0.0, 1.0, 0.01).name('Fade start').onChange(applyExplodeParams);
-fFa.add(explodeParams, 'fadeEnd',   0.0, 1.0, 0.01).name('Fade end').onChange(applyExplodeParams);
-
 
 // ── White-world lighting folder ───────────────────────────────────────────────
 const fWL = gui.addFolder('☀ White World Lighting');
@@ -87,17 +48,35 @@ fWL.open();
 fWLamb.open();
 fWLkey.open();
 
-// ── Actions ───────────────────────────────────────────────────────────────────
-const actions = {
-  explode:    () => triggerExplode(),
-  reassemble: () => triggerReassemble(),
-  transition: () => isWhiteWorld() ? goToBlueWorld() : goToWhiteWorld(),
-};
-const fAc = gui.addFolder('▶ Actions');
-fAc.add(actions, 'explode').name('Explode  [E]');
-fAc.add(actions, 'reassemble').name('Reassemble  [E]');
-fAc.add(actions, 'transition').name('🔥 Toggle world  [T]');
-fAc.open();
+// ── Tornado camera folder ────────────────────────────────────────────────────
+const fTC = gui.addFolder('🌪 Tornado Camera');
+
+const fTCfollow = fTC.addFolder('Follow');
+fTCfollow.add(tornadoCamParams, 'followHeight',  0.5, 15.0, 0.1).name('Height');
+fTCfollow.add(tornadoCamParams, 'followDist',    1.0, 20.0, 0.1).name('Distance');
+fTCfollow.add(tornadoCamParams, 'lerpPos',       0.05, 5.0, 0.05).name('Pos lerp');
+fTCfollow.add(tornadoCamParams, 'lerpLook',      0.05, 5.0, 0.05).name('Look lerp');
+fTCfollow.open();
+
+const fTCentry = fTC.addFolder('Entry crane');
+fTCentry.add(tornadoCamParams, 'entryDuration',  0.2, 5.0, 0.1).name('Duration (s)');
+fTCentry.add(tornadoCamParams, 'entryHeight',    0.0, 15.0, 0.1).name('Height');
+
+const fTCsettle = fTC.addFolder('Settle');
+fTCsettle.add(tornadoCamParams, 'settleDuration', 0.5, 8.0, 0.1).name('Duration (s)');
+fTCsettle.add(tornadoCamParams, 'settlePosLerp',  0.1, 8.0, 0.1).name('Pos lerp');
+fTCsettle.add(tornadoCamParams, 'settleLookLerp', 0.1, 8.0, 0.1).name('Look lerp');
+
+const fTCreassemble = fTC.addFolder('Reassembly');
+fTCreassemble.add(tornadoParams, 'reassembleSpeed', 0.05, 2.0, 0.01).name('Speed');
+fTCreassemble.open();
+
+const fTCshape = fTC.addFolder('Tornado shape');
+fTCshape.add(tornadoParams, 'tornadoRadius', 0.1, 5.0, 0.1).name('Radius');
+fTCshape.add(tornadoParams, 'tornadoHeight', 0.0, 5.0, 0.1).name('Height');
+fTCshape.open();
+
+fTC.open();
 
 // ── Player camera folder ──────────────────────────────────────────────────────
 const fPC = gui.addFolder('🎮 Player Camera');
@@ -108,42 +87,6 @@ fPC.add(playerParams, 'camEntryTime', 0.1,  3.0, 0.1).name('Entry glide (s)');
 fPC.add(playerParams, 'walkSpeed',    0.5, 12.0, 0.1).name('Walk speed');
 fPC.add(playerParams, 'runSpeed',     1.0, 20.0, 0.1).name('Run speed');
 fPC.add(playerParams, 'rotateSpeed',  0.5,  8.0, 0.1).name('Rotate speed');
-fPC.open();
-
-// ── Character transform folder ────────────────────────────────────────────────
-// Proxy object — updated each frame so dat.gui always shows fresh values.
-const charDisplay = { x: 0, y: 0, z: 0, rotY: 0 };
-const fCh = gui.addFolder('🧍 Character');
-const _cX    = fCh.add(charDisplay, 'x'   ).name('Pos X').listen();
-const _cY    = fCh.add(charDisplay, 'y'   ).name('Pos Y').listen();
-const _cZ    = fCh.add(charDisplay, 'z'   ).name('Pos Z').listen();
-const _cRotY = fCh.add(charDisplay, 'rotY').name('Rot Y (°)').listen();
-
-// Make the position controllers read-only looking (grey them out via style)
-[_cX, _cY, _cZ, _cRotY].forEach(ctrl => {
-  ctrl.domElement.querySelector('input').readOnly = true;
-  ctrl.domElement.querySelector('input').style.color = '#aaa';
-});
-
-const charActions = {
-  resetPosition: () => {
-    if (!modelGroup) return;
-    modelGroup.position.set(0, modelGroup.position.y, 0);
-    modelGroup.rotation.set(0, 0, 0);
-  },
-};
-fCh.add(charActions, 'resetPosition').name('⟳ Reset to origin');
-fCh.open();
-
-// Refresh the character display every animation frame
-;(function _refreshChar() {
-  requestAnimationFrame(_refreshChar);
-  if (!modelGroup) return;
-  charDisplay.x    = parseFloat(modelGroup.position.x.toFixed(3));
-  charDisplay.y    = parseFloat(modelGroup.position.y.toFixed(3));
-  charDisplay.z    = parseFloat(modelGroup.position.z.toFixed(3));
-  charDisplay.rotY = parseFloat((modelGroup.rotation.y * (180 / Math.PI)).toFixed(1));
-})();
 
 // ── Small hint label ─────────────────────────────────────────────────────────
 const hint = document.createElement('div');
@@ -152,5 +95,5 @@ hint.style.cssText = `
   font-family:'Share Tech Mono','Courier New',monospace;
   font-size:10px;color:#224455;letter-spacing:.06em;
   pointer-events:none;line-height:1.8;text-align:right;`;
-hint.innerHTML = `[W] wireframe &nbsp; [E] explode &nbsp; [T] transition &nbsp; [1-5] clip`;
+hint.innerHTML = `[T] toggle world`;
 document.body.appendChild(hint);

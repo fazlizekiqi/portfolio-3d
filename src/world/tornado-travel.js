@@ -21,20 +21,18 @@ import FRAG_PARS     from '../shaders/tornado.frag.pars.glsl?raw';
 import FRAG_ALPHA    from '../shaders/tornado.frag.alpha.glsl?raw';
 import CARTOON_EFFECT from '../shaders/cartoon.frag.glsl?raw';
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Tunable
-// ─────────────────────────────────────────────────────────────────────────────
+
 export const tornadoParams = {
-  // These are still passed to the shader (cloud phase at progress=0 = assembled)
+  // Cloud shape (shader uniforms at progress=0 = assembled)
   flyMin:         0.22,
   flyRand:        0.38,
   collapseAmt:    0.25,
   staggerSpread:  0.7,
   staggerWindow:  0.5,
 
-  // Tornado travel — wide, elegant spiral
-  tornadoRadius:  2.2,
-  tornadoHeight:  2.0,
+  // Tornado spiral geometry
+  tornadoRadius:  0.85,
+  tornadoHeight:  1.25,
   rotTurns:       2.5,
   rotRandTurns:   3.0,
 
@@ -43,62 +41,66 @@ export const tornadoParams = {
   fadeEnd:        1.0,
 
   // Timing
-  travelSpeed:    0.10,   // tornado travels over ~10 s
-  reassembleSpeed: 0.18,  // pieces converge at destination
+  travelSpeed:      0.10,
+  reassembleSpeed:  0.25,
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Internal state
-// ─────────────────────────────────────────────────────────────────────────────
-let _group         = null;    // THREE.Group — mirrors modelGroup transform
-let _tornadoMats   = [];      // cloned materials with tornado shader injected
-let _tornadoMeshes = [];      // cloned THREE.Mesh objects (parallel to _tornadoMats)
-let _originalMeshes = [];     // hidden originals (restored on arrival)
-let _modelGroupRef = null;    // reference to the character's root group
 
-let _phase         = -1;      // -1=off | 0=cloud | 1=travel | 2=reassemble
-let _cloudProgress = 0;       // 0→1
-let _travelProgress = 0;      // 0→1
+let _group          = null;    // THREE.Group — mirrors modelGroup transform
+let _tornadoMats    = [];      // cloned materials with tornado shader injected
+let _tornadoMeshes  = [];      // cloned THREE.Mesh objects (parallel to _tornadoMats)
+let _originalMeshes = [];      // hidden originals (restored on arrival)
+let _modelGroupRef  = null;    // reference to the character's root group
 
-let _destination   = new THREE.Vector3();
-let _onArrived     = null;
+let _phase          = -1;      // -1=off | 1=travel | 2=reassembly
+let _cloudProgress  = 0;       // 0→1
+let _travelProgress = 0;       // 0→1
 
-// Reusable for local-space conversion
+let _destination    = new THREE.Vector3();
+let _onArrived      = null;
+
+// Reusable scratch vectors for local-space conversion
 const _invModelMat = new THREE.Matrix4();
 const _originLocal = new THREE.Vector3();
 const _destLocal   = new THREE.Vector3();
 
-// ── Camera follow ─────────────────────────────────────────────────────────────
-const _tornadoWorldPos    = new THREE.Vector3();
-const _camPos             = new THREE.Vector3();
-const _camPosSmoothed     = new THREE.Vector3();
-const _camLookAtSmoothed  = new THREE.Vector3();
-let   _camFollowing       = false;
-let   _originWorldPos     = new THREE.Vector3();
+const _tornadoWorldPos   = new THREE.Vector3();
+const _camPos            = new THREE.Vector3();
+const _camPosSmoothed    = new THREE.Vector3();
+const _camLookAtSmoothed = new THREE.Vector3();
+let   _camFollowing      = false;
+let   _originWorldPos    = new THREE.Vector3();
 
-// Settle after reassembly
-let   _settling           = false;
-const _settleTarget       = new THREE.Vector3();
+let   _settling          = false;
+const _settleTarget      = new THREE.Vector3();
+let   _settleT           = 0.0;
+const _settleCamStart    = new THREE.Vector3();
+const _settleCamEnd      = new THREE.Vector3();
+const _settleLookStart   = new THREE.Vector3();
 
-// Camera tuning
-const CAM_FOLLOW_HEIGHT   = 4.0;   // height above tornado centroid during travel
-const CAM_FOLLOW_DIST     = 7.0;   // distance behind tornado during travel
-const CAM_LERP_POS        = 0.6;   // camera position smoothing (lower = lazier)
-const CAM_LERP_LOOK       = 0.4;   // look-at smoothing
+export const tornadoCamParams = {
+  // Follow
+  followHeight:   0.5,
+  followDist:     5,
+  lerpPos:        0.6,
+  lerpLook:       0.4,
 
-// Entry arc tuning
-const CAM_ENTRY_DURATION  = 1.1;   // seconds for the entry crane shot
-const CAM_ENTRY_HEIGHT    = 5.0;   // extra height added at start of entry arc
-let   _camEntryT          = 0.0;   // 0→1 as entry progresses
+  // Entry crane shot
+  entryDuration:  1.1,
+  entryHeight:    5.0,
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Camera methods — each owns one distinct moment of the journey
-// ─────────────────────────────────────────────────────────────────────────────
+  // Post-arrival settle
+  settleDuration: 2.8,
+  settlePosLerp:  1.8,
+  settleLookLerp: 2.2,
+};
+
+let _camEntryT = 0.0;
+
 
 /**
- * Called once when travelTo() fires.
- * Seeds all smoothed state from the current OrbitControls camera so there
- * is zero first-frame jump, then disables controls so they can't fight us.
+ * Seed smoothed camera state from the current OrbitControls so there
+ * is zero first-frame jump, then disable controls so they can't fight us.
  */
 function _camStartFollow() {
   _camPosSmoothed.copy(camera.position);
@@ -110,59 +112,45 @@ function _camStartFollow() {
 }
 
 /**
- * Entry crane shot — runs for CAM_ENTRY_DURATION seconds at the start of
- * travel. The camera pulls back to an overhead position while looking down
- * at the origin (the character dissolving), then arcs into the follow
- * position as entryEase → 1.
- *
- * @returns {boolean} true once the entry arc is complete
+ * Overhead pull-back arc at the start of travel. The camera rises above
+ * followPos while looking down at the dissolving origin, then descends
+ * into the normal follow position.
  */
 function _camTickEntry(delta, followPos) {
-  _camEntryT = Math.min(_camEntryT + delta / CAM_ENTRY_DURATION, 1.0);
-  const ease = 1.0 - Math.pow(1.0 - _camEntryT, 3);   // cubic ease-out
+  _camEntryT = Math.min(_camEntryT + delta / tornadoCamParams.entryDuration, 1.0);
+  const ease = _cubicEaseOut(_camEntryT);
 
-  // Position: start where camera was, rise above followPos, descend into it
-  const entryPos = new THREE.Vector3()
-    .copy(_camPosSmoothed)
-    .lerp(
-      new THREE.Vector3().copy(followPos).setY(followPos.y + CAM_ENTRY_HEIGHT * (1.0 - ease)),
-      ease
-    );
-
-  // Look-at: origin → tornado centroid
-  const entryLookAt = new THREE.Vector3()
-    .copy(_originWorldPos).setY(_originWorldPos.y + 1.2)
-    .lerp(_tornadoWorldPos, ease);
+  const entryPos    = _computeEntryPosition(followPos, ease);
+  const entryLookAt = _computeEntryLookAt(ease);
 
   _camPos.copy(entryPos);
   _applyCameraLerp(delta, entryLookAt);
   return _camEntryT >= 1.0;
 }
 
+function _computeEntryPosition(followPos, ease) {
+  return new THREE.Vector3()
+    .copy(_camPosSmoothed)
+    .lerp(
+      new THREE.Vector3().copy(followPos).setY(followPos.y + tornadoCamParams.entryHeight * (1.0 - ease)),
+      ease
+    );
+}
+
+function _computeEntryLookAt(ease) {
+  return new THREE.Vector3()
+    .copy(_originWorldPos).setY(_originWorldPos.y + 1.2)
+    .lerp(_tornadoWorldPos, ease);
+}
 /**
- * Normal follow — camera sits behind and above the tornado centroid,
- * lazily chasing it with exponential lerp.
+ * Chase camera — sits behind and above the tornado centroid, lazily
+ * following with exponential lerp. Delegates to entry arc until complete.
  */
 function _camTickFollow(delta) {
-  _tornadoWorldPos.lerpVectors(_originWorldPos, _destination, _travelProgress);
-  _tornadoWorldPos.y += 1.2;
+  _updateTornadoWorldPos();
+  const followPos = _computeFollowPosition();
 
-  const travelDir = new THREE.Vector3()
-    .subVectors(_destination, _originWorldPos)
-    .setY(0).normalize();
-
-  const dist      = THREE.MathUtils.clamp(
-    _camPosSmoothed.distanceTo(_tornadoWorldPos),
-    CAM_FOLLOW_DIST, CAM_FOLLOW_DIST * 1.5
-  );
-  const followPos = new THREE.Vector3()
-    .copy(_tornadoWorldPos)
-    .addScaledVector(travelDir, -dist * 0.85)
-    .setY(_tornadoWorldPos.y + CAM_FOLLOW_HEIGHT);
-
-  const entryDone = _camEntryT >= 1.0;
-  if (!entryDone) {
-    // Still in entry arc — run it, hand off once complete
+  if (_camEntryT < 1.0) {
     _camTickEntry(delta, followPos);
     return;
   }
@@ -171,43 +159,80 @@ function _camTickFollow(delta) {
   _applyCameraLerp(delta, _tornadoWorldPos);
 }
 
-/**
- * Reassembly — tornado has arrived; camera holds its position and watches
- * the pieces converge at the destination.
- */
+function _updateTornadoWorldPos() {
+  _tornadoWorldPos.lerpVectors(_originWorldPos, _destination, _travelProgress);
+  const charY = _modelGroupRef ? _modelGroupRef.position.y : 0;
+  _tornadoWorldPos.y = charY + 1.2;
+}
+
+function _computeFollowPosition() {
+  const travelDir = new THREE.Vector3()
+    .subVectors(_destination, _originWorldPos)
+    .setY(0).normalize();
+
+  const dist = THREE.MathUtils.clamp(
+    _camPosSmoothed.distanceTo(_tornadoWorldPos),
+    tornadoCamParams.followDist, tornadoCamParams.followDist * 1.5
+  );
+
+  return new THREE.Vector3()
+    .copy(_tornadoWorldPos)
+    .addScaledVector(travelDir, -dist * 0.85)
+    .setY(_tornadoWorldPos.y + tornadoCamParams.followHeight);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Camera: reassembly (hold position, watch triangles converge)
+// ─────────────────────────────────────────────────────────────────────────────
+
 function _camTickReassemble(delta) {
-  _tornadoWorldPos.set(_destination.x, _destination.y + 1.2, _destination.z);
-  // _camPos intentionally unchanged — hold the last follow position
+  const charY = _modelGroupRef ? _modelGroupRef.position.y : 0;
+  _tornadoWorldPos.set(_destination.x, charY + 1.2, _destination.z);
   _applyCameraLerp(delta, _tornadoWorldPos);
 }
 
-// Settle tuning
-const CAM_SETTLE_DURATION  = 2.8;  // total seconds for the camera glide
-const CAM_SETTLE_POS_LERP  = 1.8;  // exponential speed for position  (lower = slower)
-const CAM_SETTLE_LOOK_LERP = 2.2;  // exponential speed for look-at   (lower = slower)
-
-// Settle runtime state
-let _settleT             = 0.0;
-const _settleCamStart    = new THREE.Vector3();  // where camera was when settle began
-const _settleCamEnd      = new THREE.Vector3();  // where camera should rest
-const _settleLookStart   = new THREE.Vector3();  // look-at when settle began
-// _settleTarget is the final look-at (character position) — already declared above
+// ─────────────────────────────────────────────────────────────────────────────
+//  Camera: settle (post-arrival glide back to OrbitControls)
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Settle — keeps OrbitControls DISABLED and manually glides the camera from
- * its current follow position to a comfortable resting spot over
- * CAM_SETTLE_DURATION seconds using exponential lerp for a natural ease-out.
- * Only re-enables OrbitControls once the camera has fully arrived, seeding it
- * with the exact final state so there is zero positional jump.
+ * Begin the settle phase — compute a comfortable resting position and
+ * start the glide. Controls stay disabled until the glide completes.
+ */
+function _camBeginSettle() {
+  const charY = _modelGroupRef ? _modelGroupRef.position.y : 0;
+  _settleTarget.set(_destination.x, charY + 1.2, _destination.z);
+  _settleT = 0.0;
+
+  _settleCamStart.copy(camera.position);
+  _camPosSmoothed.copy(camera.position);
+  _settleLookStart.copy(_camLookAtSmoothed);
+
+  _settleCamEnd.copy(_settleTarget)
+    .add(_computeSettleOffset())
+    .setY(_settleTarget.y + 2.8);
+
+  _settling = true;
+}
+
+function _computeSettleOffset() {
+  const offset = new THREE.Vector3().subVectors(camera.position, _settleTarget);
+  offset.y = 0;
+  const horizontalDist = THREE.MathUtils.clamp(offset.length(), 4.5, 9.0);
+  return offset.normalize().multiplyScalar(horizontalDist);
+}
+
+/**
+ * Per-frame settle tick — exponential-lerp glide from current position
+ * to the resting position. Re-enables OrbitControls on completion.
  */
 function _camTickSettle(delta) {
   if (!controls) { _settling = false; return; }
 
-  _settleT = Math.min(_settleT + delta / CAM_SETTLE_DURATION, 1.0);
+  _settleT = Math.min(_settleT + delta / tornadoCamParams.settleDuration, 1.0);
 
-  // Exponential lerp — fast at first, very slow tail-end
-  const pt = 1.0 - Math.exp(-CAM_SETTLE_POS_LERP  * delta);
-  const lt = 1.0 - Math.exp(-CAM_SETTLE_LOOK_LERP * delta);
+  const pt = 1.0 - Math.exp(-tornadoCamParams.settlePosLerp  * delta);
+  const lt = 1.0 - Math.exp(-tornadoCamParams.settleLookLerp * delta);
 
   _camPosSmoothed.lerp(_settleCamEnd, pt);
   _camLookAtSmoothed.lerp(_settleTarget, lt);
@@ -216,67 +241,48 @@ function _camTickSettle(delta) {
   camera.lookAt(_camLookAtSmoothed);
 
   if (_settleT >= 1.0) {
-    // Snap to exact final state, then hand to OrbitControls with zero velocity
-    camera.position.copy(_settleCamEnd);
-    camera.lookAt(_settleTarget);
-    controls.target.copy(_settleTarget);
-    controls.enabled = true;
-    controls.update();
-    _settling = false;
+    _snapCameraToSettleTarget();
   }
 }
 
-/**
- * Begins the settle phase.
- * Computes a comfortable resting camera position (same distance/angle as the
- * last follow frame, just lowered to a normal height) and starts the glide.
- * OrbitControls stays disabled until the glide completes.
- */
-function _camBeginSettle() {
-  _settleTarget.set(_destination.x, _destination.y + 1.2, _destination.z);
-  _settleT = 0.0;
-
-  // Start from exactly where the camera is right now — no jump
-  _settleCamStart.copy(camera.position);
-  _camPosSmoothed.copy(camera.position);
-  _settleLookStart.copy(_camLookAtSmoothed);
-
-  // Compute a natural resting position: same XZ offset from character as the
-  // current camera, but normalised to a comfortable distance and height.
-  const offset = new THREE.Vector3().subVectors(camera.position, _settleTarget);
-  offset.y = 0;
-  const horizontalDist = THREE.MathUtils.clamp(offset.length(), 4.5, 9.0);
-  offset.normalize().multiplyScalar(horizontalDist);
-
-  _settleCamEnd.copy(_settleTarget)
-    .add(offset)
-    .setY(_settleTarget.y + 2.8);
-
-  _settling = true;
-  // Controls remain disabled — _camTickSettle drives the camera manually
+function _snapCameraToSettleTarget() {
+  camera.position.copy(_settleCamEnd);
+  camera.lookAt(_settleTarget);
+  controls.target.copy(_settleTarget);
+  controls.enabled = true;
+  controls.update();
+  _settling = false;
 }
 
-/**
- * Shared lerp step used by follow, entry and reassemble.
- */
 function _applyCameraLerp(delta, lookTarget) {
-  const pt = 1.0 - Math.exp(-CAM_LERP_POS  * delta);
-  const lt = 1.0 - Math.exp(-CAM_LERP_LOOK * delta);
+  const pt = 1.0 - Math.exp(-tornadoCamParams.lerpPos  * delta);
+  const lt = 1.0 - Math.exp(-tornadoCamParams.lerpLook * delta);
   _camPosSmoothed.lerp(_camPos, pt);
   _camLookAtSmoothed.lerp(lookTarget, lt);
   camera.position.copy(_camPosSmoothed);
   camera.lookAt(_camLookAtSmoothed);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Material builder — identical pattern to buildExplodeMaterial
-// ─────────────────────────────────────────────────────────────────────────────
+function _cubicEaseOut(t) {
+  return 1.0 - Math.pow(1.0 - t, 3);
+}
+
 function _buildTornadoMaterial(srcMat) {
   const mat = srcMat.clone();
   mat.transparent = true;
   mat.side        = THREE.DoubleSide;
 
-  const uniforms = {
+  const uniforms = _createTornadoUniforms();
+  mat.userData.tornadoUniforms = uniforms;
+
+  const _prevOBC = mat.onBeforeCompile;
+  mat.onBeforeCompile = (shader) => _injectTornadoShader(shader, uniforms, _prevOBC, mat);
+  mat.needsUpdate = true;
+  return mat;
+}
+
+function _createTornadoUniforms() {
+  return {
     uCloudProgress:    { value: 0.0 },
     uTravelProgress:   { value: 0.0 },
     uStaggerSpread:    { value: tornadoParams.staggerSpread },
@@ -294,55 +300,35 @@ function _buildTornadoMaterial(srcMat) {
     uFadeEnd:          { value: tornadoParams.fadeEnd },
     uCartoon:          { value: 0.0 },
   };
-  mat.userData.tornadoUniforms = uniforms;
-
-  // Capture the inherited onBeforeCompile from model.js (declares uCartoon,
-  // injects CARTOON_EFFECT) so we can chain it.
-  const _prevOBC = mat.onBeforeCompile;
-
-  mat.onBeforeCompile = (shader) => {
-    // 1. Inject all tornado uniforms (including our own uCartoon)
-    Object.assign(shader.uniforms, uniforms);
-
-    // 2. Inject tornado vertex displacement
-    shader.vertexShader = shader.vertexShader
-      .replace('#include <common>',       '#include <common>\n'   + VERT_PARS)
-      .replace('#include <begin_vertex>', VERT_POSITION);
-
-    // 3. Inject frag pars (declares uFadeStart/uFadeEnd/vTornadoFade) +
-    //    uCartoon declaration + alpha fade + cartoon effect.
-    //    We do this ourselves so we don't depend on model.js finding the
-    //    #include <common> anchor (which we've already replaced above).
-    const FRAG_PARS_WITH_CARTOON = FRAG_PARS + '\nuniform float uCartoon;';
-    const FRAG_ALPHA_WITH_CARTOON = FRAG_ALPHA + '\n' + CARTOON_EFFECT;
-
-    shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\n' + FRAG_PARS_WITH_CARTOON)
-      .replace('#include <dithering_fragment>',
-               '#include <dithering_fragment>\n' + FRAG_ALPHA_WITH_CARTOON);
-
-    // 4. Run the inherited model.js callback only for any OTHER uniforms or
-    //    vertex work it may do — but its fragment shader replacements will
-    //    be no-ops since the anchors are already consumed (that's fine).
-    if (_prevOBC) _prevOBC(shader);
-
-    // 5. After model.js OBC runs, it overwrites shader.uniforms.uCartoon with
-    //    its own cartoonUniform reference — redirect it back to ours so that
-    //    setTornadoCartoon() can drive it via tornadoUniforms.
-    shader.uniforms.uCartoon = uniforms.uCartoon;
-
-    mat.userData.shader = shader;
-  };
-
-  mat.needsUpdate = true;
-  return mat;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Drive cartoon effect on active tornado meshes
-//  Called by model.js setCharacterWhiteWorld() so the tornado respects the
-//  white-world transition just like the skinned and explode meshes.
-// ─────────────────────────────────────────────────────────────────────────────
+function _injectTornadoShader(shader, uniforms, prevOBC, mat) {
+  // 1. Inject all tornado uniforms
+  Object.assign(shader.uniforms, uniforms);
+
+  // 2. Vertex: tornado displacement
+  shader.vertexShader = shader.vertexShader
+    .replace('#include <common>',       '#include <common>\n'   + VERT_PARS)
+    .replace('#include <begin_vertex>', VERT_POSITION);
+
+  // 3. Fragment: fade + cartoon
+  const FRAG_PARS_WITH_CARTOON  = FRAG_PARS + '\nuniform float uCartoon;';
+  const FRAG_ALPHA_WITH_CARTOON = FRAG_ALPHA + '\n' + CARTOON_EFFECT;
+
+  shader.fragmentShader = shader.fragmentShader
+    .replace('#include <common>', '#include <common>\n' + FRAG_PARS_WITH_CARTOON)
+    .replace('#include <dithering_fragment>',
+             '#include <dithering_fragment>\n' + FRAG_ALPHA_WITH_CARTOON);
+
+  // 4. Chain the inherited model.js callback
+  if (prevOBC) prevOBC(shader);
+
+  // 5. Re-claim uCartoon ownership from model.js
+  shader.uniforms.uCartoon = uniforms.uCartoon;
+
+  mat.userData.shader = shader;
+}
+
 export function setTornadoCartoon(t) {
   _tornadoMats.forEach(mat => {
     const u = mat.userData.shader?.uniforms ?? mat.userData.tornadoUniforms;
@@ -350,40 +336,47 @@ export function setTornadoCartoon(t) {
   });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Pose baker — converts a SkinnedMesh's current animated pose into a flat
-//  BufferGeometry so tornado clones show the right pose instead of T-pose.
-// ─────────────────────────────────────────────────────────────────────────────
 function _bakeSkinnedPose(skinnedMesh) {
-  // Ensure world matrices and bone matrices are up to date
-  skinnedMesh.updateWorldMatrix(true, false);
-  skinnedMesh.skeleton.update();
+  _ensureSkeletonUpToDate(skinnedMesh);
 
-  const srcGeo = skinnedMesh.geometry;
-  const base   = srcGeo.index ? srcGeo.toNonIndexed() : srcGeo.clone();
-
-  const posAttr    = base.attributes.position;
+  const base       = _toNonIndexedGeometry(skinnedMesh.geometry);
   const skinIndex  = base.attributes.skinIndex;
   const skinWeight = base.attributes.skinWeight;
+  if (!skinIndex || !skinWeight) return base;
 
-  if (!skinIndex || !skinWeight) return base;  // not actually skinned
+  const boneMatrices = _computeBoneMatrices(skinnedMesh);
+  const bakedPos     = _bakeVertexPositions(base.attributes.position, skinIndex, skinWeight, boneMatrices);
 
-  const vertex   = new THREE.Vector3();
-  const bakedPos = new Float32Array(posAttr.count * 3);
+  base.setAttribute('position', new THREE.BufferAttribute(bakedPos, 3));
+  base.deleteAttribute('skinIndex');
+  base.deleteAttribute('skinWeight');
+  return base;
+}
 
-  // Precompute bone matrices: boneMatrix = bone.matrixWorld * boneInverse
-  // (same as what the GPU shader does)
-  const boneMatrices = skinnedMesh.skeleton.bones.map((bone, i) => {
+function _ensureSkeletonUpToDate(skinnedMesh) {
+  skinnedMesh.updateWorldMatrix(true, false);
+  skinnedMesh.skeleton.update();
+}
+
+function _toNonIndexedGeometry(geometry) {
+  return geometry.index ? geometry.toNonIndexed() : geometry.clone();
+}
+
+function _computeBoneMatrices(skinnedMesh) {
+  const meshInv = new THREE.Matrix4().copy(skinnedMesh.matrixWorld).invert();
+  return skinnedMesh.skeleton.bones.map((bone, i) => {
     const m = new THREE.Matrix4();
     m.multiplyMatrices(bone.matrixWorld, skinnedMesh.skeleton.boneInverses[i]);
-    // Transform into mesh's local space
-    const meshInv = new THREE.Matrix4().copy(skinnedMesh.matrixWorld).invert();
     m.premultiply(meshInv);
     return m;
   });
+}
 
-  const _tmp  = new THREE.Vector3();
-  const _accum = new THREE.Vector3();
+function _bakeVertexPositions(posAttr, skinIndex, skinWeight, boneMatrices) {
+  const bakedPos = new Float32Array(posAttr.count * 3);
+  const vertex   = new THREE.Vector3();
+  const _tmp     = new THREE.Vector3();
+  const _accum   = new THREE.Vector3();
 
   for (let i = 0; i < posAttr.count; i++) {
     vertex.fromBufferAttribute(posAttr, i);
@@ -401,34 +394,31 @@ function _bakeSkinnedPose(skinnedMesh) {
     bakedPos[i * 3 + 1] = _accum.y;
     bakedPos[i * 3 + 2] = _accum.z;
   }
+  return bakedPos;
+}
 
-  base.setAttribute('position', new THREE.BufferAttribute(bakedPos, 3));
-  base.deleteAttribute('skinIndex');
-  base.deleteAttribute('skinWeight');
+function _buildTornadoGeo(srcMesh) {
+  const base = _resolveBaseGeometry(srcMesh);
+  base.computeVertexNormals();
+  _addPerTriangleAttributes(base);
   return base;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Geometry builder — identical to buildExplodeGeometry in explode.js
-// ─────────────────────────────────────────────────────────────────────────────
-function _buildTornadoGeo(srcMesh) {
-  // If this is a SkinnedMesh, bake the current animated pose first
-  const base = srcMesh.isSkinnedMesh
-    ? _bakeSkinnedPose(srcMesh)
-    : (srcMesh.geometry.index ? srcMesh.geometry.toNonIndexed() : srcMesh.geometry.clone());
+function _resolveBaseGeometry(srcMesh) {
+  if (srcMesh.isSkinnedMesh) return _bakeSkinnedPose(srcMesh);
+  return srcMesh.geometry.index ? srcMesh.geometry.toNonIndexed() : srcMesh.geometry.clone();
+}
 
-  base.computeVertexNormals();
-
-  const pos    = base.attributes.position;
+function _addPerTriangleAttributes(geometry) {
+  const pos    = geometry.attributes.position;
   const count  = pos.count;
   const center = new Float32Array(count * 3);
   const rand   = new Float32Array(count);
 
   for (let i = 0; i < count; i += 3) {
-    const ax = pos.getX(i),   ay = pos.getY(i),   az = pos.getZ(i);
-    const bx = pos.getX(i+1), by = pos.getY(i+1), bz = pos.getZ(i+1);
-    const cx = pos.getX(i+2), cy = pos.getY(i+2), cz = pos.getZ(i+2);
-    const mx = (ax+bx+cx)/3,  my = (ay+by+cy)/3,  mz = (az+bz+cz)/3;
+    const mx = (pos.getX(i) + pos.getX(i+1) + pos.getX(i+2)) / 3;
+    const my = (pos.getY(i) + pos.getY(i+1) + pos.getY(i+2)) / 3;
+    const mz = (pos.getZ(i) + pos.getZ(i+1) + pos.getZ(i+2)) / 3;
     const r  = Math.random();
     for (let v = 0; v < 3; v++) {
       center[(i+v)*3]   = mx;
@@ -438,28 +428,30 @@ function _buildTornadoGeo(srcMesh) {
     }
   }
 
-  base.setAttribute('aCenter', new THREE.BufferAttribute(center, 3));
-  base.setAttribute('aRand',   new THREE.BufferAttribute(rand,   1));
-  return base;
+  geometry.setAttribute('aCenter', new THREE.BufferAttribute(center, 3));
+  geometry.setAttribute('aRand',   new THREE.BufferAttribute(rand,   1));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Uniform sync helpers
 // ─────────────────────────────────────────────────────────────────────────────
-function _syncProgress() {
+
+function _syncProgressToMaterials() {
   _tornadoMats.forEach(mat => {
     const u = mat.userData.shader?.uniforms ?? mat.userData.tornadoUniforms;
     if (!u) return;
     u.uCloudProgress.value  = _cloudProgress;
     u.uTravelProgress.value = _travelProgress;
+    u.uTornadoRadius.value  = tornadoParams.tornadoRadius;
+    u.uTornadoHeight.value  = tornadoParams.tornadoHeight;
   });
 }
 
-function _syncLocalPositions() {
+function _syncLocalPositionsToMaterials() {
   if (!_group || !_tornadoMeshes.length) return;
   _group.updateMatrixWorld(true);
 
-  const worldOrigin = _group.position; // world-space origin = group's world position
+  const worldOrigin = _group.position;
 
   _tornadoMeshes.forEach((mesh, i) => {
     const mat = _tornadoMats[i];
@@ -467,8 +459,6 @@ function _syncLocalPositions() {
     const u = mat.userData.shader?.uniforms ?? mat.userData.tornadoUniforms;
     if (!u) return;
 
-    // Each tornado mesh has matrixWorld = _group.matrixWorld * mesh.localMatrix
-    // To convert world positions to this mesh's local space:
     _invModelMat.copy(mesh.matrixWorld).invert();
     _originLocal.copy(worldOrigin).applyMatrix4(_invModelMat);
     _destLocal.copy(_destination).applyMatrix4(_invModelMat);
@@ -479,29 +469,90 @@ function _syncLocalPositions() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Public API
+//  Public API: state queries
 // ─────────────────────────────────────────────────────────────────────────────
+
 export function isTornadoActive()       { return _phase >= 0; }
-export function isTornadoCameraActive() { return _camFollowing; }  // only during active travel
+export function isTornadoCameraActive() { return _camFollowing; }
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Public API: focusSpawnAndTravel (high-level entry point)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Focus the camera on the character, spawn the tornado cloud, and travel
+ * to the destination. Calls onArrived() once the character has reassembled
+ * and the camera controls have been restored.
+ *
+ * This is the single entry point that external code (e.g. whiteworld.js)
+ * should use — it handles the full focus → disassemble → travel → arrive
+ * sequence, including snapping the camera and updating OrbitControls.
+ */
+export function focusSpawnAndTravel(meshes, modelGroup, destination, onArrived) {
+  _focusCameraOnCharacter(modelGroup);
+  spawnCloud(meshes, modelGroup);
+  travelTo(destination, () => {
+    _updateControlsAfterArrival(destination);
+    if (onArrived) onArrived();
+  });
+}
+
+/**
+ * Snap the camera to look at the character's current position so the
+ * tornado disassembly is visible even if the player has walked away.
+ */
+function _focusCameraOnCharacter(modelGroup) {
+  if (!controls) return;
+
+  const charPos = modelGroup.position;
+  const lookAt  = new THREE.Vector3(charPos.x, charPos.y + 1.0, charPos.z);
+  controls.target.copy(lookAt);
+
+  const offset = new THREE.Vector3().subVectors(camera.position, controls.target);
+  const dist   = THREE.MathUtils.clamp(offset.length(), 4.5, 12.0);
+  offset.normalize().multiplyScalar(dist);
+  camera.position.copy(lookAt).add(offset);
+
+  controls.update();
+}
+
+/** Re-seat OrbitControls target on the destination after arrival. */
+function _updateControlsAfterArrival(destination) {
+  if (!controls) return;
+  const charY = _modelGroupRef ? _modelGroupRef.position.y : 0;
+  controls.target.set(destination.x, charY + 1.0, destination.z);
+  controls.update();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Public API: spawnCloud
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Hide the original character meshes, spawn tornado clones, start cloud phase.
- * meshes: visible THREE.Mesh[] from the character
- * modelGroup: the character's root THREE.Group
  */
 export function spawnCloud(meshes, modelGroup) {
-  // If a settle glide is still running, abort it and re-enable controls now
-  // so _disposeCloud finds them in a clean state.
-  if (_settling) {
-    _settling = false;
-    _settleT  = 0.0;
-    if (controls && !controls.enabled) controls.enabled = true;
-  }
+  _abortActiveSettle();
   _disposeCloud();
+  _initCloudState(modelGroup);
+  _hideOriginalMeshes(meshes);
+  _createTornadoGroup(modelGroup);
+  _createTornadoClones(meshes);
+  _syncProgressToMaterials();
+  _syncLocalPositionsToMaterials();
+}
 
-  _modelGroupRef = modelGroup;
-  _phase          = 1;   // go straight to travel, no cloud scatter phase
-  _cloudProgress  = 0.0; // pieces start assembled
+function _abortActiveSettle() {
+  if (!_settling) return;
+  _settling = false;
+  _settleT  = 0.0;
+  if (controls && !controls.enabled) controls.enabled = true;
+}
+
+function _initCloudState(modelGroup) {
+  _modelGroupRef  = modelGroup;
+  _phase          = 1;
+  _cloudProgress  = 0.0;
   _travelProgress = 0.0;
   _tornadoMats    = [];
   _tornadoMeshes  = [];
@@ -509,20 +560,24 @@ export function spawnCloud(meshes, modelGroup) {
   _settling       = false;
   _camEntryT      = 0.0;
   _destination.copy(modelGroup.position);
+}
 
-  // Hide originals — tornado clones take over visually
+function _hideOriginalMeshes(meshes) {
   meshes.forEach(m => {
     _originalMeshes.push({ mesh: m, wasVisible: m.visible });
     m.visible = false;
   });
+}
 
-  // Build tornado group with same transform as modelGroup
+function _createTornadoGroup(modelGroup) {
   _group = new THREE.Group();
   _group.position.copy(modelGroup.position);
   _group.quaternion.copy(modelGroup.quaternion);
   _group.scale.copy(modelGroup.scale);
   scene.add(_group);
+}
 
+function _createTornadoClones(meshes) {
   meshes.forEach(mesh => {
     if (!mesh.geometry) return;
     const srcMat = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
@@ -530,7 +585,7 @@ export function spawnCloud(meshes, modelGroup) {
     const geo    = _buildTornadoGeo(mesh);
 
     const m = new THREE.Mesh(geo, mat);
-    m.castShadow       = true;
+    m.castShadow      = true;
     m.frustumCulled    = false;
     m.matrix.copy(mesh.matrix);
     m.matrixAutoUpdate = false;
@@ -539,10 +594,11 @@ export function spawnCloud(meshes, modelGroup) {
     _tornadoMats.push(mat);
     _tornadoMeshes.push(m);
   });
-
-  _syncProgress();
-  _syncLocalPositions();
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Public API: travelTo
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Begin tornado travel toward world-space destination.
@@ -558,8 +614,8 @@ export function travelTo(destination, onArrived) {
   _originWorldPos.copy(_group.position);
   _camStartFollow();
 
-  _syncLocalPositions();
-  _syncProgress();
+  _syncLocalPositionsToMaterials();
+  _syncProgressToMaterials();
 }
 
 export function disposeCloud() { _disposeCloud(); }
@@ -567,75 +623,98 @@ export function disposeCloud() { _disposeCloud(); }
 // ─────────────────────────────────────────────────────────────────────────────
 //  Per-frame tick
 // ─────────────────────────────────────────────────────────────────────────────
+
 export function tickTornado(delta) {
   if (_phase < 0 && !_settling) return;
 
-  if (_phase >= 0) _syncLocalPositions();
+  if (_phase >= 0) _syncLocalPositionsToMaterials();
 
-
-  // ── Phase 1: tornado travel ─────────────────────────────────────────────
-  if (_phase === 1) {
-    _travelProgress = Math.min(_travelProgress + tornadoParams.travelSpeed * delta, 1.0);
-    _syncProgress();
-
-    if (_camFollowing) _camTickFollow(delta);
-
-    if (_travelProgress >= 1.0) {
-      _group.position.copy(_destination);
-      _group.position.y = _modelGroupRef ? _modelGroupRef.position.y : 0;
-      _phase = 2;
-    }
-  }
-
-  // ── Phase 2: reassembly ─────────────────────────────────────────────────
-  if (_phase === 2) {
-    _travelProgress = Math.max(_travelProgress - tornadoParams.reassembleSpeed * delta, 0.0);
-    _syncProgress();
-
-    if (_camFollowing) _camTickReassemble(delta);
-
-    if (_travelProgress <= 0.0) {
-      _phase        = -1;
-      _camFollowing = false;
-      _camBeginSettle();
-
-      const cb = _onArrived;
-      _onArrived = null;
-      setTimeout(() => { if (cb) cb(); _disposeCloud(); }, 80);
-    }
-  }
-
-  // ── Settle ───────────────────────────────────────────────────────────────
-  if (_settling) _camTickSettle(delta);
+  if (_phase === 1) _tickTravel(delta);
+  if (_phase === 2) _tickReassembly(delta);
+  if (_settling)    _camTickSettle(delta);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Internal helpers
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Phase 1: tornado travel ───────────────────────────────────────────────────
+
+function _tickTravel(delta) {
+  _travelProgress = Math.min(_travelProgress + tornadoParams.travelSpeed * delta, 1.0);
+  _syncProgressToMaterials();
+
+  if (_camFollowing) _camTickFollow(delta);
+
+  if (_travelProgress >= 1.0) {
+    _snapGroupToDestination();
+    _beginReassembly();
+  }
+}
+
+function _snapGroupToDestination() {
+  _group.position.copy(_destination);
+  _group.position.y = _modelGroupRef ? _modelGroupRef.position.y : 0;
+}
+
+// ── Phase 2: smooth reassembly ────────────────────────────────────────────────
+
+/** Enter reassembly — countdown from current progress to 0. */
+function _beginReassembly() {
+  _phase = 2;
+}
+
+function _tickReassembly(delta) {
+  _travelProgress = Math.max(_travelProgress - tornadoParams.reassembleSpeed * delta, 0.0);
+  _syncProgressToMaterials();
+
+  if (_camFollowing) _camTickReassemble(delta);
+
+  if (_travelProgress <= 0.0) {
+    _finishReassembly();
+  }
+}
+
+function _finishReassembly() {
+  _phase        = -1;
+  _camFollowing = false;
+  _camBeginSettle();
+
+  const cb = _onArrived;
+  _onArrived = null;
+  setTimeout(() => { if (cb) cb(); _disposeCloud(); }, 80);
+}
+
+
 function _disposeCloud() {
-  // Stop active travel/follow — but leave _settling alone if it is already
-  // running: _camTickSettle owns controls and will re-enable them when done.
   _camFollowing = false;
   _camEntryT    = 0.0;
 
-  // Only force-enable controls here if we are NOT mid-settle.
-  // If a settle is in progress it will re-enable controls itself on completion.
+  _restoreControlsIfNotSettling();
+  _restoreOriginalMeshes();
+  _destroyTornadoGroup();
+  _resetTornadoState();
+}
+
+function _restoreControlsIfNotSettling() {
   if (!_settling && controls && !controls.enabled) {
     controls.enabled = true;
   }
+}
 
+function _restoreOriginalMeshes() {
   _originalMeshes.forEach(({ mesh, wasVisible }) => { mesh.visible = wasVisible; });
   _originalMeshes = [];
+}
 
-  if (_group) {
-    _group.traverse(obj => {
-      if (!obj.isMesh) return;
-      obj.geometry.dispose();
-      if (obj.material) obj.material.dispose();
-    });
-    scene.remove(_group);
-    _group = null;
-  }
+function _destroyTornadoGroup() {
+  if (!_group) return;
+  _group.traverse(obj => {
+    if (!obj.isMesh) return;
+    obj.geometry.dispose();
+    if (obj.material) obj.material.dispose();
+  });
+  scene.remove(_group);
+  _group = null;
+}
+
+function _resetTornadoState() {
   _tornadoMats   = [];
   _tornadoMeshes = [];
   _phase         = -1;
