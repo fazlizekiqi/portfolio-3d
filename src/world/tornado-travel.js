@@ -19,6 +19,7 @@ import VERT_PARS     from '../shaders/tornado.vert.pars.glsl?raw';
 import VERT_POSITION from '../shaders/tornado.vert.position.glsl?raw';
 import FRAG_PARS     from '../shaders/tornado.frag.pars.glsl?raw';
 import FRAG_ALPHA    from '../shaders/tornado.frag.alpha.glsl?raw';
+import CARTOON_EFFECT from '../shaders/cartoon.frag.glsl?raw';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Tunable
@@ -78,17 +79,12 @@ let   _originWorldPos     = new THREE.Vector3();
 // Settle after reassembly
 let   _settling           = false;
 const _settleTarget       = new THREE.Vector3();
-const _settleCamPos       = new THREE.Vector3();
-const _camTargetSmoothed  = new THREE.Vector3();
 
 // Camera tuning
 const CAM_FOLLOW_HEIGHT   = 4.0;   // height above tornado centroid during travel
 const CAM_FOLLOW_DIST     = 7.0;   // distance behind tornado during travel
 const CAM_LERP_POS        = 0.6;   // camera position smoothing (lower = lazier)
 const CAM_LERP_LOOK       = 0.4;   // look-at smoothing
-const CAM_SETTLE_LERP     = 0.5;   // glide speed when handing back to OrbitControls
-const CAM_SETTLE_DIST     = 5.0;   // distance behind character after reassembly
-const CAM_SETTLE_HEIGHT   = 2.5;   // height above character after reassembly
 
 // Entry arc tuning
 const CAM_ENTRY_DURATION  = 1.1;   // seconds for the entry crane shot
@@ -185,24 +181,43 @@ function _camTickReassemble(delta) {
   _applyCameraLerp(delta, _tornadoWorldPos);
 }
 
+// Settle tuning
+const CAM_SETTLE_DURATION  = 2.8;  // total seconds for the camera glide
+const CAM_SETTLE_POS_LERP  = 1.8;  // exponential speed for position  (lower = slower)
+const CAM_SETTLE_LOOK_LERP = 2.2;  // exponential speed for look-at   (lower = slower)
+
+// Settle runtime state
+let _settleT             = 0.0;
+const _settleCamStart    = new THREE.Vector3();  // where camera was when settle began
+const _settleCamEnd      = new THREE.Vector3();  // where camera should rest
+const _settleLookStart   = new THREE.Vector3();  // look-at when settle began
+// _settleTarget is the final look-at (character position) — already declared above
+
 /**
- * Settle — after reassembly, gently glides the camera to a behind-character
- * position and hands control back to OrbitControls once it arrives.
+ * Settle — keeps OrbitControls DISABLED and manually glides the camera from
+ * its current follow position to a comfortable resting spot over
+ * CAM_SETTLE_DURATION seconds using exponential lerp for a natural ease-out.
+ * Only re-enables OrbitControls once the camera has fully arrived, seeding it
+ * with the exact final state so there is zero positional jump.
  */
 function _camTickSettle(delta) {
-  if (!controls) return;
+  if (!controls) { _settling = false; return; }
 
-  const pt = 1.0 - Math.exp(-CAM_SETTLE_LERP * delta);
-  _camPosSmoothed.lerp(_settleCamPos, pt);
-  _camTargetSmoothed.lerp(_settleTarget, pt);
+  _settleT = Math.min(_settleT + delta / CAM_SETTLE_DURATION, 1.0);
+
+  // Exponential lerp — fast at first, very slow tail-end
+  const pt = 1.0 - Math.exp(-CAM_SETTLE_POS_LERP  * delta);
+  const lt = 1.0 - Math.exp(-CAM_SETTLE_LOOK_LERP * delta);
+
+  _camPosSmoothed.lerp(_settleCamEnd, pt);
+  _camLookAtSmoothed.lerp(_settleTarget, lt);
 
   camera.position.copy(_camPosSmoothed);
-  camera.lookAt(_camTargetSmoothed);
-  controls.target.copy(_camTargetSmoothed);   // keep controls in sync every frame
+  camera.lookAt(_camLookAtSmoothed);
 
-  if (_camPosSmoothed.distanceTo(_settleCamPos) < 0.08) {
-    // Arrived — snap to exact target and hand back to OrbitControls
-    camera.position.copy(_settleCamPos);
+  if (_settleT >= 1.0) {
+    // Snap to exact final state, then hand to OrbitControls with zero velocity
+    camera.position.copy(_settleCamEnd);
     camera.lookAt(_settleTarget);
     controls.target.copy(_settleTarget);
     controls.enabled = true;
@@ -213,26 +228,32 @@ function _camTickSettle(delta) {
 
 /**
  * Begins the settle phase.
- * Computes where the camera should rest (behind the character, relative
- * to the direction it came from) and seeds smoothed state from wherever
- * the camera currently is so there is no jump.
+ * Computes a comfortable resting camera position (same distance/angle as the
+ * last follow frame, just lowered to a normal height) and starts the glide.
+ * OrbitControls stays disabled until the glide completes.
  */
 function _camBeginSettle() {
-  if (!controls) return;
-
-  const backDir = new THREE.Vector3()
-    .subVectors(_originWorldPos, _destination)
-    .setY(0).normalize();
-
   _settleTarget.set(_destination.x, _destination.y + 1.2, _destination.z);
-  _settleCamPos.copy(_destination)
-    .addScaledVector(backDir, CAM_SETTLE_DIST)
-    .setY(_destination.y + CAM_SETTLE_HEIGHT);
+  _settleT = 0.0;
 
-  // Seed from current position so the glide starts seamlessly
+  // Start from exactly where the camera is right now — no jump
+  _settleCamStart.copy(camera.position);
   _camPosSmoothed.copy(camera.position);
-  _camTargetSmoothed.copy(_camLookAtSmoothed);
+  _settleLookStart.copy(_camLookAtSmoothed);
+
+  // Compute a natural resting position: same XZ offset from character as the
+  // current camera, but normalised to a comfortable distance and height.
+  const offset = new THREE.Vector3().subVectors(camera.position, _settleTarget);
+  offset.y = 0;
+  const horizontalDist = THREE.MathUtils.clamp(offset.length(), 4.5, 9.0);
+  offset.normalize().multiplyScalar(horizontalDist);
+
+  _settleCamEnd.copy(_settleTarget)
+    .add(offset)
+    .setY(_settleTarget.y + 2.8);
+
   _settling = true;
+  // Controls remain disabled — _camTickSettle drives the camera manually
 }
 
 /**
@@ -271,7 +292,7 @@ function _buildTornadoMaterial(srcMat) {
     uRotRandTurns:     { value: tornadoParams.rotRandTurns },
     uFadeStart:        { value: tornadoParams.fadeStart },
     uFadeEnd:          { value: tornadoParams.fadeEnd },
-    uCartoon:          { value: 1.0 },
+    uCartoon:          { value: 0.0 },
   };
   mat.userData.tornadoUniforms = uniforms;
 
@@ -280,24 +301,35 @@ function _buildTornadoMaterial(srcMat) {
   const _prevOBC = mat.onBeforeCompile;
 
   mat.onBeforeCompile = (shader) => {
-    // 1. Inject tornado uniforms first
+    // 1. Inject all tornado uniforms (including our own uCartoon)
     Object.assign(shader.uniforms, uniforms);
 
-    // 2. Inject tornado vertex displacement (before any other vert modifications)
+    // 2. Inject tornado vertex displacement
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>',       '#include <common>\n'   + VERT_PARS)
       .replace('#include <begin_vertex>', VERT_POSITION);
 
-    // 3. Inject frag pars + alpha fade BEFORE model.js runs —
-    //    model.js will then append CARTOON_EFFECT + declare uCartoon on top of this.
-    shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\n' + FRAG_PARS)
-      .replace('#include <dithering_fragment>',
-               '#include <dithering_fragment>\n' + FRAG_ALPHA);
+    // 3. Inject frag pars (declares uFadeStart/uFadeEnd/vTornadoFade) +
+    //    uCartoon declaration + alpha fade + cartoon effect.
+    //    We do this ourselves so we don't depend on model.js finding the
+    //    #include <common> anchor (which we've already replaced above).
+    const FRAG_PARS_WITH_CARTOON = FRAG_PARS + '\nuniform float uCartoon;';
+    const FRAG_ALPHA_WITH_CARTOON = FRAG_ALPHA + '\n' + CARTOON_EFFECT;
 
-    // 4. Run the inherited model.js callback — declares uCartoon and
-    //    appends CARTOON_EFFECT after the (now-modified) dithering_fragment line.
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\n' + FRAG_PARS_WITH_CARTOON)
+      .replace('#include <dithering_fragment>',
+               '#include <dithering_fragment>\n' + FRAG_ALPHA_WITH_CARTOON);
+
+    // 4. Run the inherited model.js callback only for any OTHER uniforms or
+    //    vertex work it may do — but its fragment shader replacements will
+    //    be no-ops since the anchors are already consumed (that's fine).
     if (_prevOBC) _prevOBC(shader);
+
+    // 5. After model.js OBC runs, it overwrites shader.uniforms.uCartoon with
+    //    its own cartoonUniform reference — redirect it back to ours so that
+    //    setTornadoCartoon() can drive it via tornadoUniforms.
+    shader.uniforms.uCartoon = uniforms.uCartoon;
 
     mat.userData.shader = shader;
   };
@@ -307,10 +339,84 @@ function _buildTornadoMaterial(srcMat) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+//  Drive cartoon effect on active tornado meshes
+//  Called by model.js setCharacterWhiteWorld() so the tornado respects the
+//  white-world transition just like the skinned and explode meshes.
+// ─────────────────────────────────────────────────────────────────────────────
+export function setTornadoCartoon(t) {
+  _tornadoMats.forEach(mat => {
+    const u = mat.userData.shader?.uniforms ?? mat.userData.tornadoUniforms;
+    if (u?.uCartoon) u.uCartoon.value = t;
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Pose baker — converts a SkinnedMesh's current animated pose into a flat
+//  BufferGeometry so tornado clones show the right pose instead of T-pose.
+// ─────────────────────────────────────────────────────────────────────────────
+function _bakeSkinnedPose(skinnedMesh) {
+  // Ensure world matrices and bone matrices are up to date
+  skinnedMesh.updateWorldMatrix(true, false);
+  skinnedMesh.skeleton.update();
+
+  const srcGeo = skinnedMesh.geometry;
+  const base   = srcGeo.index ? srcGeo.toNonIndexed() : srcGeo.clone();
+
+  const posAttr    = base.attributes.position;
+  const skinIndex  = base.attributes.skinIndex;
+  const skinWeight = base.attributes.skinWeight;
+
+  if (!skinIndex || !skinWeight) return base;  // not actually skinned
+
+  const vertex   = new THREE.Vector3();
+  const bakedPos = new Float32Array(posAttr.count * 3);
+
+  // Precompute bone matrices: boneMatrix = bone.matrixWorld * boneInverse
+  // (same as what the GPU shader does)
+  const boneMatrices = skinnedMesh.skeleton.bones.map((bone, i) => {
+    const m = new THREE.Matrix4();
+    m.multiplyMatrices(bone.matrixWorld, skinnedMesh.skeleton.boneInverses[i]);
+    // Transform into mesh's local space
+    const meshInv = new THREE.Matrix4().copy(skinnedMesh.matrixWorld).invert();
+    m.premultiply(meshInv);
+    return m;
+  });
+
+  const _tmp  = new THREE.Vector3();
+  const _accum = new THREE.Vector3();
+
+  for (let i = 0; i < posAttr.count; i++) {
+    vertex.fromBufferAttribute(posAttr, i);
+    _accum.set(0, 0, 0);
+
+    for (let j = 0; j < 4; j++) {
+      const boneIdx = skinIndex.getComponent(i, j);
+      const weight  = skinWeight.getComponent(i, j);
+      if (weight === 0) continue;
+      _tmp.copy(vertex).applyMatrix4(boneMatrices[boneIdx]).multiplyScalar(weight);
+      _accum.add(_tmp);
+    }
+
+    bakedPos[i * 3]     = _accum.x;
+    bakedPos[i * 3 + 1] = _accum.y;
+    bakedPos[i * 3 + 2] = _accum.z;
+  }
+
+  base.setAttribute('position', new THREE.BufferAttribute(bakedPos, 3));
+  base.deleteAttribute('skinIndex');
+  base.deleteAttribute('skinWeight');
+  return base;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 //  Geometry builder — identical to buildExplodeGeometry in explode.js
 // ─────────────────────────────────────────────────────────────────────────────
-function _buildTornadoGeo(srcGeo) {
-  const base  = srcGeo.index ? srcGeo.toNonIndexed() : srcGeo.clone();
+function _buildTornadoGeo(srcMesh) {
+  // If this is a SkinnedMesh, bake the current animated pose first
+  const base = srcMesh.isSkinnedMesh
+    ? _bakeSkinnedPose(srcMesh)
+    : (srcMesh.geometry.index ? srcMesh.geometry.toNonIndexed() : srcMesh.geometry.clone());
+
   base.computeVertexNormals();
 
   const pos    = base.attributes.position;
@@ -384,6 +490,13 @@ export function isTornadoCameraActive() { return _camFollowing; }  // only durin
  * modelGroup: the character's root THREE.Group
  */
 export function spawnCloud(meshes, modelGroup) {
+  // If a settle glide is still running, abort it and re-enable controls now
+  // so _disposeCloud finds them in a clean state.
+  if (_settling) {
+    _settling = false;
+    _settleT  = 0.0;
+    if (controls && !controls.enabled) controls.enabled = true;
+  }
   _disposeCloud();
 
   _modelGroupRef = modelGroup;
@@ -414,7 +527,7 @@ export function spawnCloud(meshes, modelGroup) {
     if (!mesh.geometry) return;
     const srcMat = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
     const mat    = _buildTornadoMaterial(srcMat);
-    const geo    = _buildTornadoGeo(mesh.geometry);
+    const geo    = _buildTornadoGeo(mesh);
 
     const m = new THREE.Mesh(geo, mat);
     m.castShadow       = true;
@@ -500,13 +613,14 @@ export function tickTornado(delta) {
 //  Internal helpers
 // ─────────────────────────────────────────────────────────────────────────────
 function _disposeCloud() {
-  // Stop camera control immediately so nothing else fights controls state
+  // Stop active travel/follow — but leave _settling alone if it is already
+  // running: _camTickSettle owns controls and will re-enable them when done.
   _camFollowing = false;
-  _settling     = false;
   _camEntryT    = 0.0;
 
-  // Re-enable controls before restoring meshes so the caller gets clean state
-  if (controls && !controls.enabled) {
+  // Only force-enable controls here if we are NOT mid-settle.
+  // If a settle is in progress it will re-enable controls itself on completion.
+  if (!_settling && controls && !controls.enabled) {
     controls.enabled = true;
   }
 

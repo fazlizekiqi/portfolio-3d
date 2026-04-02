@@ -4,6 +4,7 @@ import { scene, camera } from '../scene.js';
 import { LAYER } from '../layers.js';
 import { aimLights } from '../world/blueworld.js';
 import { initExplode, setOnReassembled, setExplodeCartoon } from './explode.js';
+import { setTornadoCartoon } from '../world/tornado-travel.js';
 import CARTOON_EFFECT from '../shaders/cartoon.frag.glsl?raw';
 
 // ── Wireframe overlay state ───────────────────────────────────────────────────
@@ -164,5 +165,7 @@ export function setCharacterWhiteWorld(t) {
   _cartoonUniforms.forEach(u => { u.value = t; });
   // Explode meshes
   setExplodeCartoon(t);
+  // Tornado travel meshes
+  setTornadoCartoon(t);
 }
 
