@@ -84,8 +84,13 @@ const _pivotPos   = new THREE.Vector3();
 const keys = {};
 
 // ── Key listeners ─────────────────────────────────────────────────────────────
-function onKeyDown(e) { keys[e.code] = true; }
-function onKeyUp(e)   { keys[e.code] = false; }
+function onKeyDown(e) {
+  keys[e.code] = true;
+  if (active && ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)) {
+    e.preventDefault();
+  }
+}
+function onKeyUp(e) { keys[e.code] = false; }
 document.addEventListener('keydown', onKeyDown);
 document.addEventListener('keyup',   onKeyUp);
 
@@ -98,7 +103,7 @@ hint.style.cssText = `
   background:rgba(2,8,18,0.82);border:1px solid rgba(0,150,200,0.28);
   padding:7px 20px;border-radius:3px;backdrop-filter:blur(10px);
   opacity:0;transition:opacity 0.5s ease;pointer-events:none;`;
-hint.textContent = 'W A S D  TO  MOVE   ·   SHIFT  TO  RUN';
+hint.textContent = 'W A S D  ·  ↑ ↓ ← →  TO  MOVE   ·   SHIFT  TO  RUN';
 document.body.appendChild(hint);
 
 function showHint() { hint.style.opacity = '1'; }
@@ -190,10 +195,10 @@ export function tickPlayer(delta) {
   if (!active) return;
 
   const sprint    = keys['ShiftLeft'] || keys['ShiftRight'];
-  const fwd       = keys['KeyW'];
-  const back      = keys['KeyS'];
-  const turnLeft  = keys['KeyA'];
-  const turnRight = keys['KeyD'];
+  const fwd       = keys['KeyW']      || keys['ArrowUp'];
+  const back      = keys['KeyS']      || keys['ArrowDown'];
+  const turnLeft  = keys['KeyA']      || keys['ArrowLeft'];
+  const turnRight = keys['KeyD']      || keys['ArrowRight'];
 
   // ── Rotation ────────────────────────────────────────────────────────────
   if (turnLeft)  facingAngle += playerParams.rotateSpeed * delta;

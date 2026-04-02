@@ -73,21 +73,179 @@ const _camPos             = new THREE.Vector3();
 const _camPosSmoothed     = new THREE.Vector3();
 const _camLookAtSmoothed  = new THREE.Vector3();
 let   _camFollowing       = false;
-let   _originWorldPos     = new THREE.Vector3();   // world pos at start of travel
+let   _originWorldPos     = new THREE.Vector3();
 
 // Settle after reassembly
 let   _settling           = false;
 const _settleTarget       = new THREE.Vector3();
 const _settleCamPos       = new THREE.Vector3();
 const _camTargetSmoothed  = new THREE.Vector3();
-const _prevSmoothedTarget = new THREE.Vector3();
 
-// Camera placement params
-const CAM_FOLLOW_HEIGHT   = 5.0;
-const CAM_FOLLOW_DIST     = 9.0;
-const CAM_LERP_POS        = 1.2;
-const CAM_LERP_LOOK       = 0.8;
-const CAM_SETTLE_LERP     = 0.9;
+// Camera tuning
+const CAM_FOLLOW_HEIGHT   = 4.0;   // height above tornado centroid during travel
+const CAM_FOLLOW_DIST     = 7.0;   // distance behind tornado during travel
+const CAM_LERP_POS        = 0.6;   // camera position smoothing (lower = lazier)
+const CAM_LERP_LOOK       = 0.4;   // look-at smoothing
+const CAM_SETTLE_LERP     = 0.5;   // glide speed when handing back to OrbitControls
+const CAM_SETTLE_DIST     = 5.0;   // distance behind character after reassembly
+const CAM_SETTLE_HEIGHT   = 2.5;   // height above character after reassembly
+
+// Entry arc tuning
+const CAM_ENTRY_DURATION  = 1.1;   // seconds for the entry crane shot
+const CAM_ENTRY_HEIGHT    = 5.0;   // extra height added at start of entry arc
+let   _camEntryT          = 0.0;   // 0→1 as entry progresses
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Camera methods — each owns one distinct moment of the journey
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Called once when travelTo() fires.
+ * Seeds all smoothed state from the current OrbitControls camera so there
+ * is zero first-frame jump, then disables controls so they can't fight us.
+ */
+function _camStartFollow() {
+  _camPosSmoothed.copy(camera.position);
+  _camPos.copy(camera.position);
+  _camLookAtSmoothed.copy(controls ? controls.target : _group.position);
+  _camEntryT    = 0.0;
+  _camFollowing = true;
+  if (controls) controls.enabled = false;
+}
+
+/**
+ * Entry crane shot — runs for CAM_ENTRY_DURATION seconds at the start of
+ * travel. The camera pulls back to an overhead position while looking down
+ * at the origin (the character dissolving), then arcs into the follow
+ * position as entryEase → 1.
+ *
+ * @returns {boolean} true once the entry arc is complete
+ */
+function _camTickEntry(delta, followPos) {
+  _camEntryT = Math.min(_camEntryT + delta / CAM_ENTRY_DURATION, 1.0);
+  const ease = 1.0 - Math.pow(1.0 - _camEntryT, 3);   // cubic ease-out
+
+  // Position: start where camera was, rise above followPos, descend into it
+  const entryPos = new THREE.Vector3()
+    .copy(_camPosSmoothed)
+    .lerp(
+      new THREE.Vector3().copy(followPos).setY(followPos.y + CAM_ENTRY_HEIGHT * (1.0 - ease)),
+      ease
+    );
+
+  // Look-at: origin → tornado centroid
+  const entryLookAt = new THREE.Vector3()
+    .copy(_originWorldPos).setY(_originWorldPos.y + 1.2)
+    .lerp(_tornadoWorldPos, ease);
+
+  _camPos.copy(entryPos);
+  _applyCameraLerp(delta, entryLookAt);
+  return _camEntryT >= 1.0;
+}
+
+/**
+ * Normal follow — camera sits behind and above the tornado centroid,
+ * lazily chasing it with exponential lerp.
+ */
+function _camTickFollow(delta) {
+  _tornadoWorldPos.lerpVectors(_originWorldPos, _destination, _travelProgress);
+  _tornadoWorldPos.y += 1.2;
+
+  const travelDir = new THREE.Vector3()
+    .subVectors(_destination, _originWorldPos)
+    .setY(0).normalize();
+
+  const dist      = THREE.MathUtils.clamp(
+    _camPosSmoothed.distanceTo(_tornadoWorldPos),
+    CAM_FOLLOW_DIST, CAM_FOLLOW_DIST * 1.5
+  );
+  const followPos = new THREE.Vector3()
+    .copy(_tornadoWorldPos)
+    .addScaledVector(travelDir, -dist * 0.85)
+    .setY(_tornadoWorldPos.y + CAM_FOLLOW_HEIGHT);
+
+  const entryDone = _camEntryT >= 1.0;
+  if (!entryDone) {
+    // Still in entry arc — run it, hand off once complete
+    _camTickEntry(delta, followPos);
+    return;
+  }
+
+  _camPos.copy(followPos);
+  _applyCameraLerp(delta, _tornadoWorldPos);
+}
+
+/**
+ * Reassembly — tornado has arrived; camera holds its position and watches
+ * the pieces converge at the destination.
+ */
+function _camTickReassemble(delta) {
+  _tornadoWorldPos.set(_destination.x, _destination.y + 1.2, _destination.z);
+  // _camPos intentionally unchanged — hold the last follow position
+  _applyCameraLerp(delta, _tornadoWorldPos);
+}
+
+/**
+ * Settle — after reassembly, gently glides the camera to a behind-character
+ * position and hands control back to OrbitControls once it arrives.
+ */
+function _camTickSettle(delta) {
+  if (!controls) return;
+
+  const pt = 1.0 - Math.exp(-CAM_SETTLE_LERP * delta);
+  _camPosSmoothed.lerp(_settleCamPos, pt);
+  _camTargetSmoothed.lerp(_settleTarget, pt);
+
+  camera.position.copy(_camPosSmoothed);
+  camera.lookAt(_camTargetSmoothed);
+  controls.target.copy(_camTargetSmoothed);   // keep controls in sync every frame
+
+  if (_camPosSmoothed.distanceTo(_settleCamPos) < 0.08) {
+    // Arrived — snap to exact target and hand back to OrbitControls
+    camera.position.copy(_settleCamPos);
+    camera.lookAt(_settleTarget);
+    controls.target.copy(_settleTarget);
+    controls.enabled = true;
+    controls.update();
+    _settling = false;
+  }
+}
+
+/**
+ * Begins the settle phase.
+ * Computes where the camera should rest (behind the character, relative
+ * to the direction it came from) and seeds smoothed state from wherever
+ * the camera currently is so there is no jump.
+ */
+function _camBeginSettle() {
+  if (!controls) return;
+
+  const backDir = new THREE.Vector3()
+    .subVectors(_originWorldPos, _destination)
+    .setY(0).normalize();
+
+  _settleTarget.set(_destination.x, _destination.y + 1.2, _destination.z);
+  _settleCamPos.copy(_destination)
+    .addScaledVector(backDir, CAM_SETTLE_DIST)
+    .setY(_destination.y + CAM_SETTLE_HEIGHT);
+
+  // Seed from current position so the glide starts seamlessly
+  _camPosSmoothed.copy(camera.position);
+  _camTargetSmoothed.copy(_camLookAtSmoothed);
+  _settling = true;
+}
+
+/**
+ * Shared lerp step used by follow, entry and reassemble.
+ */
+function _applyCameraLerp(delta, lookTarget) {
+  const pt = 1.0 - Math.exp(-CAM_LERP_POS  * delta);
+  const lt = 1.0 - Math.exp(-CAM_LERP_LOOK * delta);
+  _camPosSmoothed.lerp(_camPos, pt);
+  _camLookAtSmoothed.lerp(lookTarget, lt);
+  camera.position.copy(_camPosSmoothed);
+  camera.lookAt(_camLookAtSmoothed);
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Material builder — identical pattern to buildExplodeMaterial
@@ -236,6 +394,7 @@ export function spawnCloud(meshes, modelGroup) {
   _tornadoMeshes  = [];
   _originalMeshes = [];
   _settling       = false;
+  _camEntryT      = 0.0;
   _destination.copy(modelGroup.position);
 
   // Hide originals — tornado clones take over visually
@@ -283,16 +442,8 @@ export function travelTo(destination, onArrived) {
   _phase          = 1;
   _travelProgress = 0;
 
-  // Remember where we started for camera offset calculation
   _originWorldPos.copy(_group.position);
-
-  // Seed smoothed camera state from current camera so there's no first-frame jump
-  _camPosSmoothed.copy(camera.position);
-  _camLookAtSmoothed.copy(controls ? controls.target : _group.position);
-  _camFollowing = true;
-
-  // Disable OrbitControls so it doesn't fight our camera movement
-  if (controls) controls.enabled = false;
+  _camStartFollow();
 
   _syncLocalPositions();
   _syncProgress();
@@ -314,34 +465,7 @@ export function tickTornado(delta) {
     _travelProgress = Math.min(_travelProgress + tornadoParams.travelSpeed * delta, 1.0);
     _syncProgress();
 
-    if (_camFollowing) {
-      // Tornado centroid world position
-      _tornadoWorldPos.lerpVectors(_originWorldPos, _destination, _travelProgress);
-      _tornadoWorldPos.y += 1.2;
-
-      // Travel direction flat on XZ plane
-      const travelDir = new THREE.Vector3()
-        .subVectors(_destination, _originWorldPos)
-        .setY(0).normalize();
-
-      // Preserve the user's current camera distance from the centroid
-      // so we never change the zoom level — just shift behind the tornado
-      const currentDist = _camPosSmoothed.distanceTo(_tornadoWorldPos);
-      const followDist  = Math.max(currentDist, CAM_FOLLOW_DIST);
-
-      // Desired: same radius, but positioned behind (−travelDir) and elevated
-      _camPos.copy(_tornadoWorldPos)
-        .addScaledVector(travelDir, -followDist * 0.85)
-        .setY(_tornadoWorldPos.y + CAM_FOLLOW_HEIGHT);
-
-      const pt = 1.0 - Math.exp(-CAM_LERP_POS  * delta);
-      const lt = 1.0 - Math.exp(-CAM_LERP_LOOK * delta);
-      _camPosSmoothed.lerp(_camPos, pt);
-      _camLookAtSmoothed.lerp(_tornadoWorldPos, lt);
-
-      camera.position.copy(_camPosSmoothed);
-      camera.lookAt(_camLookAtSmoothed);
-    }
+    if (_camFollowing) _camTickFollow(delta);
 
     if (_travelProgress >= 1.0) {
       _group.position.copy(_destination);
@@ -355,39 +479,12 @@ export function tickTornado(delta) {
     _travelProgress = Math.max(_travelProgress - tornadoParams.reassembleSpeed * delta, 0.0);
     _syncProgress();
 
-    // Keep camera looking at the reassembly point
-    if (_camFollowing) {
-      _tornadoWorldPos.set(_destination.x, _destination.y + 1.2, _destination.z);
-
-      const pt = 1.0 - Math.exp(-CAM_LERP_POS  * delta);
-      const lt = 1.0 - Math.exp(-CAM_LERP_LOOK * delta);
-      _camPosSmoothed.lerp(_camPos, pt);   // keep holding last desired cam pos
-      _camLookAtSmoothed.lerp(_tornadoWorldPos, lt);
-
-      camera.position.copy(_camPosSmoothed);
-      camera.lookAt(_camLookAtSmoothed);
-    }
+    if (_camFollowing) _camTickReassemble(delta);
 
     if (_travelProgress <= 0.0) {
       _phase        = -1;
       _camFollowing = false;
-
-      // Build settle targets: camera behind the character, target at its head
-      if (controls) {
-        // backDir: from destination toward origin = behind the character
-        const backDir = new THREE.Vector3()
-          .subVectors(_originWorldPos, _destination)
-          .setY(0).normalize();
-
-        _settleTarget.set(_destination.x, _destination.y + 1.2, _destination.z);
-        _settleCamPos.copy(_destination)
-          .addScaledVector(backDir, 5.5)   // positive = toward origin = behind char
-          .setY(_destination.y + 3.5);
-
-        _camTargetSmoothed.copy(_settleTarget);
-        _prevSmoothedTarget.copy(_settleTarget);
-        _settling = true;
-      }
+      _camBeginSettle();
 
       const cb = _onArrived;
       _onArrived = null;
@@ -395,23 +492,8 @@ export function tickTornado(delta) {
     }
   }
 
-  // ── Settle: smoothly glide camera to behind-character position ────────────
-  if (_settling && controls) {
-    const pt = 1.0 - Math.exp(-CAM_SETTLE_LERP * delta);
-    _camPosSmoothed.lerp(_settleCamPos, pt);
-    _camTargetSmoothed.lerp(_settleTarget, pt);
-
-    camera.position.copy(_camPosSmoothed);
-    camera.lookAt(_camTargetSmoothed);
-
-    if (_camPosSmoothed.distanceTo(_settleCamPos) < 0.05) {
-      controls.target.copy(_settleTarget);
-      camera.position.copy(_settleCamPos);
-      controls.enabled = true;
-      controls.update();
-      _settling = false;
-    }
-  }
+  // ── Settle ───────────────────────────────────────────────────────────────
+  if (_settling) _camTickSettle(delta);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -421,6 +503,7 @@ function _disposeCloud() {
   // Stop camera control immediately so nothing else fights controls state
   _camFollowing = false;
   _settling     = false;
+  _camEntryT    = 0.0;
 
   // Re-enable controls before restoring meshes so the caller gets clean state
   if (controls && !controls.enabled) {
