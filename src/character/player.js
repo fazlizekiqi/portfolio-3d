@@ -64,8 +64,9 @@ export const playerParams = {
 // via the tick, so the constants are gone; just reference playerParams directly.
 const VT_WALK_IN    = 0.05;
 const VT_RUN_IN     = 0.85;
-const MOVE_EPSILON  = VT_WALK_IN;
+const MOVE_EPSILON  = 0.12;   // raised: character must be meaningfully moving before translation starts
 const TRANSITION_FADE = 0.18;
+const EDGE_MARGIN   = 0.35;   // extra raycasts this far ahead to keep feet on island
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let active      = false;
@@ -232,9 +233,14 @@ export function tickPlayer(delta) {
     const newX = modelGroup.position.x + Math.sin(facingAngle) * dir * dist;
     const newZ = modelGroup.position.z + Math.cos(facingAngle) * dir * dist;
 
-    // Only allow the step if the destination is on the environment.
-    const groundY = getGroundY(newX, newZ);
-    if (groundY !== null) {
+    // Check both the new centre position AND a point EDGE_MARGIN ahead
+    // so the character's feet never overhang the island edge.
+    const groundY      = getGroundY(newX, newZ);
+    const footX        = newX + Math.sin(facingAngle) * dir * EDGE_MARGIN;
+    const footZ        = newZ + Math.cos(facingAngle) * dir * EDGE_MARGIN;
+    const groundYFront = getGroundY(footX, footZ);
+
+    if (groundY !== null && groundYFront !== null) {
       modelGroup.position.x = newX;
       modelGroup.position.z = newZ;
     }
@@ -253,18 +259,26 @@ export function tickPlayer(delta) {
   // ── One-shot transition tick ─────────────────────────────────────────────
   if (inTransition) {
     transitionTimer -= delta;
-    if (transitionTimer <= TRANSITION_FADE) {
+
+    // If the player started moving again while walking-to-idle was playing,
+    // break out immediately so movement always has a matching animation.
+    if (isMoving && currentAnim === 'walking-to-idle') {
+      inTransition = false;
+      currentAnim  = '';   // force setAnim to re-evaluate below
+    } else if (transitionTimer <= TRANSITION_FADE) {
       // Timer expired — crossfade into the follow-up clip
       inTransition = false;
       setAnim(transitionNext, TRANSITION_FADE);
+      _tickCamera(isMoving, delta);
+      return;
+    } else {
+      _tickCamera(isMoving, delta);
+      return;
     }
-    // Skip the main state machine while the one-shot is running
-    _tickCamera(isMoving, delta);
-    return;
   }
 
   // ── Animation state machine ──────────────────────────────────────────────
-  const wasIdle    = currentAnim === 'idle' || currentAnim === 'walking-to-idle';
+  const wasIdle    = currentAnim === 'idle';  // walking-to-idle intentionally excluded — prevents re-triggering idle-to-walk mid-stop
   const wasWalking = currentAnim === 'walking' || currentAnim === 'idle-to-walk'
                   || currentAnim === 'walk-turn-left' || currentAnim === 'walk-turn-right'
                   || currentAnim === 'left strafe walking' || currentAnim === 'right strafe walking';
