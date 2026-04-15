@@ -65,7 +65,7 @@ export function goToSlide(name) {
   _slideTimer   = slide.duration;
   resetSlideElapsed();
 
-  nextBtn.style.display = isLastSlide(name) ? 'none' : 'block';
+  nextBtn.style.display = isLastSlide(name) ? 'none' : 'inline-flex';
   startCameraMove(slide.camPos, slide.camTarget);
   playClip(slide.clip);
   hideCard();

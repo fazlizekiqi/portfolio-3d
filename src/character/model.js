@@ -68,7 +68,7 @@ function stripRootMotion(clip) {
 }
 
 // ── Load ──────────────────────────────────────────────────────────────────────
-export function loadModel(onReady) {
+export function loadModel(onReady, onProgress) {
   new GLTFLoader().load(
     `${import.meta.env.BASE_URL}models/locomotive-character.glb`,
     (gltf) => {
@@ -138,7 +138,11 @@ export function loadModel(onReady) {
 
       if (onReady) onReady();
     },
-    undefined,
+    (xhr) => {
+      if (onProgress && xhr.total) {
+        onProgress(xhr.loaded / xhr.total);
+      }
+    },
     (err) => console.error('GLB error:', err)
   );
 }

@@ -1,19 +1,11 @@
 import { GUI } from 'dat.gui';
-import { goToWhiteWorld, goToBlueWorld, isWhiteWorld } from './transition.js';
 import { wwLightParams } from './world/blueworld.js';
 import { tornadoCamParams, tornadoParams } from './world/tornado-travel.js';
 import { playerParams } from './character/player.js';
 import { waterParams } from './world/whiteworld.js';
 
-// ── Keyboard shortcuts ────────────────────────────────────────────────────────
-window.addEventListener('keydown', (e) => {
-  switch (e.key.toLowerCase()) {
-    case 't': isWhiteWorld() ? goToBlueWorld() : goToWhiteWorld(); break;
-  }
-});
-
-// ── dat.gui panel ─────────────────────────────────────────────────────────────
-const gui = new GUI({ width: 280 });
+// ── dat.gui panel — starts closed ─────────────────────────────────────────────
+const gui = new GUI({ width: 280, closed: true });
 gui.domElement.style.cssText += 'z-index:200;';
 
 // ── White-world lighting folder ───────────────────────────────────────────────
@@ -43,11 +35,6 @@ fWLback.addColor(wwLightParams, 'backLightColor'    ).name('Color');
 fWLback.add(    wwLightParams,  'backLightIntensity', 0, 10,  0.1 ).name('Intensity');
 fWLback.add(    wwLightParams,  'backLightHeight',    0,  5,  0.05).name('Height');
 fWLback.add(    wwLightParams,  'backLightDist',      0.5, 10, 0.1).name('Distance');
-fWLback.open();
-
-fWL.open();
-fWLamb.open();
-fWLkey.open();
 
 // ── Tornado camera folder ────────────────────────────────────────────────────
 const fTC = gui.addFolder('🌪 Tornado Camera');
@@ -57,7 +44,6 @@ fTCfollow.add(tornadoCamParams, 'followHeight',  0.5, 15.0, 0.1).name('Height');
 fTCfollow.add(tornadoCamParams, 'followDist',    1.0, 20.0, 0.1).name('Distance');
 fTCfollow.add(tornadoCamParams, 'lerpPos',       0.05, 5.0, 0.05).name('Pos lerp');
 fTCfollow.add(tornadoCamParams, 'lerpLook',      0.05, 5.0, 0.05).name('Look lerp');
-fTCfollow.open();
 
 const fTCentry = fTC.addFolder('Entry crane');
 fTCentry.add(tornadoCamParams, 'entryDuration',  0.2, 5.0, 0.1).name('Duration (s)');
@@ -70,14 +56,10 @@ fTCsettle.add(tornadoCamParams, 'settleLookLerp', 0.1, 8.0, 0.1).name('Look lerp
 
 const fTCreassemble = fTC.addFolder('Reassembly');
 fTCreassemble.add(tornadoParams, 'reassembleSpeed', 0.05, 2.0, 0.01).name('Speed');
-fTCreassemble.open();
 
 const fTCshape = fTC.addFolder('Tornado shape');
 fTCshape.add(tornadoParams, 'tornadoRadius', 0.1, 5.0, 0.1).name('Radius');
 fTCshape.add(tornadoParams, 'tornadoHeight', 0.0, 5.0, 0.1).name('Height');
-fTCshape.open();
-
-fTC.open();
 
 // ── Player camera folder ──────────────────────────────────────────────────────
 const fPC = gui.addFolder('🎮 Player Camera');
@@ -97,14 +79,3 @@ fW.add(     waterParams, 'rippling',   0.0,  0.5,  0.001).name('Rippling');
 fW.add(     waterParams, 'foamScale',  0.1,  5.0,  0.1  ).name('Foam scale');
 fW.add(     waterParams, 'speed',      0.0,  4.0,  0.05 ).name('Speed');
 fW.add(     waterParams, 'posY',      -2.0,  0.5,  0.01 ).name('Height (Y)');
-fW.open();
-
-// ── Small hint label ─────────────────────────────────────────────────────────
-const hint = document.createElement('div');
-hint.style.cssText = `
-  position:fixed;bottom:16px;right:16px;z-index:100;
-  font-family:'Share Tech Mono','Courier New',monospace;
-  font-size:10px;color:#224455;letter-spacing:.06em;
-  pointer-events:none;line-height:1.8;text-align:right;`;
-hint.innerHTML = `[T] toggle world`;
-document.body.appendChild(hint);

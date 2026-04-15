@@ -5,17 +5,91 @@ import { tickExplode, getExplodeGroup, introScene } from './character/explode.js
 import { tickPlayer } from './character/player.js';
 import { tickPresentation, initCameraState } from './presentation/presentation.js';
 import { initBlueWorld, tickBlueWorld, tickLightsForWorld } from './world/blueworld.js';
-import { tickWhiteWorld, setWhiteWorldCharacterRef, showWaypointButtons, hideWaypointButtons } from './world/whiteworld.js';
+import { tickWhiteWorld, setWhiteWorldCharacterRef, showWaypointButtons, hideWaypointButtons, loadEnvironment } from './world/whiteworld.js';
 import { isTornadoCameraActive } from './world/tornado-travel.js';
 import { tickTransition, isWhiteWorld, isTransitioning, getProgress } from './transition.js';
 import { tickFps } from './fps.js';
+import { showLoader, updateLoader, hideLoader } from './loader.js';
+import { initJoystick } from './joystick.js';
 import './gui.js';
 
 // ── Initialise blue world objects + lights ────────────────────────────────────
 initBlueWorld();
 
+// ── Initialise joystick (touch devices) ──────────────────────────────────────
+initJoystick();
+
+// ── Boot: show loader, load both models, then start ──────────────────────────
+showLoader();
+updateLoader(0, 'LOADING');
+
+// Track progress of both assets independently (0‥1 each).
+// Character = 60 % weight, environment = 40 % weight.
+let _charProg = 0;
+let _envProg  = 0;
+function _updateOverallProgress() {
+  updateLoader(_charProg * 0.6 + _envProg * 0.4,
+    _charProg < 1 ? 'CHARACTER' : 'ENVIRONMENT');
+}
+
+// ── Start loading environment ─────────────────────────────────────────────────
+let _envDone = false;
+loadEnvironment((p) => {
+  _envProg = p;
+  _updateOverallProgress();
+});
+
+// We cannot easily hook the env "loaded" callback from here since whiteworld
+// loads it internally. Instead poll: check every tick in _tryStart.
+// The env is considered ready when _walkMeshes are populated — we detect that
+// by watching if the env raycaster can find ground (takes ~1 frame after load).
+// Simpler: just use a flag driven by a settled progress value.
+
 // ── Load model, then start loop ───────────────────────────────────────────────
-loadModel(() => {
+let _charDone = false;
+loadModel(
+  () => {
+    _charProg = 1;
+    _charDone = true;
+    _updateOverallProgress();
+    _tryStart();
+  },
+  (p) => {
+    _charProg = p;
+    _updateOverallProgress();
+  },
+);
+
+// Poll for env completion (progress reaches 1 or close enough)
+const _envPollId = setInterval(() => {
+  if (_envProg >= 0.999) {
+    clearInterval(_envPollId);
+    _envDone = true;
+    _envProg = 1;
+    _updateOverallProgress();
+    _tryStart();
+  }
+}, 100);
+
+// Safety timeout: if env progress never fires (e.g. already cached)
+// give it 3 s max before forcing start anyway.
+const _envTimeout = setTimeout(() => {
+  clearInterval(_envPollId);
+  _envDone = true;
+  _tryStart();
+}, 3000);
+
+function _tryStart() {
+  if (!_charDone || !_envDone) return;
+  clearTimeout(_envTimeout);
+  updateLoader(1, 'READY');
+  setTimeout(() => {
+    hideLoader();
+    _startApp();
+  }, 400);
+}
+
+function _startApp() {
   initCameraState();
   introScene(); // character starts scattered and reassembles into the blue world
 
@@ -142,4 +216,4 @@ loadModel(() => {
   }
 
   animate();
-});
+}
