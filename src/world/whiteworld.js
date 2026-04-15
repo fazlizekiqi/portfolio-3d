@@ -144,24 +144,28 @@ function _loadEnvironment() {
     (gltf) => {
       const root = gltf.scene;
 
-      // Centre the model horizontally and sit its bottom at y = -0.95
-      // (same ground level the old plane used).
+      // Measure the raw geometry before any repositioning.
       const box    = new THREE.Box3().setFromObject(root);
       const center = box.getCenter(new THREE.Vector3());
 
+      // Centre horizontally and sit the TOP surface of the model at y = 0.
+      // This way the walkable surface is always at a known world-space Y,
+      // regardless of how the GLB was exported or scaled in Blender.
       root.position.x -= center.x;
       root.position.z -= center.z;
-      root.position.y  = -0.95 - box.min.y;   // land surface → y = -0.95
+      root.position.y  = -box.max.y;   // top surface → y = 0
 
-      // Replace every mesh material with the iris-alpha cartoon shader so the
-      // environment participates in the white-world transition (iris wipe).
+      // Apply the position so child world-matrices are correct before
+      // we traverse and push meshes into _walkMeshes.
+      root.updateMatrixWorld(true);
+
+      // Replace every mesh material with the iris-alpha cartoon shader.
       root.traverse((child) => {
         if (!child.isMesh) return;
 
         const baseColor = _colorFromMesh(child);
         child.material  = _makeEnvFillMaterial(baseColor);
 
-        // Add a matching line-segment overlay for the cartoon outline look.
         const edges    = new THREE.EdgesGeometry(child.geometry, 15);
         const outColor = baseColor.getHSL({}).l < 0.5 ? 0x000000 : 0x111111;
         const lines    = new THREE.LineSegments(edges, _makeEnvLineMaterial(outColor));
@@ -173,12 +177,10 @@ function _loadEnvironment() {
 
       setWorldLayer(root, LAYER.WHITE, true);
       scene.add(root);
-
-      // Force world-matrix update so raycasts use final positions immediately.
       root.updateMatrixWorld(true);
     },
     undefined,
-    (err) => console.error('[whiteworld] Failed to load test-env.glb:', err),
+    (err) => console.error('[whiteworld] Failed to load env glb:', err),
   );
 }
 _loadEnvironment();
@@ -202,11 +204,11 @@ export function setWhiteWorldCharacterRef(getPos, getMeshes, setPos, getModelGro
 //  Waypoint data
 // ─────────────────────────────────────────────────────────────────────────────
 const WAYPOINTS = [
-  new THREE.Vector3(  0.0, -0.9, -40.0),  // Zone1_Swedish
-  new THREE.Vector3( 34.0, -0.9, -24.0),  // Zone2_Kosovo
-  new THREE.Vector3( 36.0, -0.9,  20.0),  // Zone3_Suburb
-  new THREE.Vector3(  0.0, -0.9,  40.0),  // Zone4_Gym
-  new THREE.Vector3(-34.0, -0.9,  20.0),  // Zone5_SEB
+  new THREE.Vector3(  0.0, 0, -40.0),  // Zone1_Swedish
+  new THREE.Vector3( 34.0, 0, -24.0),  // Zone2_Kosovo
+  new THREE.Vector3( 36.0, 0,  20.0),  // Zone3_Suburb
+  new THREE.Vector3(  0.0, 0,  40.0),  // Zone4_Gym
+  new THREE.Vector3(-34.0, 0,  20.0),  // Zone5_SEB
 ];
 
 const WAYPOINT_LABELS = ['α', 'β', 'γ', 'δ', 'ε'];
