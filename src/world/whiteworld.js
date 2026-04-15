@@ -204,11 +204,11 @@ export function setWhiteWorldCharacterRef(getPos, getMeshes, setPos, getModelGro
 //  Waypoint data
 // ─────────────────────────────────────────────────────────────────────────────
 const WAYPOINTS = [
-  new THREE.Vector3(  0.0, 0, -40.0),  // Zone1_Swedish
-  new THREE.Vector3( 34.0, 0, -24.0),  // Zone2_Kosovo
-  new THREE.Vector3( 36.0, 0,  20.0),  // Zone3_Suburb
-  new THREE.Vector3(  0.0, 0,  40.0),  // Zone4_Gym
-  new THREE.Vector3(-34.0, 0,  20.0),  // Zone5_SEB
+  new THREE.Vector3( -15.0, 0, -68.0),  // α Zone1_Swedish
+  new THREE.Vector3(  55.0, 0,  30.0),  // β Zone2_Kosovo
+  new THREE.Vector3(  65.0, 0,  30.0),  // γ Zone3_Suburb
+  new THREE.Vector3(  13.0, 0,  70.0),  // δ Zone4_Gym
+  new THREE.Vector3( -55.0, 0,  33.0),  // ε Zone5_SEB
 ];
 
 const WAYPOINT_LABELS = ['α', 'β', 'γ', 'δ', 'ε'];
@@ -301,6 +301,11 @@ function _onWaypointClick(index) {
   const modelGroup  = _getModelGroup ? _getModelGroup() : null;
   const destination = WAYPOINTS[index].clone();
   if (!modelGroup) return;
+
+  // Resolve the destination Y to the actual surface so the tornado travels
+  // at the correct height and the camera doesn't dive toward y=0.
+  const groundY = getGroundY(destination.x, destination.z);
+  if (groundY !== null) destination.y = groundY;
 
   _setButtonsEnabled(false);
 

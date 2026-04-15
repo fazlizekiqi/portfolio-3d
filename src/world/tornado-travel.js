@@ -81,7 +81,7 @@ const _settleLookStart   = new THREE.Vector3();
 export const tornadoCamParams = {
   // Follow
   followHeight:   0.5,
-  followDist:     5,
+  followDist:     10,
   lerpPos:        0.6,
   lerpLook:       0.4,
 
@@ -91,8 +91,8 @@ export const tornadoCamParams = {
 
   // Post-arrival settle
   settleDuration: 2.8,
-  settlePosLerp:  1.8,
-  settleLookLerp: 2.2,
+  settlePosLerp:  5,
+  settleLookLerp: 3,
 };
 
 let _camEntryT = 0.0;
