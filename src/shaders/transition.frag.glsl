@@ -39,6 +39,9 @@ void main() {
                + warp * edgeW * 1.6
                * smoothstep(0.0, 0.1, eased)
                * smoothstep(1.0, 0.9, eased);
+  // Clamp radius to 0 so that when the iris is fully closed the smoothstep
+  // ranges never invert and produce a phantom glow at the screen centre.
+  radius = max(radius, 0.0);
 
   float inside    = smoothstep(radius, radius - edgeW * 0.25, dist);
   float outerEdge = radius + edgeW * (0.8 + 0.5 * fbm(nUV * 1.5));

@@ -24,6 +24,8 @@ import { tickTornado, isTornadoActive, disposeCloud, focusSpawnAndTravel } from 
 import IRIS_ALPHA_GLSL from '../shaders/whiteworld.iris.glsl?raw';
 import VERT            from '../shaders/whiteworld.vert.glsl?raw';
 import FRAG_BODY       from '../shaders/whiteworld.frag.glsl?raw';
+import WATER_VERT      from '../shaders/water.vert.glsl?raw';
+import WATER_FRAG      from '../shaders/water.frag.glsl?raw';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Iris-alpha shader uniforms
@@ -47,6 +49,48 @@ _initResizeListener();
 const FRAG = IRIS_ALPHA_GLSL + '\n' + FRAG_BODY;
 
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Toon water plane
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Plain params object — mutated by dat.gui, applied every tick. */
+export const waterParams = {
+  baseColor:  '#d4f3ff',   // light cyan edge tint
+  mainColor:  '#00c8f8',   // saturated turquoise body
+  rippling:   0.08,        // wave offset strength
+  foamScale:  1.5,         // foam feature scale
+  posY:      -1.6,        // water plane Y position
+  speed:      1.0,         // uTime multiplier
+};
+
+const _waterUniforms = {
+  uBaseColor:  { value: new THREE.Color(waterParams.baseColor) },
+  uMainColor:  { value: new THREE.Color(waterParams.mainColor) },
+  uTime:       { value: 0.0 },
+  uRippling:   { value: waterParams.rippling },
+  uFoamScale:  { value: waterParams.foamScale },
+  // Shared iris-alpha uniforms — point at the same objects as _uniforms
+  uProgress:   _uniforms.uProgress,
+  uRes:        _uniforms.uRes,
+};
+
+const _waterMat = new THREE.ShaderMaterial({
+  uniforms:       _waterUniforms,
+  vertexShader:   WATER_VERT,
+  fragmentShader: IRIS_ALPHA_GLSL + '\n' + WATER_FRAG,  // same pattern as env materials
+  transparent:    true,
+  depthWrite:     true,
+  depthTest:      true,
+  side:           THREE.FrontSide,
+});
+
+// Large flat plane — sits just below y=0 so it fills all gaps around the island
+const _waterGeo  = new THREE.PlaneGeometry(600, 600, 80, 80);
+const _waterMesh = new THREE.Mesh(_waterGeo, _waterMat);
+_waterMesh.rotation.x = -Math.PI / 2;
+_waterMesh.position.y = -0.35;
+setWorldLayer(_waterMesh, LAYER.WHITE);
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Environment GLB (archipelago)
@@ -184,6 +228,7 @@ function _loadEnvironment() {
   );
 }
 _loadEnvironment();
+scene.add(_waterMesh);   // toon water plane — always present in the white world
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Character reference (set from main.js after model load)
@@ -340,6 +385,14 @@ function _syncIrisUniforms() {
 // ─────────────────────────────────────────────────────────────────────────────
 export function tickWhiteWorld(delta = 0) {
   _syncIrisUniforms();
+
+  // Sync water params → uniforms + mesh
+  _waterUniforms.uTime.value    += delta * waterParams.speed;
+  _waterUniforms.uRippling.value = waterParams.rippling;
+  _waterUniforms.uFoamScale.value= waterParams.foamScale;
+  _waterUniforms.uBaseColor.value.set(waterParams.baseColor);
+  _waterUniforms.uMainColor.value.set(waterParams.mainColor);
+  _waterMesh.position.y          = waterParams.posY;
 
   if (isWhiteWorld() || isTransitioning()) {
     tickTornado(delta);

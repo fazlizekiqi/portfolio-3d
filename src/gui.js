@@ -3,6 +3,7 @@ import { goToWhiteWorld, goToBlueWorld, isWhiteWorld } from './transition.js';
 import { wwLightParams } from './world/blueworld.js';
 import { tornadoCamParams, tornadoParams } from './world/tornado-travel.js';
 import { playerParams } from './character/player.js';
+import { waterParams } from './world/whiteworld.js';
 
 // ── Keyboard shortcuts ────────────────────────────────────────────────────────
 window.addEventListener('keydown', (e) => {
@@ -87,6 +88,16 @@ fPC.add(playerParams, 'camEntryTime', 0.1,  3.0, 0.1).name('Entry glide (s)');
 fPC.add(playerParams, 'walkSpeed',    0.5, 12.0, 0.1).name('Walk speed');
 fPC.add(playerParams, 'runSpeed',     1.0, 20.0, 0.1).name('Run speed');
 fPC.add(playerParams, 'rotateSpeed',  0.5,  8.0, 0.1).name('Rotate speed');
+
+// ── Water folder ─────────────────────────────────────────────────────────────
+const fW = gui.addFolder('🌊 Water');
+fW.addColor(waterParams, 'mainColor' ).name('Main color');
+fW.addColor(waterParams, 'baseColor' ).name('Edge color');
+fW.add(     waterParams, 'rippling',   0.0,  0.5,  0.001).name('Rippling');
+fW.add(     waterParams, 'foamScale',  0.1,  5.0,  0.1  ).name('Foam scale');
+fW.add(     waterParams, 'speed',      0.0,  4.0,  0.05 ).name('Speed');
+fW.add(     waterParams, 'posY',      -2.0,  0.5,  0.01 ).name('Height (Y)');
+fW.open();
 
 // ── Small hint label ─────────────────────────────────────────────────────────
 const hint = document.createElement('div');
