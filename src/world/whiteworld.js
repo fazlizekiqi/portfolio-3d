@@ -184,7 +184,7 @@ function _colorFromMesh(mesh) {
 
 function _loadEnvironment() {
   new GLTFLoader().load(
-    '/models/env-2-redone-bigger.glb',
+    `${import.meta.env.BASE_URL}models/env-2-redone-bigger.glb`,
     (gltf) => {
       const root = gltf.scene;
 

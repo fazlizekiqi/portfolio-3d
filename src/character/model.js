@@ -70,7 +70,7 @@ function stripRootMotion(clip) {
 // ── Load ──────────────────────────────────────────────────────────────────────
 export function loadModel(onReady) {
   new GLTFLoader().load(
-    './models/locomotive-character.glb',
+    `${import.meta.env.BASE_URL}models/locomotive-character.glb`,
     (gltf) => {
       const model = gltf.scene;
       const box    = new THREE.Box3().setFromObject(model);
