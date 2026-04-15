@@ -35,10 +35,16 @@ float irisOutsideAlpha(vec2 res, float progress, float time) {
                + warp * edgeW * 1.6
                * smoothstep(0.0, 0.1, eased)
                * smoothstep(1.0, 0.9, eased);
+  // Prevent inverted smoothstep ranges when the iris is fully closed.
+  radius = max(radius, 0.0);
 
   float feather = edgeW * 2.5;
   float alpha   = smoothstep(radius - feather * 0.3, radius + feather, dist);
   alpha *= 1.0 - smoothstep(0.88, 1.0, eased);
+  // When iris is fully closed (eased=0) everything must be fully visible (alpha=1).
+  // The feather around radius=0 would produce <1 near screen centre, so we
+  // blend toward 1 as eased approaches 0.
+  alpha = mix(1.0, alpha, smoothstep(0.0, 0.04, eased));
   return alpha;
 }
 
