@@ -16,6 +16,7 @@
  */
 
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { scene } from '../scene.js';
 import { LAYER, setWorldLayer } from '../layers.js';
 import { getProgress, isTransitioning, isWhiteWorld, getElapsed } from '../transition.js';
@@ -41,58 +42,146 @@ function _initResizeListener() {
 _initResizeListener();
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Cartoon materials (fill + outline)
+//  Cartoon shader FRAG (iris-alpha prefix + body)
 // ─────────────────────────────────────────────────────────────────────────────
 const FRAG = IRIS_ALPHA_GLSL + '\n' + FRAG_BODY;
 
-function _createFillMaterial() {
-  return new THREE.ShaderMaterial({
-    uniforms:       { ..._uniforms, uColor: { value: new THREE.Color(0xffffff) } },
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Environment GLB (archipelago)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** All ShaderMaterial instances created for env meshes, kept for uniform sync. */
+const _envMaterials = [];
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Environment walkability (raycaster against the loaded env meshes)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Raycaster re-used every check for walkability tests. */
+const _walkRaycaster = new THREE.Raycaster();
+_walkRaycaster.near = 0;
+_walkRaycaster.far  = 100;
+// Env meshes live on LAYER.WHITE — enable it so the raycaster can see them.
+_walkRaycaster.layers.enable(LAYER.WHITE);
+
+/** All non-line env meshes — populated after GLB load. */
+const _walkMeshes = [];
+
+// Minimum dot product between the surface normal and world-up for a face to
+// count as "walkable". 0.85 ≈ surfaces tilted less than ~32° from horizontal.
+// Raise toward 1.0 to be stricter; lower toward 0.0 to allow steeper slopes.
+const WALKABLE_NORMAL_Y = 0.85;
+
+/**
+ * Shoots a ray straight down from well above (x, z) and returns the Y of the
+ * first *walkable* surface hit (face normal pointing mostly upward).
+ * Returns null if the point is off the env or only walls/bevels are hit.
+ */
+export function getGroundY(x, z) {
+  if (_walkMeshes.length === 0) return null;
+  _walkRaycaster.set(new THREE.Vector3(x, 50, z), new THREE.Vector3(0, -1, 0));
+  const hits = _walkRaycaster.intersectObjects(_walkMeshes, false);
+  for (const hit of hits) {
+    // face.normal is in local space — convert to world space
+    if (!hit.face) continue;
+    const worldNormal = hit.face.normal.clone()
+      .transformDirection(hit.object.matrixWorld);
+    if (worldNormal.y >= WALKABLE_NORMAL_Y) return hit.point.y;
+  }
+  return null;
+}
+
+function _makeEnvFillMaterial(baseColor) {
+  const mat = new THREE.ShaderMaterial({
+    uniforms: {
+      ..._uniforms,
+      uColor: { value: baseColor.clone() },
+    },
     vertexShader:   VERT,
     fragmentShader: FRAG,
     transparent: true, depthWrite: true, depthTest: true, side: THREE.FrontSide,
   });
+  _envMaterials.push(mat);
+  return mat;
 }
 
-function _createLineMaterial() {
-  return new THREE.ShaderMaterial({
-    uniforms:       { ..._uniforms, uColor: { value: new THREE.Color(0x111111) } },
+function _makeEnvLineMaterial(color) {
+  const mat = new THREE.ShaderMaterial({
+    uniforms: {
+      ..._uniforms,
+      uColor: { value: new THREE.Color(color) },
+    },
     vertexShader:   VERT,
     fragmentShader: FRAG,
     transparent: true, depthWrite: false, depthTest: true,
   });
+  _envMaterials.push(mat);
+  return mat;
 }
 
-const _fillMat = _createFillMaterial();
-const _lineMat = _createLineMaterial();
+/**
+ * Decode the display colour for a GLB mesh.
+ * Checks `color` first (diffuse/albedo), then `emissive` (Blender emission
+ * materials export their hue here), then falls back to white.
+ */
+function _colorFromMesh(mesh) {
+  const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+  for (const m of mats) {
+    if (!m) continue;
+    // Non-black albedo wins first
+    if (m.color && m.color.r + m.color.g + m.color.b > 0.01) return m.color.clone();
+    // Blender "Emission" shader → emissive in MeshStandardMaterial
+    if (m.emissive && m.emissive.r + m.emissive.g + m.emissive.b > 0.01) return m.emissive.clone();
+  }
+  return new THREE.Color(0xffffff);
+}
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Scene object factory
-// ─────────────────────────────────────────────────────────────────────────────
-function _addCartoonObject(geometry, position, rotation = null) {
-  const group = new THREE.Group();
-  group.position.copy(position);
-  if (rotation) group.rotation.copy(rotation);
-  group.add(
-    new THREE.Mesh(geometry, _fillMat),
-    new THREE.LineSegments(new THREE.EdgesGeometry(geometry), _lineMat),
+function _loadEnvironment() {
+  new GLTFLoader().load(
+    '/models/env-2-redone-bigger.glb',
+    (gltf) => {
+      const root = gltf.scene;
+
+      // Centre the model horizontally and sit its bottom at y = -0.95
+      // (same ground level the old plane used).
+      const box    = new THREE.Box3().setFromObject(root);
+      const center = box.getCenter(new THREE.Vector3());
+
+      root.position.x -= center.x;
+      root.position.z -= center.z;
+      root.position.y  = -0.95 - box.min.y;   // land surface → y = -0.95
+
+      // Replace every mesh material with the iris-alpha cartoon shader so the
+      // environment participates in the white-world transition (iris wipe).
+      root.traverse((child) => {
+        if (!child.isMesh) return;
+
+        const baseColor = _colorFromMesh(child);
+        child.material  = _makeEnvFillMaterial(baseColor);
+
+        // Add a matching line-segment overlay for the cartoon outline look.
+        const edges    = new THREE.EdgesGeometry(child.geometry, 15);
+        const outColor = baseColor.getHSL({}).l < 0.5 ? 0x000000 : 0x111111;
+        const lines    = new THREE.LineSegments(edges, _makeEnvLineMaterial(outColor));
+        child.add(lines);
+
+        // Register mesh for walkability raycasts.
+        _walkMeshes.push(child);
+      });
+
+      setWorldLayer(root, LAYER.WHITE, true);
+      scene.add(root);
+
+      // Force world-matrix update so raycasts use final positions immediately.
+      root.updateMatrixWorld(true);
+    },
+    undefined,
+    (err) => console.error('[whiteworld] Failed to load test-env.glb:', err),
   );
-  setWorldLayer(group, LAYER.WHITE, true);
-  scene.add(group);
-  return group;
 }
-
-function _buildWhiteWorldScene() {
-  _addCartoonObject(
-    new THREE.PlaneGeometry(60, 60, 20, 20),
-    new THREE.Vector3(0, -0.95, 0),
-    new THREE.Euler(-Math.PI / 2, 0, 0),
-  );
-  _addCartoonObject(new THREE.BoxGeometry(0.6, 0.6, 0.6), new THREE.Vector3( 1.4, -0.65,  0));
-  _addCartoonObject(new THREE.BoxGeometry(0.4, 0.4, 0.4), new THREE.Vector3(-1.5, -0.75,  0.5));
-  _addCartoonObject(new THREE.BoxGeometry(0.3, 0.3, 0.3), new THREE.Vector3( 0.8, -0.80, -1.2));
-}
-_buildWhiteWorldScene();
+_loadEnvironment();
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Character reference (set from main.js after model load)
@@ -113,11 +202,11 @@ export function setWhiteWorldCharacterRef(getPos, getMeshes, setPos, getModelGro
 //  Waypoint data
 // ─────────────────────────────────────────────────────────────────────────────
 const WAYPOINTS = [
-  new THREE.Vector3( 14.0, -0.9,   6.0),
-  new THREE.Vector3(-16.0, -0.9,  -5.0),
-  new THREE.Vector3(  2.0, -0.9, -18.0),
-  new THREE.Vector3(-10.0, -0.9,  15.0),
-  new THREE.Vector3( 18.0, -0.9, -13.0),
+  new THREE.Vector3(  0.0, -0.9, -40.0),  // Zone1_Swedish
+  new THREE.Vector3( 34.0, -0.9, -24.0),  // Zone2_Kosovo
+  new THREE.Vector3( 36.0, -0.9,  20.0),  // Zone3_Suburb
+  new THREE.Vector3(  0.0, -0.9,  40.0),  // Zone4_Gym
+  new THREE.Vector3(-34.0, -0.9,  20.0),  // Zone5_SEB
 ];
 
 const WAYPOINT_LABELS = ['α', 'β', 'γ', 'δ', 'ε'];

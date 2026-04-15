@@ -47,6 +47,7 @@
 import * as THREE from 'three';
 import { camera, controls } from '../scene.js';
 import { modelGroup, mixer, clips, playClip } from './model.js';
+import { getGroundY } from '../world/whiteworld.js';
 
 // ── Tuning (exported so dat.gui can mutate them live) ─────────────────────────
 export const playerParams = {
@@ -220,7 +221,7 @@ export function tickPlayer(delta) {
   const isMoving     = absVT > MOVE_EPSILON;
 
   // ── Character translation ────────────────────────────────────────────────
-  if (isMoving) {
+  if (isMoving && modelGroup) {
     const speed = absVT > VT_RUN_IN
       ? THREE.MathUtils.lerp(playerParams.walkSpeed, playerParams.runSpeed, (absVT - VT_RUN_IN) / (1.0 - VT_RUN_IN))
       : playerParams.walkSpeed * Math.min(absVT / VT_WALK_IN, 1.0);
@@ -228,13 +229,26 @@ export function tickPlayer(delta) {
     const dir  = velocityT < 0 ? -1 : 1;
     const dist = speed * delta;
 
-    if (modelGroup) {
-      modelGroup.position.x += Math.sin(facingAngle) * dir * dist;
-      modelGroup.position.z += Math.cos(facingAngle) * dir * dist;
+    const newX = modelGroup.position.x + Math.sin(facingAngle) * dir * dist;
+    const newZ = modelGroup.position.z + Math.cos(facingAngle) * dir * dist;
+
+    // Only allow the step if the destination is on the environment.
+    const groundY = getGroundY(newX, newZ);
+    if (groundY !== null) {
+      modelGroup.position.x = newX;
+      modelGroup.position.z = newZ;
     }
   }
 
-  if (modelGroup) modelGroup.rotation.y = facingAngle;
+  // ── Ground snap — pin Y to terrain surface every frame ───────────────────
+  if (modelGroup) {
+    const groundY = getGroundY(modelGroup.position.x, modelGroup.position.z);
+    if (groundY !== null) {
+      // Lerp for smooth snapping on slopes; instant would also work
+      modelGroup.position.y = THREE.MathUtils.lerp(modelGroup.position.y, groundY, Math.min(20 * delta, 1.0));
+    }
+    modelGroup.rotation.y = facingAngle;
+  }
 
   // ── One-shot transition tick ─────────────────────────────────────────────
   if (inTransition) {
