@@ -3,6 +3,7 @@ import { wwLightParams } from './world/blueworld.js';
 import { tornadoCamParams, tornadoParams } from './world/tornado-travel.js';
 import { playerParams } from './character/player.js';
 import { waterParams } from './world/whiteworld.js';
+import { skillLayoutParams, showSkillBubbles } from './presentation/bubbles.js';
 
 // ── dat.gui panel — starts closed ─────────────────────────────────────────────
 const gui = new GUI({ width: 280, closed: true });
@@ -79,3 +80,11 @@ fW.add(     waterParams, 'rippling',   0.0,  0.5,  0.001).name('Rippling');
 fW.add(     waterParams, 'foamScale',  0.1,  5.0,  0.1  ).name('Foam scale');
 fW.add(     waterParams, 'speed',      0.0,  4.0,  0.05 ).name('Speed');
 fW.add(     waterParams, 'posY',      -2.0,  0.5,  0.01 ).name('Height (Y)');
+
+// ── Skills bubble layout folder ───────────────────────────────────────────────
+const fSK = gui.addFolder('🔵 Skills Bubbles');
+const _refreshSpheres = () => showSkillBubbles();
+fSK.add(skillLayoutParams, 'offsetX', -20, 20, 0.5).name('Shift X %').onChange(_refreshSpheres);
+fSK.add(skillLayoutParams, 'offsetY', -20, 20, 0.5).name('Shift Y %').onChange(_refreshSpheres);
+fSK.add(skillLayoutParams, 'spread',  0.4,  2.0, 0.05).name('Spread').onChange(_refreshSpheres);
+

@@ -4,16 +4,17 @@
 
 // ── Slide card ────────────────────────────────────────────────────────────────
 const card = document.createElement('div');
+card.id = '_slide-card';
 card.style.cssText = `
   position:fixed;left:48px;top:50%;transform:translateY(-50%);
   z-index:20;pointer-events:none;max-width:320px;
   opacity:0;transition:opacity 0.6s ease;`;
 card.innerHTML = `
-  <div style="width:2px;height:60px;background:linear-gradient(to bottom,transparent,#00aacc);margin-bottom:16px;"></div>
-  <div id="_sTitle" style="color:#e8f4ff;font-size:19px;letter-spacing:.05em;line-height:1.3;margin-bottom:14px;text-shadow:0 0 24px rgba(0,180,255,0.4);"></div>
-  <div style="width:40px;height:1px;background:#1a5577;margin-bottom:14px;"></div>
-  <div id="_sBody"  style="color:#5599aa;font-size:11px;letter-spacing:.10em;line-height:2.0;white-space:pre-line;"></div>
-  <div style="width:2px;height:40px;background:linear-gradient(to bottom,#00aacc,transparent);margin-top:16px;"></div>`;
+  <div class="_sc-line-top"></div>
+  <div id="_sTitle"></div>
+  <div class="_sc-divider"></div>
+  <div id="_sBody"></div>
+  <div class="_sc-line-bot"></div>`;
 document.body.appendChild(card);
 
 const slideTitle = card.querySelector('#_sTitle');
@@ -29,9 +30,73 @@ progressFill.style.cssText = `width:0%;height:100%;background:linear-gradient(90
 progressWrap.appendChild(progressFill);
 document.body.appendChild(progressWrap);
 
-// ── Styles ────────────────────────────────────────────────────────────────────
 const _style = document.createElement('style');
 _style.textContent = `
+/* ─── slide card ─────────────────────────────────────────────────────────── */
+#_slide-card {
+  font-family:'Share Tech Mono','Courier New',monospace;
+}
+#_slide-card ._sc-line-top {
+  width:2px;height:60px;
+  background:linear-gradient(to bottom,transparent,#00aacc);
+  margin-bottom:16px;
+}
+#_slide-card ._sc-line-bot {
+  width:2px;height:40px;
+  background:linear-gradient(to bottom,#00aacc,transparent);
+  margin-top:16px;
+}
+#_slide-card ._sc-divider {
+  width:40px;height:1px;
+  background:#1a5577;
+  margin-bottom:14px;
+}
+#_sTitle {
+  color:#e8f4ff;
+  font-size:19px;
+  letter-spacing:.05em;
+  line-height:1.3;
+  margin-bottom:14px;
+  text-shadow:0 0 24px rgba(0,180,255,0.4);
+}
+#_sBody {
+  color:#5599aa;
+  font-size:11px;
+  letter-spacing:.10em;
+  line-height:2.0;
+  white-space:pre-line;
+}
+
+/* ─── mobile: compact strip above the nav buttons ──────────────────────────── */
+@media (max-width: 640px) {
+  #_slide-card {
+    left: 0 !important;
+    right: 0 !important;
+    top: auto !important;
+    bottom: 58px !important;
+    transform: none !important;
+    max-width: 100vw !important;
+    width: 100%;
+    max-height: 28vh;
+    overflow: hidden;
+    box-sizing: border-box;
+    padding: 8px 16px 6px;
+    background: rgba(2,8,18,0.88);
+    backdrop-filter: blur(8px);
+    border-top: 1px solid rgba(0,150,200,0.28);
+  }
+  #_slide-card ._sc-line-top,
+  #_slide-card ._sc-line-bot { display: none; }
+  #_slide-card ._sc-divider  { margin-bottom: 4px; width: 24px; }
+  #_sTitle { font-size: 13px; margin-bottom: 4px; }
+  #_sBody  { font-size: 9px; line-height: 1.6; letter-spacing: .06em; }
+
+  /* Projects slide — minimal padding only, body text shows normally */
+  #_slide-card.slide-projects { padding: 6px 16px 5px; }
+  #_slide-card.slide-projects #_sTitle { font-size: 12px; margin-bottom: 3px; }
+  #_slide-card.slide-projects ._sc-divider { margin-bottom: 3px; }
+}
+
 /* ─── bottom bar ─────────────────────────────────────────────────────────── */
 #_ui-bar {
   position:fixed;
@@ -43,6 +108,12 @@ _style.textContent = `
   align-items:center;
   gap:10px;
   font-family:'Share Tech Mono','Courier New',monospace;
+}
+@media (max-width: 640px) {
+  #_ui-bar {
+    bottom: 10px;
+    gap: 7px;
+  }
 }
 
 /* ─── loader-style button (PRESENT / EXPLORE / EXIT / →) ─────────────────── */
@@ -244,14 +315,16 @@ export function setProgressFill(fraction) {
 
 export function hideCard() {
   card.style.opacity = '0';
+  card.className = '';   // clear any slide-specific classes
   if (_timerA) clearInterval(_timerA);
   if (_timerB) clearInterval(_timerB);
   slideTitle.textContent = '';
   slideBody.textContent  = '';
 }
 
-export function showCard(title, body, delay = 550) {
+export function showCard(title, body, delay = 550, slideName = '') {
   hideCard();
+  if (slideName) card.classList.add(`slide-${slideName}`);
   setTimeout(() => {
     card.style.opacity = '1';
     _timerA = _typeWrite(slideTitle, title, 38, () => {

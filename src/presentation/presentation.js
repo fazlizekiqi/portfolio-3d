@@ -18,6 +18,7 @@ import { isPlayerActive, playerTakeControl, playerReleaseControl, playerStop } f
 import { explodeAndThen, triggerReassemble, setOnReassembled, resetExplodeGroupTransform } from '../character/explode.js';
 
 import { SLIDES, slideByName, indexOf, isLastSlide } from './slides.js';
+import { showSkillBubbles, showProjectBubbles, hideBubbles } from './bubbles.js';
 import {
   startCameraMove, glideHome, tickCamera,
   camLookTarget, currentCamLook,
@@ -33,25 +34,54 @@ export { initCameraState } from './camera.js';
 export { currentCamLook }  from './camera.js';
 
 // ── State ─────────────────────────────────────────────────────────────────────
-let _active       = false;
-let _currentSlide = SLIDES[0];
-let _slideTimer   = 0;
+let _active        = false;
+let _currentSlide  = SLIDES[0];
+let _slideTimer    = 0;
 let _glideDuration = 1400;
-let _ctaTimeout   = null;
-let _frozen       = false;
+let _frozen        = false;
+let _ctaTimeout    = null;
 
-// ── CTA slide side-effects ────────────────────────────────────────────────────
-// Handled here, not in the slide data, keeping slides.js pure.
+// ── CTA slide — just show contact info, no auto-transition ───────────────────
 function _onEnterCta() {
   showExploreUI();
-  _frozen     = false;
+  _frozen = false;
+}
+
+// ── My World slide — camera sweeps behind character, then iris to white world ──
+function _onEnterMyWorld() {
+  showExploreUI();
+  _frozen = false;
+  // Fire iris just after the camera lerp finishes (slide duration = 2500ms)
   _ctaTimeout = setTimeout(() => {
     _ctaTimeout = null;
     _frozen     = true;
+    hideCard();
     goToWhiteWorld();
     _endFromCta();
-  }, 3800);
+  }, 2800);
 }
+
+// ── After iris opens — player takes control ───────────────────────────────────
+function _endFromCta() {
+  _active = false;
+
+  hideBubbles();
+  progressWrap.style.display = 'none';
+  nextBtn.style.display      = 'none';
+  resetPresentBtn();
+
+  _slideTimer = 0;
+  resetSlideElapsed();
+  controls.maxDistance = 32;
+
+  setTimeout(() => {
+    _frozen = false;
+    controls.target.copy(currentCamLook);
+    playerTakeControl();
+    showBackBtn();
+  }, 3200);
+}
+
 
 // ── Flow ──────────────────────────────────────────────────────────────────────
 export function goToSlide(name) {
@@ -66,18 +96,29 @@ export function goToSlide(name) {
   resetSlideElapsed();
 
   nextBtn.style.display = isLastSlide(name) ? 'none' : 'inline-flex';
-  startCameraMove(slide.camPos, slide.camTarget);
+  const isMobile = window.innerWidth < 768;
+  const camPos    = (isMobile && slide.mobileCamPos)    ? slide.mobileCamPos    : slide.camPos;
+  const camTarget = (isMobile && slide.mobileCamTarget) ? slide.mobileCamTarget : slide.camTarget;
+  startCameraMove(camPos, camTarget);
   playClip(slide.clip);
   hideCard();
-  showCard(slide.title, slide.body);
 
-  // CTA slide has a timed side-effect — handled here, not in slide data
-  if (name === 'cta') _onEnterCta();
+  // bubbles
+  hideBubbles();
+  if (name === 'skills')   showSkillBubbles();
+  if (name === 'projects') showProjectBubbles();
+
+  // myworld card shows immediately in the blue world while camera sweeps behind character
+  if (name !== 'myworld') showCard(slide.title, slide.body, 550, name);
+  else                    showCard(slide.title, slide.body, 200, name);
+
+  if (name === 'cta')     _onEnterCta();
+  if (name === 'myworld') _onEnterMyWorld();
 }
 
 function _goToNextSlide() {
   const next = SLIDES[indexOf(_currentSlide.name) + 1];
-  if (!next) { _endFromCta(); return; }
+  if (!next) return;   // myworld handles its own exit via _onEnterMyWorld
   goToSlide(next.name);
 }
 
@@ -93,6 +134,7 @@ function _endPresentation() {
   _active = false;
   if (_ctaTimeout) { clearTimeout(_ctaTimeout); _ctaTimeout = null; }
 
+  hideBubbles();
   hideCard();
   progressWrap.style.display = 'none';
   nextBtn.style.display      = 'none';
@@ -104,27 +146,6 @@ function _endPresentation() {
   playClip(slideByName['intro'].clip);
   const dur = _glideHome();
   setTimeout(() => { controls.enabled = true; }, dur + 200);
-}
-
-function _endFromCta() {
-  _active = false;
-  if (_ctaTimeout) { clearTimeout(_ctaTimeout); _ctaTimeout = null; }
-
-  hideCard();
-  progressWrap.style.display = 'none';
-  nextBtn.style.display      = 'none';
-  resetPresentBtn();
-
-  _slideTimer = 0;
-  resetSlideElapsed();
-  controls.maxDistance = 32;
-
-  setTimeout(() => {
-    _frozen = false;
-    controls.target.copy(currentCamLook);
-    playerTakeControl();
-    showBackBtn();
-  }, 3200);
 }
 
 function _returnHome() {
@@ -184,7 +205,7 @@ exploreBtn.addEventListener('click', () => {
     controls.enabled = false;
     progressWrap.style.display = 'block';
   }
-  goToSlide('cta');
+  goToSlide('myworld');
 });
 
 // ── Per-frame tick ────────────────────────────────────────────────────────────

@@ -9,6 +9,7 @@ import { tickWhiteWorld, setWhiteWorldCharacterRef, showWaypointButtons, hideWay
 import { isTornadoCameraActive } from './world/tornado-travel.js';
 import { tickTransition, isWhiteWorld, isTransitioning, getProgress } from './transition.js';
 import { tickFps } from './fps.js';
+import { tickBubbles } from './presentation/bubbles.js';
 import { showLoader, updateLoader, hideLoader } from './loader.js';
 import { initJoystick } from './joystick.js';
 import './gui.js';
@@ -174,6 +175,7 @@ function _startApp() {
       tickPresentation(delta, elapsed);
       tickPlayer(delta);
     }
+    tickBubbles(delta, elapsed);
 
     // 4. Explode + mixer
     tickExplode(delta);
