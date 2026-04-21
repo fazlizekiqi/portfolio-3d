@@ -82,9 +82,9 @@ export const skillLayoutParams = { offsetX: 0, offsetY: 0, spread: 1.0 };
 
 // ── Mobile helpers ────────────────────────────────────────────────────────────
 function _isMobile() { return window.innerWidth < 768; }
-function _bubbleScale()  { return _isMobile() ? 0.55 : 1.0; }
+function _bubbleScale()  { return _isMobile() ? 0.75 : 1.0; }
 // Mobile cards: smaller scale so 3 columns fit comfortably on 375px-wide screens
-function _cardScale()    { return _isMobile() ? 0.58 : 1.0; }
+function _cardScale()    { return _isMobile() ? 0.72 : 1.0; }
 
 // ── Project image preloader — use THREE.TextureLoader (reliable, GPU-native) ──
 const _texLoader  = new THREE.TextureLoader();
@@ -121,7 +121,7 @@ let _listening = false;
 
 function _makeLabelTexture(label, groupKey) {
     const c  = GROUP_COLOR[groupKey] ?? GROUP_COLOR.tooling;
-    const SZ = 512;                          // doubled resolution for crisp text
+    const SZ = 768;                          // higher resolution for crisp text on mobile
     const cv = document.createElement('canvas');
     cv.width = cv.height = SZ;
     const ctx = cv.getContext('2d');
@@ -130,18 +130,18 @@ function _makeLabelTexture(label, groupKey) {
     const cx = SZ / 2, cy = SZ / 2;
 
     // ── Icon ──────────────────────────────────────────────────────────────────
-    ctx.font         = '120px serif';
+    ctx.font         = '160px serif';
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle    = c.css;
     ctx.shadowColor  = c.glow;
-    ctx.shadowBlur   = 24;
-    ctx.fillText(c.icon, cx, cy - 80);
+    ctx.shadowBlur   = 30;
+    ctx.fillText(c.icon, cx, cy - 110);
     ctx.shadowBlur = 0;
 
     // ── Label: dark pill background first ─────────────────────────────────────
     const words    = label.split(' ');
-    const fontSize = label.length > 10 ? 42 : 50;
+    const fontSize = label.length > 10 ? 64 : 72;
     ctx.font       = `700 ${fontSize}px "Courier New", monospace`;
     ctx.textBaseline = 'middle';
 
@@ -155,8 +155,8 @@ function _makeLabelTexture(label, groupKey) {
         lines.push(label);
     }
 
-    const lineH  = fontSize + 6;
-    const startY = cy + 42;
+    const lineH  = fontSize + 8;
+    const startY = cy + 62;
 
     // draw pill behind each line
     lines.forEach((line, li) => {
@@ -180,67 +180,149 @@ function _makeLabelTexture(label, groupKey) {
         ctx.fill();
     });
 
-    // draw text on top of pills
+    // draw text on top of pills — stroke first for crisp outline, then fill
+    ctx.lineJoin    = 'round';
+    ctx.lineWidth   = 14;
+    ctx.strokeStyle = 'rgba(0,0,0,1.0)';
+    lines.forEach((line, li) => {
+        ctx.strokeText(line, cx, startY + li * (lineH + 4));
+    });
     ctx.fillStyle    = '#ffffff';
-    ctx.shadowColor  = 'rgba(0,0,0,0.95)';
-    ctx.shadowBlur   = 4;
+    ctx.shadowColor  = 'rgba(0,220,255,0.8)';
+    ctx.shadowBlur   = 12;
     lines.forEach((line, li) => {
         ctx.fillText(line, cx, startY + li * (lineH + 4));
     });
+    ctx.shadowBlur = 0;
 
     return new THREE.CanvasTexture(cv);
 }
 
-/** Compact overlay for mobile — project name + sub over a gradient bar. */
-function _makeProjectOverlayMobile(item) {
+
+/**
+ * Mobile: draws a full opaque card onto a canvas — no shader compositing needed.
+ * Solid dark background + large bold white title + coloured sub-text.
+ * Returned as a CanvasTexture used directly with MeshBasicMaterial.
+ */
+function _makeProjectCardMobile(item, imgTex) {
     const { label, sub } = item;
-    // Canvas aspect matches card geometry 2.0 : 1.35
-    const W = 400, H = 270;
+    const W = 800, H = 540;          // high-res, aspect ≈ 2:1.35
     const cv = document.createElement('canvas');
     cv.width = W; cv.height = H;
     const ctx = cv.getContext('2d');
-    ctx.clearRect(0, 0, W, H);
 
-    // Solid dark gradient across bottom half
-    const grad = ctx.createLinearGradient(0, H * 0.38, 0, H);
-    grad.addColorStop(0, 'rgba(0,3,14,0)');
-    grad.addColorStop(0.4, 'rgba(0,3,14,0.85)');
-    grad.addColorStop(1,   'rgba(0,3,14,0.97)');
-    ctx.fillStyle = grad;
+    // ── Background ────────────────────────────────────────────────────────────
+    ctx.fillStyle = '#020d1e';
     ctx.fillRect(0, 0, W, H);
 
-    // Project name
-    const nameFontSize = label.length > 14 ? 30 : 34;
-    ctx.font         = `700 ${nameFontSize}px "Courier New", monospace`;
-    ctx.fillStyle    = '#ffffff';
-    ctx.shadowColor  = 'rgba(0,200,255,1.0)';
-    ctx.shadowBlur   = 14;
-    ctx.textAlign    = 'center';
+    // Subtle blueprint grid
+    ctx.strokeStyle = 'rgba(0,160,220,0.12)';
+    ctx.lineWidth   = 1;
+    const COLS = 16, ROWS = 11;
+    for (let c = 0; c <= COLS; c++) {
+        const x = (c / COLS) * W;
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+    }
+    for (let r = 0; r <= ROWS; r++) {
+        const y = (r / ROWS) * H;
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    }
+
+    // ── Project image on the right half (if available) ────────────────────────
+    if (imgTex && imgTex.image) {
+        const imgX = Math.round(W * 0.44);
+        const imgW = W - imgX - 10;
+        ctx.save();
+        ctx.globalAlpha = 0.55;
+        ctx.drawImage(imgTex.image, imgX, 8, imgW, H - 16);
+        ctx.restore();
+        // Fade left edge of image so text side stays clean
+        const fade = ctx.createLinearGradient(imgX, 0, imgX + imgW * 0.45, 0);
+        fade.addColorStop(0, 'rgba(2,13,30,1)');
+        fade.addColorStop(1, 'rgba(2,13,30,0)');
+        ctx.fillStyle = fade;
+        ctx.fillRect(imgX, 0, imgW, H);
+    }
+
+    // ── Cyan accent border ────────────────────────────────────────────────────
+    ctx.strokeStyle = 'rgba(0,200,255,0.55)';
+    ctx.lineWidth   = 3;
+    ctx.strokeRect(4, 4, W - 8, H - 8);
+
+    // ── Title ─────────────────────────────────────────────────────────────────
+    const TEXT_X   = 28;
+    const MAX_TW   = Math.round(W * 0.40);
+    const titleFS  = label.length > 14 ? 62 : 72;
+    ctx.font        = `800 ${titleFS}px "Courier New", monospace`;
+    ctx.textAlign   = 'left';
     ctx.textBaseline = 'alphabetic';
 
-    const words = label.split(' ');
-    const nameLines = [];
+    // Word-wrap title
+    const titleLines = [];
     let cur = '';
-    for (const w of words) {
+    for (const w of label.split(' ')) {
         const test = cur ? cur + ' ' + w : w;
-        if (ctx.measureText(test).width > W - 20) { nameLines.push(cur); cur = w; }
+        if (ctx.measureText(test).width > MAX_TW) { titleLines.push(cur); cur = w; }
         else cur = test;
     }
-    if (cur) nameLines.push(cur);
+    if (cur) titleLines.push(cur);
 
-    const nameLineH = nameFontSize + 4;
-    const nameY     = H - (nameLines.length > 1 ? 38 : 26);
-    nameLines.forEach((ln, li) => ctx.fillText(ln, W / 2, nameY + li * nameLineH));
+    const titleLineH = titleFS + 10;
+    const titleStartY = 80;
 
-    // Sub text — one line, dimmer
-    if (nameLines.length === 1 && sub) {
-        const subText = sub.length > 32 ? sub.slice(0, 30) + '…' : sub;
-        ctx.font      = `500 17px "Courier New", monospace`;
-        ctx.fillStyle = '#55ddff';
-        ctx.shadowColor = 'rgba(0,160,255,0.8)';
-        ctx.shadowBlur  = 6;
-        ctx.fillText(subText, W / 2, H - 8);
+    titleLines.forEach((ln, li) => {
+        const y = titleStartY + li * titleLineH;
+        // Dark halo for contrast
+        ctx.strokeStyle = 'rgba(0,0,0,0.95)';
+        ctx.lineWidth   = 12;
+        ctx.lineJoin    = 'round';
+        ctx.strokeText(ln, TEXT_X, y);
+        // Glow
+        ctx.shadowColor  = 'rgba(0,220,255,0.85)';
+        ctx.shadowBlur   = 20;
+        ctx.fillStyle    = '#ffffff';
+        ctx.fillText(ln, TEXT_X, y);
+        ctx.shadowBlur   = 0;
+    });
+
+    // ── Sub-text ──────────────────────────────────────────────────────────────
+    if (sub) {
+        const subY  = titleStartY + titleLines.length * titleLineH + 18;
+        const subFS = 28;
+        ctx.font      = `600 ${subFS}px "Courier New", monospace`;
+        ctx.strokeStyle = 'rgba(0,0,0,0.9)';
+        ctx.lineWidth   = 8;
+        ctx.lineJoin    = 'round';
+        // word-wrap sub too
+        const subLines = [];
+        let sc2 = '';
+        for (const w of sub.split(' ')) {
+            const test = sc2 ? sc2 + ' ' + w : w;
+            if (ctx.measureText(test).width > MAX_TW - 10) { subLines.push(sc2); sc2 = w; }
+            else sc2 = test;
+        }
+        if (sc2) subLines.push(sc2);
+        subLines.forEach((ln, li) => {
+            const y = subY + li * (subFS + 8);
+            ctx.strokeText(ln, TEXT_X, y);
+            ctx.shadowColor = 'rgba(0,200,255,0.7)';
+            ctx.shadowBlur  = 10;
+            ctx.fillStyle   = '#55eeff';
+            ctx.fillText(ln, TEXT_X, y);
+            ctx.shadowBlur  = 0;
+        });
     }
+
+    // ── "↗ OPEN" hint ─────────────────────────────────────────────────────────
+    ctx.font        = `700 26px "Courier New", monospace`;
+    ctx.strokeStyle = 'rgba(0,0,0,0.9)';
+    ctx.lineWidth   = 7;
+    ctx.strokeText('↗ OPEN PROJECT', TEXT_X, H - 22);
+    ctx.shadowColor = 'rgba(0,200,255,0.9)';
+    ctx.shadowBlur  = 12;
+    ctx.fillStyle   = '#00ccff';
+    ctx.fillText('↗ OPEN PROJECT', TEXT_X, H - 22);
+    ctx.shadowBlur  = 0;
 
     return new THREE.CanvasTexture(cv);
 }
@@ -446,9 +528,10 @@ function _spawnSphere(item, pos3, seed) {
     mesh.position.copy(pos3); mesh.position.y -= 1.5;
     mesh.layers.set(LAYER.BLUE);
 
-    // label sprite (canvas texture on a plane, always faces camera)
+    // label sprite — larger plane so text is clearly readable, especially on mobile
     const labelTex  = _makeLabelTexture(item.label, item.group);
-    const labelGeo  = new THREE.PlaneGeometry(0.96 * sc, 0.96 * sc);
+    const labelSize = _isMobile() ? 1.6 * sc : 1.1 * sc;
+    const labelGeo  = new THREE.PlaneGeometry(labelSize, labelSize);
     const labelMat  = new THREE.MeshBasicMaterial({ map: labelTex, transparent: true, depthWrite: false, opacity: 0 });
     const labelMesh = new THREE.Mesh(labelGeo, labelMat);
     labelMesh.layers.set(LAYER.BLUE);
@@ -467,28 +550,40 @@ function _spawnSphere(item, pos3, seed) {
 }
 
 function _spawnProjectCard(item, pos3, seed, imgTex, idx = 0) {
-    const sc        = _cardScale();
-    const overlayTex = _isMobile() ? _makeProjectOverlayMobile(item) : _makeProjectOverlay(item);
-    const n          = PROJECT_ITEMS.length;
+    const sc = _cardScale();
+    const n  = PROJECT_ITEMS.length;
 
-    // Fallback 1×1 transparent texture when no image
-    const fallbackTex = new THREE.DataTexture(new Uint8Array([0,0,0,0]), 1, 1, THREE.RGBAFormat);
-    fallbackTex.needsUpdate = true;
-
-    const mat = new THREE.ShaderMaterial({
-        vertexShader:   BLUEPRINT_VERT,
-        fragmentShader: BLUEPRINT_FRAG,
-        uniforms: {
-            uImage:    { value: imgTex ?? fallbackTex },
-            uOverlay:  { value: overlayTex },
-            uTime:     { value: 0 },
-            uOpacity:  { value: 0 },
-            uHasImage: { value: imgTex ? 1.0 : 0.0 },
-        },
-        transparent: true,
-        depthWrite:  false,
-        side: THREE.DoubleSide,
-    });
+    let mat;
+    if (_isMobile()) {
+        // ── Mobile: plain MeshBasicMaterial — no shader compositing, max clarity ──
+        const cardTex = _makeProjectCardMobile(item, imgTex);
+        mat = new THREE.MeshBasicMaterial({
+            map:         cardTex,
+            transparent: true,
+            depthWrite:  false,
+            opacity:     0,
+            side:        THREE.DoubleSide,
+        });
+    } else {
+        // ── Desktop: blueprint shader ─────────────────────────────────────────
+        const overlayTex = _makeProjectOverlay(item);
+        const fallbackTex = new THREE.DataTexture(new Uint8Array([0,0,0,0]), 1, 1, THREE.RGBAFormat);
+        fallbackTex.needsUpdate = true;
+        mat = new THREE.ShaderMaterial({
+            vertexShader:   BLUEPRINT_VERT,
+            fragmentShader: BLUEPRINT_FRAG,
+            uniforms: {
+                uImage:    { value: imgTex ?? fallbackTex },
+                uOverlay:  { value: overlayTex },
+                uTime:     { value: 0 },
+                uOpacity:  { value: 0 },
+                uHasImage: { value: imgTex ? 1.0 : 0.0 },
+            },
+            transparent: true,
+            depthWrite:  false,
+            side: THREE.DoubleSide,
+        });
+    }
 
     const W   = 2.0 * sc, H = 1.35 * sc;
     const geo = new THREE.PlaneGeometry(W, H);
