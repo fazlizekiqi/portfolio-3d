@@ -257,9 +257,11 @@ backBtn.style.display = 'none';
 _bar.appendChild(backBtn);
 
 export const exploreBtn = _mkLb('EXPLORE');
+exploreBtn.style.display = 'none';
 _bar.appendChild(exploreBtn);
 
 export const presentBtn = _mkLb('▶ &nbsp;PRESENT');
+presentBtn.style.display = 'none';
 _bar.appendChild(presentBtn);
 
 export const nextBtn = _mkLb('→', '_lb-arrow');

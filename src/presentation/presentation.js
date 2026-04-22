@@ -12,7 +12,7 @@
  */
 
 import { controls } from '../scene.js';
-import { playClip, modelGroup, spawnPosition, spawnRotation } from '../character/model.js';
+import { playClip, playFeaturedClip, playClipSequence, cancelIdleLoop, playRandomIdleAnim, modelGroup, spawnPosition, spawnRotation } from '../character/model.js';
 import { goToWhiteWorld, goToBlueWorld, isWhiteWorld } from '../transition.js';
 import { isPlayerActive, playerTakeControl, playerReleaseControl, playerStop } from '../character/player.js';
 import { explodeAndThen, triggerReassemble, setOnReassembled, resetExplodeGroupTransform } from '../character/explode.js';
@@ -40,6 +40,8 @@ let _slideTimer    = 0;
 let _glideDuration = 1400;
 let _frozen        = false;
 let _ctaTimeout    = null;
+let _cam2Timeout   = null;
+let _camMoveDuration = 1400; // tracks current camera-move leg duration
 
 // ── CTA slide — just show contact info, no auto-transition ───────────────────
 function _onEnterCta() {
@@ -89,10 +91,14 @@ export function goToSlide(name) {
   if (!slide) { console.warn(`goToSlide: unknown slide "${name}"`); return; }
 
   if (_ctaTimeout) { clearTimeout(_ctaTimeout); _ctaTimeout = null; }
+  if (_cam2Timeout) { clearTimeout(_cam2Timeout); _cam2Timeout = null; }
+
+
   _frozen = false;
 
   _currentSlide = slide;
   _slideTimer   = slide.duration;
+  _camMoveDuration = slide.camMoveDuration ?? slide.duration;
   resetSlideElapsed();
 
   nextBtn.style.display = isLastSlide(name) ? 'none' : 'inline-flex';
@@ -100,7 +106,24 @@ export function goToSlide(name) {
   const camPos    = (isMobile && slide.mobileCamPos)    ? slide.mobileCamPos    : slide.camPos;
   const camTarget = (isMobile && slide.mobileCamTarget) ? slide.mobileCamTarget : slide.camTarget;
   startCameraMove(camPos, camTarget);
-  playClip(slide.clip);
+
+  // Schedule phase-2 camera sweep (e.g. experience: side → front after turn)
+  if (slide.camPos2 && slide.cam2Delay) {
+    _cam2Timeout = setTimeout(() => {
+      _cam2Timeout = null;
+      _camMoveDuration = slide.cam2Duration ?? 2000;
+      startCameraMove(slide.camPos2, slide.camTarget2);
+    }, slide.cam2Delay);
+  }
+
+  cancelIdleLoop();
+  if (slide.clipLoop) {
+    playClip(slide.clip);
+  } else if (slide.clips?.length > 1) {
+    playClipSequence(slide.clips, slide.clipIdleBetweenMs ?? 2500);
+  } else {
+    playFeaturedClip(slide.clip);
+  }
   hideCard();
 
   // bubbles
@@ -132,7 +155,8 @@ function _startPresentation() {
 
 function _endPresentation() {
   _active = false;
-  if (_ctaTimeout) { clearTimeout(_ctaTimeout); _ctaTimeout = null; }
+  if (_ctaTimeout)  { clearTimeout(_ctaTimeout);  _ctaTimeout  = null; }
+  if (_cam2Timeout) { clearTimeout(_cam2Timeout); _cam2Timeout = null; }
 
   hideBubbles();
   hideCard();
@@ -153,6 +177,7 @@ function _returnHome() {
   _active          = false;
   controls.enabled = false;
   playerStop();
+  if (_cam2Timeout) { clearTimeout(_cam2Timeout); _cam2Timeout = null; }
 
   if (!isWhiteWorld()) {
     controls.maxDistance = 20;
@@ -177,7 +202,7 @@ function _returnHome() {
       _frozen = false;
       const dur = _glideHome();
 
-      setOnReassembled(() => { playClip('idle'); });
+      setOnReassembled(() => playRandomIdleAnim());
       triggerReassemble();
 
       setTimeout(() => { controls.enabled = true; showIdleUI(); }, dur + 200);
@@ -217,7 +242,7 @@ export function tickPresentation(delta, elapsed) {
     return false;
   }
 
-  const totalDur = _active ? _currentSlide.duration : _glideDuration;
+  const totalDur = _active ? _camMoveDuration : _glideDuration;
   const slideIndex = _active ? indexOf(_currentSlide.name) : 0;
   const { done } = tickCamera(delta, elapsed, _active ? _currentSlide : null, slideIndex, totalDur, _frozen);
 
