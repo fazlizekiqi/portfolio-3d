@@ -30,6 +30,7 @@ import {
   showIdleUI, showPresentingUI, showExploreUI, showWhiteWorldUI, showBackBtn,
   resetPresentBtn, setProgressFill, hideCard, showCard,
 } from './ui.js';
+import { showHowIWorkOverlay, hideHowIWorkOverlay } from './how-i-work-overlay.js';
 
 export { initCameraState } from './camera.js';
 export { currentCamLook }  from './camera.js';
@@ -73,6 +74,7 @@ let _glideDuration = 1400;
 let _frozen        = false;
 let _ctaTimeout    = null;
 let _cam2Timeout   = null;
+let _overlayTimeout = null;   // delayed show of how-i-work overlay
 let _camMoveDuration = 1400; // tracks current camera-move leg duration
 
 // ── CTA slide — just show contact info, no auto-transition ───────────────────
@@ -120,8 +122,9 @@ export function goToSlide(name) {
   const slide = slideByName[name];
   if (!slide) { console.warn(`goToSlide: unknown slide "${name}"`); return; }
 
-  if (_ctaTimeout) { clearTimeout(_ctaTimeout); _ctaTimeout = null; }
-  if (_cam2Timeout) { clearTimeout(_cam2Timeout); _cam2Timeout = null; }
+  if (_ctaTimeout)     { clearTimeout(_ctaTimeout);     _ctaTimeout     = null; }
+  if (_cam2Timeout)    { clearTimeout(_cam2Timeout);    _cam2Timeout    = null; }
+  if (_overlayTimeout) { clearTimeout(_overlayTimeout); _overlayTimeout = null; hideHowIWorkOverlay(); }
 
 
   _frozen = false;
@@ -175,9 +178,21 @@ export function goToSlide(name) {
   if (name === 'skills')   showSkillBubbles();
   if (name === 'projects') showProjectBubbles();
 
+  // how-i-work arch overlay — shown only on mindset, after camera has settled
+  if (name === 'mindset') {
+    _overlayTimeout = setTimeout(() => {
+      _overlayTimeout = null;
+      showHowIWorkOverlay();
+    }, 1600); // slightly after camMoveDuration (1400ms) so camera is in place
+  } else {
+    hideHowIWorkOverlay();
+  }
+
   // myworld card shows immediately in the blue world while camera sweeps behind character
-  if (name !== 'myworld') showCard(slide.title, slide.body, 550, name, slide.subtitle ?? '');
-  else                    showCard(slide.title, slide.body, 200, name, slide.subtitle ?? '');
+  // mindset: title + subtitle only — the arch overlay carries the body content
+  const mindsetBody = name === 'mindset' ? '' : slide.body;
+  if (name !== 'myworld') showCard(slide.title, mindsetBody, 550, name, slide.subtitle ?? '');
+  else                    showCard(slide.title, slide.body,  200, name, slide.subtitle ?? '');
 
   if (name === 'cta')     _onEnterCta();
   if (name === 'myworld') _onEnterMyWorld();
@@ -209,11 +224,13 @@ function _startPresentation() {
 function _endPresentation() {
   _active = false;
   _paused = false;
-  if (_ctaTimeout)  { clearTimeout(_ctaTimeout);  _ctaTimeout  = null; }
-  if (_cam2Timeout) { clearTimeout(_cam2Timeout); _cam2Timeout = null; }
+  if (_ctaTimeout)     { clearTimeout(_ctaTimeout);     _ctaTimeout     = null; }
+  if (_cam2Timeout)    { clearTimeout(_cam2Timeout);    _cam2Timeout    = null; }
+  if (_overlayTimeout) { clearTimeout(_overlayTimeout); _overlayTimeout = null; }
 
   hideBubbles();
   hideCard();
+  hideHowIWorkOverlay();
   progressWrap.style.display = 'none';
   nextBtn.style.display      = 'none';
   prevBtn.style.display      = 'none';
@@ -238,6 +255,7 @@ function _returnHome() {
   resetPresentBtn();
   hideCard();
   hideBubbles();
+  hideHowIWorkOverlay();
 
   if (!isWhiteWorld()) {
     controls.maxDistance = 20;
