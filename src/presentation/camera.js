@@ -31,7 +31,18 @@ export const currentCamLook = new THREE.Vector3(0, 0.6, 0);
 export let slideElapsed = 0;
 let settledTime  = 0;
 
-export function resetSlideElapsed() { slideElapsed = 0; settledTime = 0; }
+// Orbit state — computed once when the lerp finishes
+let _orbitAngle  = 0;
+let _orbitRadius = 0;
+let _orbitHeight = 0;
+let _orbitActive = false;
+
+export function resetSlideElapsed() {
+  slideElapsed = 0;
+  settledTime  = 0;
+  _orbitActive = false;
+  _orbitAngle  = 0;
+}
 
 // ── Initialise from current camera state ─────────────────────────────────────
 export function initCameraState() {
@@ -86,11 +97,35 @@ export function tickCamera(delta, elapsed, activeSlide, slideIndex, totalDur, fr
 
     if (activeSlide && rawT >= 1.0) {
       settledTime += delta;
-      const s = Math.min(settledTime / 0.8, 1.0);
-      const d = activeSlide.drift;
-      if (d) {
-        camera.position.x = camPosTarget.x + Math.sin(elapsed * d.xf + slideIndex * 1.3) * d.x * s;
-        camera.position.y = camPosTarget.y + Math.sin(elapsed * d.yf + slideIndex * 0.9) * d.y * s;
+
+      if (activeSlide.orbit) {
+        // ── Orbital mode — camera circles the look target ─────────────────
+        const speed = activeSlide.orbit.speed ?? 0.28;
+
+        // Initialise orbit radius/height from the settled camera position
+        if (!_orbitActive) {
+          _orbitActive = true;
+          const dx = camPosTarget.x - camLookTarget.x;
+          const dz = camPosTarget.z - camLookTarget.z;
+          _orbitRadius = Math.sqrt(dx * dx + dz * dz);
+          _orbitHeight = camPosTarget.y;
+          _orbitAngle  = Math.atan2(dz, dx);   // start exactly where lerp landed
+        }
+
+        _orbitAngle += delta * speed;
+
+        camera.position.x = camLookTarget.x + Math.cos(_orbitAngle) * _orbitRadius;
+        camera.position.z = camLookTarget.z + Math.sin(_orbitAngle) * _orbitRadius;
+        camera.position.y = _orbitHeight;
+
+      } else {
+        // ── Normal drift ─────────────────────────────────────────────────
+        const s = Math.min(settledTime / 0.8, 1.0);
+        const d = activeSlide.drift;
+        if (d) {
+          camera.position.x = camPosTarget.x + Math.sin(elapsed * d.xf + slideIndex * 1.3) * d.x * s;
+          camera.position.y = camPosTarget.y + Math.sin(elapsed * d.yf + slideIndex * 0.9) * d.y * s;
+        }
       }
     }
 

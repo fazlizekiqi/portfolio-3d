@@ -87,28 +87,6 @@ _ring2.rotation.x = Math.PI / 2;
 _ring2.position.y = -0.95;
 setWorldLayer(_ring2, LAYER.BLUE);
 
-// ── Particles ─────────────────────────────────────────────────────────────────
-const PARTICLE_COUNT = 180;
-const _pGeo   = new THREE.BufferGeometry();
-const _pPhase = new Float32Array(PARTICLE_COUNT);
-const _pPos   = new Float32Array(PARTICLE_COUNT * 3);
-
-for (let i = 0; i < PARTICLE_COUNT; i++) {
-  _pPos[i * 3]     = (Math.random() - 0.5) * 2.4;
-  _pPos[i * 3 + 1] = (Math.random() - 0.5) * 3.8;
-  _pPos[i * 3 + 2] = (Math.random() - 0.5) * 2.4;
-  _pPhase[i] = Math.random() * Math.PI * 2;
-}
-_pGeo.setAttribute('position', new THREE.BufferAttribute(_pPos, 3));
-
-const _pMat = new THREE.PointsMaterial({
-  color: 0x55ccff, size: 0.018,
-  transparent: true, opacity: 0.55,
-  depthWrite: false, blending: THREE.AdditiveBlending,
-});
-const _pPoints = new THREE.Points(_pGeo, _pMat);
-setWorldLayer(_pPoints, LAYER.BLUE);
-
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export function initBlueWorld() {
@@ -116,7 +94,7 @@ export function initBlueWorld() {
             _fillLight, _fillLight.target,
             _rimLight, _rimLight.target,
             _backLight, _backLight.target, _backLightTarget,
-            _ring, _ring2, _pPoints);
+            _ring, _ring2);
   _backLight.target = _backLightTarget;
 }
 
@@ -248,15 +226,6 @@ export function tickBlueWorld(renderer, delta, elapsed) {
   _ring.rotation.z  =  elapsed * 0.3;
   _ring2.rotation.z = -elapsed * 0.18;
 
-  // Particles
-  const pos = _pGeo.attributes.position.array;
-  for (let i = 0; i < PARTICLE_COUNT; i++) {
-    pos[i * 3 + 1] += delta * (0.03 + 0.018 * Math.sin(_pPhase[i] + elapsed * 0.4));
-    if (pos[i * 3 + 1] > 2.8) pos[i * 3 + 1] = -0.8;
-  }
-  _pGeo.attributes.position.needsUpdate = true;
-
   // Fill light tracks camera
   _fillLight.position.copy(camera.position).multiplyScalar(0.6).add(new THREE.Vector3(-2, 1, 0));
 }
-

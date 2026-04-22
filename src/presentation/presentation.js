@@ -13,6 +13,7 @@
 
 import { controls } from '../scene.js';
 import { playClip, playFeaturedClip, playClipSequence, cancelIdleLoop, playRandomIdleAnim, modelGroup, spawnPosition, spawnRotation } from '../character/model.js';
+import * as THREE from 'three';
 import { goToWhiteWorld, goToBlueWorld, isWhiteWorld } from '../transition.js';
 import { isPlayerActive, playerTakeControl, playerReleaseControl, playerStop } from '../character/player.js';
 import { explodeAndThen, triggerReassemble, setOnReassembled, resetExplodeGroupTransform } from '../character/explode.js';
@@ -25,13 +26,43 @@ import {
   resetSlideElapsed,
 } from './camera.js';
 import {
-  progressWrap, nextBtn, prevBtn, pauseBtn, presentBtn, exploreBtn, backBtn,
+  progressWrap, nextBtn, prevBtn, presentBtn, exploreBtn, backBtn,
   showIdleUI, showPresentingUI, showExploreUI, showWhiteWorldUI, showBackBtn,
   resetPresentBtn, setProgressFill, hideCard, showCard,
 } from './ui.js';
 
 export { initCameraState } from './camera.js';
 export { currentCamLook }  from './camera.js';
+
+/** Compute the news-anchor camera pos/target for the experience slide. */
+function _experienceCam(slide) {
+  const isMobile = window.innerWidth < 768;
+  const a      = (isMobile && slide.mobileAnchor) ? slide.mobileAnchor : slide.anchor;
+  const base   = spawnPosition;
+  const chestY = base.y + a.chestHeight;
+  const pos    = new THREE.Vector3(base.x, chestY, base.z + a.dist);
+  const target = new THREE.Vector3(base.x - a.targetOffset, chestY, base.z);
+  return { pos, target };
+}
+
+/** Re-applies a slide's camera live — pass the slide object from the GUI. */
+export function applySlideCam(slide) {
+  const s = slide || _currentSlide;
+  if (!s) return;
+
+  let pos, target;
+
+  if (s.name === 'experience') {
+    ({ pos, target } = _experienceCam(s));
+  } else {
+    const isMobile = window.innerWidth < 768;
+    pos    = (isMobile && s.mobileCamPos)    ? s.mobileCamPos    : s.camPos;
+    target = (isMobile && s.mobileCamTarget) ? s.mobileCamTarget : s.camTarget;
+  }
+
+  _camMoveDuration = 600;
+  startCameraMove(pos, target);
+}
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let _active        = false;
@@ -105,8 +136,13 @@ export function goToSlide(name) {
     prevBtn.style.display = indexOf(name) > 0 ? 'inline-flex' : 'none';
   }
   const isMobile = window.innerWidth < 768;
-  const camPos    = (isMobile && slide.mobileCamPos)    ? slide.mobileCamPos    : slide.camPos;
-  const camTarget = (isMobile && slide.mobileCamTarget) ? slide.mobileCamTarget : slide.camTarget;
+  let camPos, camTarget;
+  if (name === 'experience') {
+    ({ pos: camPos, target: camTarget } = _experienceCam(slide));
+  } else {
+    camPos    = (isMobile && slide.mobileCamPos)    ? slide.mobileCamPos    : slide.camPos;
+    camTarget = (isMobile && slide.mobileCamTarget) ? slide.mobileCamTarget : slide.camTarget;
+  }
   startCameraMove(camPos, camTarget);
 
   // Schedule phase-2 camera sweep (e.g. experience: side → front after turn)
@@ -119,6 +155,12 @@ export function goToSlide(name) {
   }
 
   cancelIdleLoop();
+  // Cinematic character rotation for experience slide
+  if (name === 'experience' && modelGroup) {
+    modelGroup.rotation.y = spawnRotation.y + 0.35; // ~20° turned toward camera-left
+  } else if (modelGroup) {
+    modelGroup.rotation.copy(spawnRotation);
+  }
   if (slide.clipLoop) {
     playClip(slide.clip);
   } else if (slide.clips?.length > 1) {
@@ -134,8 +176,8 @@ export function goToSlide(name) {
   if (name === 'projects') showProjectBubbles();
 
   // myworld card shows immediately in the blue world while camera sweeps behind character
-  if (name !== 'myworld') showCard(slide.title, slide.body, 550, name);
-  else                    showCard(slide.title, slide.body, 200, name);
+  if (name !== 'myworld') showCard(slide.title, slide.body, 550, name, slide.subtitle ?? '');
+  else                    showCard(slide.title, slide.body, 200, name, slide.subtitle ?? '');
 
   if (name === 'cta')     _onEnterCta();
   if (name === 'myworld') _onEnterMyWorld();
@@ -153,11 +195,6 @@ function _goToPrevSlide() {
   goToSlide(SLIDES[idx - 1].name);
 }
 
-function _togglePause() {
-  _paused = !_paused;
-  const span = pauseBtn.querySelector('span:last-child');
-  if (span) span.textContent = _paused ? '▶' : '⏸';
-}
 
 function _startPresentation() {
   _active = true;
@@ -166,7 +203,6 @@ function _startPresentation() {
   playerReleaseControl();
   showPresentingUI();
   prevBtn.style.display  = 'none'; // hidden on first slide
-  pauseBtn.style.display = 'inline-flex';
   goToSlide('intro');
 }
 
@@ -181,9 +217,6 @@ function _endPresentation() {
   progressWrap.style.display = 'none';
   nextBtn.style.display      = 'none';
   prevBtn.style.display      = 'none';
-  pauseBtn.style.display     = 'none';
-  const span = pauseBtn.querySelector('span:last-child');
-  if (span) span.textContent = '⏸';
   resetPresentBtn();
   showIdleUI();
 
@@ -248,14 +281,11 @@ function _glideHome() {
 // ── Button wiring ─────────────────────────────────────────────────────────────
 nextBtn.addEventListener('click',    () => { if (_active && !_paused) _goToNextSlide(); });
 prevBtn.addEventListener('click',    () => { if (_active) _goToPrevSlide(); });
-pauseBtn.addEventListener('click',   () => { if (_active) _togglePause(); });
 backBtn.addEventListener('click',    () => { backBtn.style.display = 'none'; _returnHome(); });
 presentBtn.addEventListener('click', () => { _active ? _endPresentation() : _startPresentation(); });
 
 exploreBtn.addEventListener('click', () => {
   _paused = false;
-  const span = pauseBtn.querySelector('span:last-child');
-  if (span) span.textContent = '⏸';
   showExploreUI();
   if (!_active) {
     _active = true;

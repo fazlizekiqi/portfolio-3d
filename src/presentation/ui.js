@@ -12,10 +12,12 @@ card.style.cssText = `
 card.innerHTML = `
   <div id="_sInner">
     <div id="_sTitle"></div>
+    <div id="_sSubtitle"></div>
   </div>`;
 document.body.appendChild(card);
 
-const slideTitle = card.querySelector('#_sTitle');
+const slideTitle    = card.querySelector('#_sTitle');
+const slideSubtitle = card.querySelector('#_sSubtitle');
 
 // ── Slide body — centered subtitle ───────────────────────────────────────────
 const bodyPanel = document.createElement('div');
@@ -23,7 +25,7 @@ bodyPanel.id = '_slide-body-panel';
 bodyPanel.style.cssText = `
   position:fixed;bottom:80px;left:0;right:0;
   z-index:20;pointer-events:none;
-  display:flex;justify-content:center;
+  display:flex;
   opacity:0;transition:opacity 0.5s ease;`;
 bodyPanel.innerHTML = `<div id="_sBodyInner"><div id="_sBody"></div></div>`;
 document.body.appendChild(bodyPanel);
@@ -59,10 +61,20 @@ _style.textContent = `
   text-shadow: 0 0 28px rgba(0,180,255,0.50);
   white-space: nowrap;
 }
+#_sSubtitle {
+  color: rgba(0,200,255,0.75);
+  font-size: 12px;
+  letter-spacing: .14em;
+  margin-top: 4px;
+  text-shadow: 0 0 14px rgba(0,180,255,0.45);
+  white-space: nowrap;
+  min-height: 16px;
+}
 
 /* ─── slide body — movie subtitle style ──────────────────────────────────── */
 #_slide-body-panel {
   font-family:'Share Tech Mono','Courier New',monospace;
+  justify-content: center;
 }
 #_sBodyInner {
   text-align: center;
@@ -84,8 +96,79 @@ _style.textContent = `
 
 /* ─── mobile ─────────────────────────────────────────────────────────────── */
 @media (max-width: 640px) {
-  #_slide-body-panel { bottom: 62px; }
-  #_sBody { font-size: 9px; line-height: 1.7; letter-spacing: .06em; }
+  #_slide-body-panel { bottom: 52px; }
+  #_sTitle { font-size: 16px; letter-spacing: .06em; }
+  #_sSubtitle { font-size: 10px; letter-spacing: .10em; }
+  #_sInner { padding: 12px 20px 10px; }
+  #_sBody {
+    font-size: 10px;
+    line-height: 1.75;
+    letter-spacing: .05em;
+    max-width: 95vw;
+    word-break: break-word;
+    white-space: pre-line;
+  }
+}
+
+/* ─── experience slide — body on left, character on right ────────────────── */
+#_slide-body-panel.slide-experience {
+  justify-content: center;
+  align-items: center;
+  padding-left: 0;
+  bottom: 0;
+  top: 60px;
+}
+#_slide-body-panel.slide-experience #_sBodyInner {
+  text-align: left;
+  width: 44%;
+  margin-left: -4%;
+  padding: 0;
+}
+#_slide-body-panel.slide-experience #_sBody {
+  display: block;
+  text-align: left;
+  white-space: normal;
+}
+
+/* ── job block ── */
+._exp-block {
+  margin-bottom: 28px;
+}
+._exp-role {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  color: #e8f4ff;
+  text-shadow: 0 0 18px rgba(0,180,255,0.75);
+  margin-bottom: 5px;
+}
+._exp-company {
+  font-size: 15px;
+  letter-spacing: .10em;
+  color: #7ecfea;
+  margin-bottom: 6px;
+}
+._exp-stack {
+  font-size: 13px;
+  letter-spacing: .08em;
+  color: rgba(160,215,230,0.85);
+  text-shadow: none;
+}
+
+@media (max-width: 640px) {
+  #_slide-body-panel.slide-experience {
+    justify-content: flex-start;
+    padding-left: 16px;
+    top: 50px;
+  }
+  #_slide-body-panel.slide-experience #_sBodyInner {
+    width: 56%;
+    margin-left: 0;
+  }
+  ._exp-role    { font-size: 12px; }
+  ._exp-company { font-size: 10px; }
+  ._exp-stack   { font-size: 9px; }
+  ._exp-block   { margin-bottom: 16px; }
 }
 
 /* ─── bottom bar ─────────────────────────────────────────────────────────── */
@@ -103,7 +186,26 @@ _style.textContent = `
 @media (max-width: 640px) {
   #_ui-bar {
     bottom: 10px;
-    gap: 7px;
+    gap: 5px;
+  }
+  ._lb {
+    padding: 6px 12px;
+    font-size: 8px;
+    letter-spacing: .14em;
+    gap: 5px;
+  }
+  ._lb._lb-arrow {
+    padding: 6px 10px;
+    font-size: 11px;
+  }
+  ._lb-dot {
+    width: 4px;
+    height: 4px;
+  }
+  ._back-cap {
+    padding: 5px 12px;
+    font-size: 8px;
+    letter-spacing: .10em;
   }
 }
 
@@ -259,9 +361,6 @@ export const prevBtn = _mkLb('←', '_lb-arrow');
 prevBtn.style.display = 'none';
 _bar.appendChild(prevBtn);
 
-export const pauseBtn = _mkLb('⏸', '_lb-arrow');
-pauseBtn.style.display = 'none';
-_bar.appendChild(pauseBtn);
 
 export const nextBtn = _mkLb('→', '_lb-arrow');
 nextBtn.style.display = 'none';
@@ -299,7 +398,6 @@ export function showExploreUI() {
   presentBtn.style.display = 'none';
   exploreBtn.style.display = 'none';
   prevBtn.style.display    = 'none';
-  pauseBtn.style.display   = 'none';
   nextBtn.style.display    = 'none';
   progressWrap.style.display = 'none';
 }
@@ -309,7 +407,6 @@ export function showWhiteWorldUI() {
   presentBtn.style.display = 'none';
   exploreBtn.style.display = 'none';
   prevBtn.style.display    = 'none';
-  pauseBtn.style.display   = 'none';
   nextBtn.style.display    = 'none';
   progressWrap.style.display = 'none';
   backBtn.style.display    = 'inline-flex';
@@ -333,21 +430,54 @@ export function hideCard() {
   card.style.opacity      = '0';
   bodyPanel.style.opacity = '0';
   card.className = '';
+  bodyPanel.className = '';
   if (_timerA) clearInterval(_timerA);
   if (_timerB) clearInterval(_timerB);
-  slideTitle.textContent = '';
+  slideTitle.textContent    = '';
+  slideSubtitle.textContent = '';
   slideBody.textContent  = '';
+  slideBody.innerHTML    = '';
 }
 
-export function showCard(title, body, delay = 550, slideName = '') {
+/** Parse the experience body text into structured HTML blocks. */
+function _buildExperienceHTML(body) {
+  // Each job block is separated by \n\n, lines are: ROLE \n · Company \n Stack
+  return body.split('\n\n').map(block => {
+    const [role, company, stack] = block.split('\n');
+    return `<div class="_exp-block">
+      <div class="_exp-role">${role ?? ''}</div>
+      <div class="_exp-company">${company ?? ''}</div>
+      <div class="_exp-stack">${stack ?? ''}</div>
+    </div>`;
+  }).join('');
+}
+
+export function showCard(title, body, delay = 550, slideName = '', subtitle = '') {
   hideCard();
-  if (slideName) card.classList.add(`slide-${slideName}`);
+  if (slideName) {
+    card.classList.add(`slide-${slideName}`);
+    bodyPanel.classList.add(`slide-${slideName}`);
+  }
   setTimeout(() => {
     card.style.opacity = '1';
     _timerA = _typeWrite(slideTitle, title, 38, () => {
-      // Body fades in and types after title finishes
+      if (subtitle) slideSubtitle.textContent = subtitle;
       bodyPanel.style.opacity = '1';
-      _timerB = _typeWrite(slideBody, body, 18);
+      if (slideName === 'experience') {
+        slideBody.innerHTML = _buildExperienceHTML(body);
+        // Stagger-animate each block in
+        slideBody.querySelectorAll('._exp-block').forEach((el, i) => {
+          el.style.opacity = '0';
+          el.style.transform = 'translateX(-12px)';
+          setTimeout(() => {
+            el.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+            el.style.opacity = '1';
+            el.style.transform = 'translateX(0)';
+          }, i * 220);
+        });
+      } else {
+        _timerB = _typeWrite(slideBody, body, 18);
+      }
     });
   }, delay);
 }

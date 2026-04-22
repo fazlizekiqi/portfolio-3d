@@ -16,8 +16,6 @@
 import * as THREE from 'three';
 import { scene, camera, renderer } from '../scene.js';
 import { LAYER } from '../layers.js';
-import RAINDROP_VERT from '../shaders/raindrop.vert.glsl?raw';
-import RAINDROP_FRAG from '../shaders/raindrop.frag.glsl?raw';
 import BLUEPRINT_VERT from '../shaders/blueprint.vert.glsl?raw';
 import BLUEPRINT_FRAG from '../shaders/blueprint.frag.glsl?raw';
 
@@ -56,6 +54,7 @@ const SKILL_ITEMS = [
 
 const _base = import.meta.env.BASE_URL.replace(/\/$/, ''); // e.g. '/portfolio-3d' or ''
 
+
 const PROJECT_ITEMS = [
     {label: 'EnVar',              sub: 'IntelliJ plugin · 26 900+ downloads',     url: 'https://plugins.jetbrains.com/plugin/26912-envar',               img: `${_base}/projects/envar.png`},
     {label: 'Dino Card Collector',sub: 'Location-based web game for families',    url: 'https://fazlizekiqi.github.io/dinosaur-card-collector',         img: `${_base}/projects/dinosaur-card-collector.png`},
@@ -69,12 +68,12 @@ const PROJECT_ITEMS = [
 ];
 
 const GROUP_COLOR = {
-    backend:  {hex: 0x00bbdd, css: '#00bbdd', glow: 'rgba(0,187,221,0.55)',   icon: '⚙'},
-    frontend: {hex: 0x2ecfaa, css: '#2ecfaa', glow: 'rgba(46,207,170,0.55)',  icon: '◈'},
-    cloud:    {hex: 0x4488ee, css: '#4488ee', glow: 'rgba(68,136,238,0.55)',  icon: '⬡'},
-    data:     {hex: 0x6699cc, css: '#6699cc', glow: 'rgba(102,153,204,0.55)', icon: '◉'},
-    tooling:  {hex: 0xcc88ff, css: '#cc88ff', glow: 'rgba(200,136,255,0.55)', icon: '⌥'},
-    ai:       {hex: 0xff9944, css: '#ff9944', glow: 'rgba(255,153,68,0.55)',  icon: '◎'},
+    backend:  { hex: 0x00ccff, css: '#00ccff' },   // bright cyan  — primary accent
+    frontend: { hex: 0x00eedd, css: '#00eedd' },   // teal-cyan
+    cloud:    { hex: 0x4499ee, css: '#4499ee' },   // sky blue     — matches fill light
+    data:     { hex: 0x55bbdd, css: '#55bbdd' },   // ice cyan     — matches particles
+    tooling:  { hex: 0xaaccff, css: '#aaccff' },   // ice blue     — matches fill light
+    ai:       { hex: 0x00ffcc, css: '#00ffcc' },   // mint-cyan
 };
 
 // ── Layout params (tweakable via GUI) ─────────────────────────────────────────
@@ -82,9 +81,27 @@ export const skillLayoutParams = { offsetX: 0, offsetY: 0, spread: 1.0 };
 
 // ── Mobile helpers ────────────────────────────────────────────────────────────
 function _isMobile() { return window.innerWidth < 768; }
-function _bubbleScale()  { return _isMobile() ? 0.75 : 1.0; }
+function _bubbleScale()  { return _isMobile() ? 0.92 : 1.0; }
+function _fontScale()    { return _isMobile() ? 1.5  : 1.0; }
 // Mobile cards: smaller scale so 3 columns fit comfortably on 375px-wide screens
 function _cardScale()    { return _isMobile() ? 0.72 : 1.0; }
+
+/**
+ * Compute sphere radius + label plane size for a given label string.
+ * Short labels → smaller, compact bubble. Long labels → bigger bubble.
+ * The label plane always fits inside the sphere diameter (plane ≤ 2r).
+ */
+function _bubbleSizeForLabel(label) {
+    const sc  = _bubbleScale();
+    const len = label.length;
+    // radius grows with char count, clamped
+    const r   = sc * Math.max(0.48, Math.min(0.82, 0.38 + len * 0.028));
+    // plane must be inscribed inside the sphere circle: side ≤ r * √2 ≈ r * 1.414
+    // Use r * 1.25 — leaves a safe 10 % margin so text never pokes out the rim
+    const planeSize = r * 1.25;
+    return { r, planeSize };
+}
+
 
 // ── Project image preloader — use THREE.TextureLoader (reliable, GPU-native) ──
 const _texLoader  = new THREE.TextureLoader();
@@ -117,83 +134,148 @@ _raycaster.layers.enable(LAYER.BLUE);   // bubbles live on layer 1
 let _mouse     = new THREE.Vector2(-9999, -9999);
 let _listening = false;
 
+// ── Soap-bubble shaders (no external textures) ───────────────────────────────
+const _BUBBLE_VERT = /* glsl */`
+varying vec3 vNormal;
+varying vec3 vViewDir;
+void main() {
+  vNormal  = normalize(normalMatrix * normal);
+  vec4 mv  = modelViewMatrix * vec4(position, 1.0);
+  vViewDir = normalize(-mv.xyz);
+  gl_Position = projectionMatrix * mv;
+}`;
+
+const _BUBBLE_FRAG = /* glsl */`
+uniform vec3  uColor;
+uniform float uOpacity;
+uniform float uTime;
+varying vec3  vNormal;
+varying vec3  vViewDir;
+
+// Blue-world iridescence: deep navy → cyan → teal → ice blue
+vec3 blueIrid(float h) {
+  h = mod(h, 1.0) * 4.0;
+  vec3 navy  = vec3(0.02, 0.08, 0.28);
+  vec3 cyan  = vec3(0.0,  0.80, 1.0);
+  vec3 teal  = vec3(0.0,  0.90, 0.82);
+  vec3 ice   = vec3(0.65, 0.88, 1.0);
+  if (h < 1.0) return mix(navy, cyan, h);
+  if (h < 2.0) return mix(cyan, teal, h - 1.0);
+  if (h < 3.0) return mix(teal, ice,  h - 2.0);
+  return mix(ice, navy, h - 3.0);
+}
+
+void main() {
+  float ndv     = abs(dot(vNormal, vViewDir));
+  float fresnel = pow(1.0 - ndv, 2.5);
+
+  // Thin-film shift: varies across surface + drifts slowly over time
+  float film = dot(vNormal, vec3(0.3, 0.7, 0.4)) * 0.5 + 0.5;
+  float hue  = film * 1.0 + uTime * 0.06;
+  vec3  irid = blueIrid(hue);
+
+  // Blend group accent into the iridescence
+  vec3  col  = mix(uColor * 1.2, irid, 0.55);
+
+  // Rim glows bright, centre is nearly transparent — soap bubble look
+  float alpha = (fresnel * 0.88 + 0.03) * uOpacity;
+  gl_FragColor = vec4(col * (0.5 + fresnel * 1.2), alpha);
+}`;
+
 // ── Canvas Texture helpers ────────────────────────────────────────────────────
 
 function _makeLabelTexture(label, groupKey) {
-    const c  = GROUP_COLOR[groupKey] ?? GROUP_COLOR.tooling;
-    const SZ = 768;                          // higher resolution for crisp text on mobile
-    const cv = document.createElement('canvas');
-    cv.width = cv.height = SZ;
+    const c   = GROUP_COLOR[groupKey] ?? GROUP_COLOR.tooling;
+    // High-res canvas — renders crisply on retina/mobile
+    const SZ  = 1024;
+    const cv  = document.createElement('canvas');
+    cv.width  = cv.height = SZ;
     const ctx = cv.getContext('2d');
-    ctx.clearRect(0, 0, SZ, SZ);
+    ctx.clearRect(0, 0, SZ, SZ);   // fully transparent background
 
     const cx = SZ / 2, cy = SZ / 2;
 
-    // ── Icon ──────────────────────────────────────────────────────────────────
-    ctx.font         = '160px serif';
-    ctx.textAlign    = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle    = c.css;
-    ctx.shadowColor  = c.glow;
-    ctx.shadowBlur   = 30;
-    ctx.fillText(c.icon, cx, cy - 110);
-    ctx.shadowBlur = 0;
+    // ── Choose font size so the longest line fits comfortably ─────────────────
+    // The safe draw area is a circle inscribed in the canvas: radius = SZ*0.44
+    // We use a square region inside that: side ≈ SZ * 0.62  →  maxW = SZ * 0.62
+    const maxW = Math.floor(SZ * 0.62);
+    const fs0 = Math.round((label.length > 12 ? 148 : label.length > 8 ? 170 : 192) * _fontScale());
+    let fs = fs0;
+    ctx.font = `800 ${fs}px "Courier New", monospace`;
 
-    // ── Label: dark pill background first ─────────────────────────────────────
-    const words    = label.split(' ');
-    const fontSize = label.length > 10 ? 64 : 72;
-    ctx.font       = `700 ${fontSize}px "Courier New", monospace`;
-    ctx.textBaseline = 'middle';
+    // Word-wrap into lines
+    const words = label.split(' ');
+    const buildLines = () => {
+        const ls = [];
+        let cur = '';
+        for (const w of words) {
+            const test = cur ? cur + ' ' + w : w;
+            if (ctx.measureText(test).width > maxW && cur) { ls.push(cur); cur = w; }
+            else cur = test;
+        }
+        if (cur) ls.push(cur);
+        return ls;
+    };
 
-    // measure lines
-    const lines = [];
-    if (words.length > 1 && label.length > 10) {
-        const half = Math.ceil(words.length / 2);
-        lines.push(words.slice(0, half).join(' '));
-        lines.push(words.slice(half).join(' '));
-    } else {
-        lines.push(label);
+    let lines = words.length === 1 ? [label] : buildLines();
+
+    // Scale font down until every line fits (accounts for stroke overhang too)
+    let safety = 0;
+    while (safety++ < 20) {
+        const strokeOverhang = fs * 0.16;
+        const fits = lines.every(l => ctx.measureText(l).width + strokeOverhang * 2 <= maxW);
+        if (fits) break;
+        fs -= 8;
+        ctx.font = `800 ${fs}px "Courier New", monospace`;
+        lines = words.length === 1 ? [label] : buildLines();
     }
 
-    const lineH  = fontSize + 8;
-    const startY = cy + 62;
+    // ── Layout: badge pill + text block, all vertically centred together ──────
+    const BADGE_H  = 48;
+    const BADGE_GAP = 20;        // space between badge bottom and first text line
+    const lineH    = fs + 16;
+    const totalH   = BADGE_H + BADGE_GAP + lines.length * lineH;
+    const blockTop = cy - totalH / 2;
 
-    // draw pill behind each line
-    lines.forEach((line, li) => {
-        const w   = ctx.measureText(line).width + 24;
-        const h   = lineH + 6;
-        const lx  = cx - w / 2;
-        const ly  = startY + li * (lineH + 4) - h / 2;
-        const r   = h / 2;
-        ctx.fillStyle = 'rgba(0,0,0,0.72)';
-        ctx.beginPath();
-        ctx.moveTo(lx + r, ly);
-        ctx.lineTo(lx + w - r, ly);
-        ctx.quadraticCurveTo(lx + w, ly, lx + w, ly + r);
-        ctx.lineTo(lx + w, ly + h - r);
-        ctx.quadraticCurveTo(lx + w, ly + h, lx + w - r, ly + h);
-        ctx.lineTo(lx + r, ly + h);
-        ctx.quadraticCurveTo(lx, ly + h, lx, ly + h - r);
-        ctx.lineTo(lx, ly + r);
-        ctx.quadraticCurveTo(lx, ly, lx + r, ly);
-        ctx.closePath();
-        ctx.fill();
-    });
+    // ── Group badge ───────────────────────────────────────────────────────────
+    const GROUP_LABEL = { backend:'BACKEND', frontend:'FRONTEND', cloud:'CLOUD', data:'DATA', tooling:'TOOLING', ai:'AI' };
+    const badge = GROUP_LABEL[groupKey] ?? groupKey.toUpperCase();
+    ctx.font         = `700 34px "Courier New", monospace`;
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    const bw = ctx.measureText(badge).width + 28, bh = BADGE_H, br = bh / 2;
+    const bx = cx - bw / 2, by = blockTop;
+    // pill fill
+    ctx.fillStyle = c.css + '30';
+    ctx.beginPath();
+    ctx.roundRect(bx, by, bw, bh, br);
+    ctx.fill();
+    // pill border — solid, no glow
+    ctx.strokeStyle = c.css;
+    ctx.lineWidth   = 2.5;
+    ctx.stroke();
+    // pill label — solid fill, no shadow
+    ctx.fillStyle   = c.css;
+    ctx.fillText(badge, cx, by + bh / 2);
 
-    // draw text on top of pills — stroke first for crisp outline, then fill
-    ctx.lineJoin    = 'round';
-    ctx.lineWidth   = 14;
-    ctx.strokeStyle = 'rgba(0,0,0,1.0)';
-    lines.forEach((line, li) => {
-        ctx.strokeText(line, cx, startY + li * (lineH + 4));
+    // ── Skill name ────────────────────────────────────────────────────────────
+    ctx.font         = `800 ${fs}px "Courier New", monospace`;
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineJoin     = 'round';
+
+    const textTop = blockTop + BADGE_H + BADGE_GAP;
+
+    lines.forEach((ln, li) => {
+        const y = textTop + li * lineH + lineH / 2;
+        // Solid dark outline — crisp, no blur
+        ctx.lineWidth   = fs * 0.16;
+        ctx.strokeStyle = 'rgba(1,5,18,1.0)';
+        ctx.strokeText(ln, cx, y);
+        // Solid ice-white fill — no shadow, no glow
+        ctx.fillStyle = '#dff0ff';
+        ctx.fillText(ln, cx, y);
     });
-    ctx.fillStyle    = '#ffffff';
-    ctx.shadowColor  = 'rgba(0,220,255,0.8)';
-    ctx.shadowBlur   = 12;
-    lines.forEach((line, li) => {
-        ctx.fillText(line, cx, startY + li * (lineH + 4));
-    });
-    ctx.shadowBlur = 0;
 
     return new THREE.CanvasTexture(cv);
 }
@@ -290,7 +372,6 @@ function _makeProjectCardMobile(item, imgTex) {
         const subY  = titleStartY + titleLines.length * titleLineH + 18;
         const subFS = 28;
         ctx.font      = `600 ${subFS}px "Courier New", monospace`;
-        ctx.strokeStyle = 'rgba(0,0,0,0.9)';
         ctx.lineWidth   = 8;
         ctx.lineJoin    = 'round';
         // word-wrap sub too
@@ -406,7 +487,7 @@ function _wrapText(text, maxLen) {
 // We unproject the camera frustum at that depth to get the visible rect,
 // then scatter bubbles to fill it edge-to-edge.
 
-const BUBBLE_Z = -1.5;
+const BUBBLE_Z = -5.5;
 
 /** Returns the half-width and half-height visible at a world-Z plane. */
 function _frustumExtents(worldZ) {
@@ -423,10 +504,12 @@ function _skillPositions(n) {
     const { offsetX, offsetY, spread } = skillLayoutParams;
     const { halfW, halfH, centerY } = _frustumExtents(BUBBLE_Z);
 
-    // Usable rect (leave a small margin so bubbles don't clip at edges)
+    // Usable rect — on desktop cap to 60 % of width so bubbles stay central
     const marginX = 0.5, marginY = 0.4;
-    const W = (halfW - marginX) * spread;
-    const H = (halfH - marginY) * spread;
+    const rawW = (halfW - marginX) * spread;
+    const W = rawW;
+    const rawH = (halfH - marginY) * spread;
+    const H = _isMobile() ? rawH : rawH * 0.60;
 
     // Use a seeded pseudo-random scatter so layout is deterministic
     const pts = [];
@@ -436,12 +519,12 @@ function _skillPositions(n) {
         const sz = fract(Math.sin(i * 73.1  + 19.9) * 43758.5);            // 0..1
         const x  = sx * W + offsetX * 0.1;
         const y  = centerY + sy * H + offsetY * 0.1;
-        const z  = BUBBLE_Z - sz * 0.8;   // vary depth a little
+        const z  = BUBBLE_Z + sz * 3.5;   // spread from -5.5 up to -2.0
         pts.push(new THREE.Vector3(x, y, z));
     }
 
     // Collision repulsion — push overlapping bubbles apart
-    const MIN_D = 1.0 * _bubbleScale();
+    const MIN_D = 1.2 * _bubbleScale();
     for (let iter = 0; iter < 80; iter++) {
         for (let a = 0; a < pts.length; a++) {
             for (let b = a + 1; b < pts.length; b++) {
@@ -456,7 +539,8 @@ function _skillPositions(n) {
             // Clamp back into bounds
             pts[a].x = Math.max(-halfW + marginX, Math.min(halfW - marginX, pts[a].x));
             pts[a].y = Math.max(centerY - H,      Math.min(centerY + H,     pts[a].y));
-            if (pts[a].z > -0.5) pts[a].z = -0.5;
+            // clamp z: never closer than -0.7 (don't pierce the character at z=0)
+            if (pts[a].z > -0.7) pts[a].z = -0.7;
         }
     }
     return pts;
@@ -510,11 +594,13 @@ function _projectPositions() {
 
 function _spawnSphere(item, pos3, seed) {
     const c   = GROUP_COLOR[item.group] ?? GROUP_COLOR.tooling;
-    const sc  = _bubbleScale();
-    const geo = new THREE.SphereGeometry(0.44 * sc, 48, 48);
+    const { r, planeSize } = _bubbleSizeForLabel(item.label);
+    const geo = new THREE.SphereGeometry(r, 64, 32);
+
+    // ── Soap-bubble shader — iridescent, no external textures ────────────────
     const mat = new THREE.ShaderMaterial({
-        vertexShader:   RAINDROP_VERT,
-        fragmentShader: RAINDROP_FRAG,
+        vertexShader:   _BUBBLE_VERT,
+        fragmentShader: _BUBBLE_FRAG,
         uniforms: {
             uTime:    { value: 0 },
             uColor:   { value: new THREE.Color(c.hex) },
@@ -522,21 +608,27 @@ function _spawnSphere(item, pos3, seed) {
         },
         transparent: true,
         depthWrite:  false,
-        side: THREE.FrontSide,
+        side: THREE.DoubleSide,
     });
+
     const mesh = new THREE.Mesh(geo, mat);
     mesh.position.copy(pos3); mesh.position.y -= 1.5;
     mesh.layers.set(LAYER.BLUE);
 
-    // label sprite — larger plane so text is clearly readable, especially on mobile
+    // ── Label sprite — transparent, text only, floats just in front ──────────
     const labelTex  = _makeLabelTexture(item.label, item.group);
-    const labelSize = _isMobile() ? 1.6 * sc : 1.1 * sc;
-    const labelGeo  = new THREE.PlaneGeometry(labelSize, labelSize);
-    const labelMat  = new THREE.MeshBasicMaterial({ map: labelTex, transparent: true, depthWrite: false, opacity: 0 });
+    const labelGeo  = new THREE.PlaneGeometry(planeSize, planeSize);
+    const labelMat  = new THREE.MeshBasicMaterial({
+        map:         labelTex,
+        transparent: true,
+        depthWrite:  false,
+        opacity:     0,
+    });
     const labelMesh = new THREE.Mesh(labelGeo, labelMat);
+    labelMesh.position.z = 0;          // at sphere centre — always inside the bubble
     labelMesh.layers.set(LAYER.BLUE);
-    labelMesh.raycast = () => {};   // never intercept raycasts — parent sphere handles them
-    mesh.add(labelMesh); // child — moves with sphere
+    labelMesh.raycast = () => {};
+    mesh.add(labelMesh);
 
     scene.add(mesh);
 
@@ -545,6 +637,7 @@ function _spawnSphere(item, pos3, seed) {
         rising: true, riseTime: 0,
         riseDelay: 0.2 + Math.abs(Math.sin(seed * 47.3 + 1.7)) * 2.2,
         labelMat,
+        rimMat: null,
         popping: false, popTime: 0,
     });
 }
@@ -666,6 +759,7 @@ export function tickBubbles(delta, elapsed) {
                 if (mat.isShaderMaterial) mat.uniforms.uOpacity.value = op * 0.88;
                 else mat.opacity = op;
                 if (e.labelMat) e.labelMat.opacity = op * 0.95;
+                if (e.rimMat)   e.rimMat.opacity   = op * 0.90;
             } else {
                 const item    = e.item;
                 const basePos = e.basePos.clone();
@@ -687,6 +781,7 @@ export function tickBubbles(delta, elapsed) {
             if (mat.isShaderMaterial && mat.uniforms) mat.uniforms.uOpacity.value = ease * targetOp;
             else mat.opacity = ease * targetOp;
             if (e.labelMat) e.labelMat.opacity = ease * 0.95;
+            if (e.rimMat)   e.rimMat.opacity   = ease * 0.90;
 
             if (!e.isProject) {
                 e.mesh.position.x = e.basePos.x;
@@ -723,15 +818,13 @@ export function tickBubbles(delta, elapsed) {
         const t    = elapsed - (e.floatStartTime ?? 0);
         const ramp = Math.min(1.0, t / 1.5);
 
-        // Primary waves — fast, different period per axis per bubble
+        // Primary waves — X/Y
         const ftX  = 3.0 + Math.abs(Math.sin(s * 47.3)) * 2.5;
         const ftY  = 2.5 + Math.abs(Math.sin(s * 31.7)) * 2.0;
-        const ftZ  = 3.5 + Math.abs(Math.sin(s * 19.1)) * 1.5;
-        // Secondary waves — slower, adds organic unpredictability
+        // Secondary waves
         const ftX2 = 7.0 + Math.abs(Math.sin(s * 23.1)) * 3.5;
         const ftY2 = 6.0 + Math.abs(Math.sin(s * 17.3)) * 2.5;
-        const ftZ2 = 8.5 + Math.abs(Math.sin(s * 11.7)) * 3.0;
-        // Tertiary drift — very slow, makes bubbles wander far over time
+        // Tertiary drift
         const ftX3 = 14.0 + Math.abs(Math.sin(s * 7.9)) * 5.0;
         const ftY3 = 12.0 + Math.abs(Math.sin(s * 5.3)) * 4.0;
 
@@ -741,12 +834,10 @@ export function tickBubbles(delta, elapsed) {
         const dy = Math.sin(t / ftY  + s * 2.1)  * 0.45
                  + Math.cos(t / ftY2 + s * 0.7)  * 0.28
                  + Math.sin(t / ftY3 + s * 1.8)  * 0.32;
-        const dz = Math.cos(t / ftZ  + s * 0.9)  * 0.38
-                 + Math.sin(t / ftZ2 + s * 1.7)  * 0.22;
 
         e.mesh.position.x = e.basePos.x + dx * ramp;
         e.mesh.position.y = e.basePos.y + dy * ramp;
-        e.mesh.position.z = e.basePos.z + dz * ramp;
+        e.mesh.position.z = e.basePos.z;
 
         // Billboard: sphere parent faces camera.
         // Label child sits at local (0,0,0) and inherits the parent rotation — correct.
@@ -770,6 +861,7 @@ function _destroyEntry(e, idx) {
         m.dispose();
     }
     if (e.labelMat) { if (e.labelMat.map) e.labelMat.map.dispose(); e.labelMat.dispose(); }
+    if (e.rimMat)   { e.rimMat.dispose(); }
     if (idx !== undefined) _entries.splice(idx, 1);
 }
 

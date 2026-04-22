@@ -4,6 +4,8 @@ import { tornadoCamParams, tornadoParams } from './world/tornado-travel.js';
 import { playerParams } from './character/player.js';
 import { waterParams } from './world/whiteworld.js';
 import { skillLayoutParams, showSkillBubbles } from './presentation/bubbles.js';
+import { SLIDES } from './presentation/slides.js';
+import { applySlideCam } from './presentation/presentation.js';
 
 // ── dat.gui panel — starts closed ─────────────────────────────────────────────
 const gui = new GUI({ width: 280, closed: true });
@@ -87,4 +89,40 @@ const _refreshSpheres = () => showSkillBubbles();
 fSK.add(skillLayoutParams, 'offsetX', -20, 20, 0.5).name('Shift X %').onChange(_refreshSpheres);
 fSK.add(skillLayoutParams, 'offsetY', -20, 20, 0.5).name('Shift Y %').onChange(_refreshSpheres);
 fSK.add(skillLayoutParams, 'spread',  0.4,  2.0, 0.05).name('Spread').onChange(_refreshSpheres);
+
+// ── Slides camera folder ──────────────────────────────────────────────────────
+const fSlides = gui.addFolder('🎬 Slides Camera');
+for (const slide of SLIDES) {
+  const f = fSlides.addFolder(slide.name);
+  const apply = () => applySlideCam(slide);
+
+  const fD = f.addFolder('Desktop');
+  const fDPos = fD.addFolder('camPos');
+  fDPos.add(slide.camPos, 'x', -15, 15, 0.05).name('X').onChange(apply);
+  fDPos.add(slide.camPos, 'y',  -2, 10, 0.05).name('Y').onChange(apply);
+  fDPos.add(slide.camPos, 'z',  -8, 20, 0.05).name('Z').onChange(apply);
+  const fDTgt = fD.addFolder('camTarget');
+  fDTgt.add(slide.camTarget, 'x', -10, 10, 0.05).name('X').onChange(apply);
+  fDTgt.add(slide.camTarget, 'y',  -2,  6, 0.05).name('Y').onChange(apply);
+  fDTgt.add(slide.camTarget, 'z', -10, 10, 0.05).name('Z').onChange(apply);
+
+  if (slide.anchor) {
+    const fA = f.addFolder('⚓ Anchor (news-cam)');
+    fA.add(slide.anchor, 'dist',         0.5, 8.0, 0.05).name('Cam distance').onChange(apply);
+    fA.add(slide.anchor, 'chestHeight',  0.5, 3.0, 0.05).name('Chest height').onChange(apply);
+    fA.add(slide.anchor, 'targetOffset',-3.0, 3.0, 0.05).name('Target offset (←+)').onChange(apply);
+  }
+
+  if (slide.mobileCamPos && slide.mobileCamTarget) {
+    const fM = f.addFolder('Mobile');
+    const fMPos = fM.addFolder('camPos');
+    fMPos.add(slide.mobileCamPos, 'x', -15, 15, 0.05).name('X').onChange(apply);
+    fMPos.add(slide.mobileCamPos, 'y',  -2, 10, 0.05).name('Y').onChange(apply);
+    fMPos.add(slide.mobileCamPos, 'z',  -8, 20, 0.05).name('Z').onChange(apply);
+    const fMTgt = fM.addFolder('camTarget');
+    fMTgt.add(slide.mobileCamTarget, 'x', -10, 10, 0.05).name('X').onChange(apply);
+    fMTgt.add(slide.mobileCamTarget, 'y',  -2,  6, 0.05).name('Y').onChange(apply);
+    fMTgt.add(slide.mobileCamTarget, 'z', -10, 10, 0.05).name('Z').onChange(apply);
+  }
+}
 

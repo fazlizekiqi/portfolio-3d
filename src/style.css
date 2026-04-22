@@ -294,3 +294,40 @@ code {
     border-right-color: var(--border);
   }
 }
+
+/* ── Skill bubble labels (CSS2DObject — pixel-perfect, centered on sphere) ───── */
+.bubble-label {
+  pointer-events: none !important;
+  user-select: none !important;
+  transform: translate(-50%, -50%) !important;
+  display: block !important;
+}
+
+.bubble-label__icon {
+  display: none !important;
+}
+
+.bubble-label__text {
+  display: block !important;
+  font-family: "Courier New", Courier, monospace !important;
+  font-size: 11px !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.10em !important;
+  line-height: 1 !important;
+  text-transform: uppercase !important;
+  white-space: nowrap !important;
+  text-align: center !important;
+  background: rgba(0, 6, 20, 0.78) !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 3px !important;
+  padding: 4px 8px !important;
+}
+
+@media (max-width: 768px) {
+  .bubble-label__text {
+    font-size: 9px !important;
+    padding: 3px 6px !important;
+    letter-spacing: 0.06em !important;
+  }
+}
