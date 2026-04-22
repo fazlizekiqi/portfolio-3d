@@ -2,23 +2,33 @@
  * ui.js — All presentation DOM elements and their visibility helpers.
  */
 
-// ── Slide card ────────────────────────────────────────────────────────────────
+// ── Slide title strip (top) ───────────────────────────────────────────────────
 const card = document.createElement('div');
 card.id = '_slide-card';
 card.style.cssText = `
-  position:fixed;left:48px;top:50%;transform:translateY(-50%);
-  z-index:20;pointer-events:none;max-width:320px;
+  position:fixed;top:0;left:0;right:0;
+  z-index:20;pointer-events:none;
   opacity:0;transition:opacity 0.6s ease;`;
 card.innerHTML = `
-  <div class="_sc-line-top"></div>
-  <div id="_sTitle"></div>
-  <div class="_sc-divider"></div>
-  <div id="_sBody"></div>
-  <div class="_sc-line-bot"></div>`;
+  <div id="_sInner">
+    <div id="_sTitle"></div>
+  </div>`;
 document.body.appendChild(card);
 
 const slideTitle = card.querySelector('#_sTitle');
-const slideBody  = card.querySelector('#_sBody');
+
+// ── Slide body — centered subtitle ───────────────────────────────────────────
+const bodyPanel = document.createElement('div');
+bodyPanel.id = '_slide-body-panel';
+bodyPanel.style.cssText = `
+  position:fixed;bottom:80px;left:0;right:0;
+  z-index:20;pointer-events:none;
+  display:flex;justify-content:center;
+  opacity:0;transition:opacity 0.5s ease;`;
+bodyPanel.innerHTML = `<div id="_sBodyInner"><div id="_sBody"></div></div>`;
+document.body.appendChild(bodyPanel);
+
+const slideBody = bodyPanel.querySelector('#_sBody');
 
 // ── Progress bar ──────────────────────────────────────────────────────────────
 export const progressWrap = document.createElement('div');
@@ -32,69 +42,50 @@ document.body.appendChild(progressWrap);
 
 const _style = document.createElement('style');
 _style.textContent = `
-/* ─── slide card ─────────────────────────────────────────────────────────── */
+/* ─── slide title strip (top) ────────────────────────────────────────────── */
 #_slide-card {
   font-family:'Share Tech Mono','Courier New',monospace;
 }
-#_slide-card ._sc-line-top {
-  width:2px;height:60px;
-  background:linear-gradient(to bottom,transparent,#00aacc);
-  margin-bottom:16px;
-}
-#_slide-card ._sc-line-bot {
-  width:2px;height:40px;
-  background:linear-gradient(to bottom,#00aacc,transparent);
-  margin-top:16px;
-}
-#_slide-card ._sc-divider {
-  width:40px;height:1px;
-  background:#1a5577;
-  margin-bottom:14px;
+#_sInner {
+  padding: 16px 48px 14px;
+  background: linear-gradient(to bottom, rgba(2,8,20,0.80) 0%, rgba(2,8,20,0.50) 70%, transparent 100%);
+  backdrop-filter: blur(10px);
 }
 #_sTitle {
-  color:#e8f4ff;
-  font-size:19px;
-  letter-spacing:.05em;
-  line-height:1.3;
-  margin-bottom:14px;
-  text-shadow:0 0 24px rgba(0,180,255,0.4);
+  color: #e8f4ff;
+  font-size: 22px;
+  letter-spacing: .08em;
+  line-height: 1.2;
+  text-shadow: 0 0 28px rgba(0,180,255,0.50);
+  white-space: nowrap;
+}
+
+/* ─── slide body — movie subtitle style ──────────────────────────────────── */
+#_slide-body-panel {
+  font-family:'Share Tech Mono','Courier New',monospace;
+}
+#_sBodyInner {
+  text-align: center;
+  padding: 0 24px;
 }
 #_sBody {
-  color:#5599aa;
-  font-size:11px;
-  letter-spacing:.10em;
-  line-height:2.0;
-  white-space:pre-line;
+  display: inline-block;
+  color: #c8eaf5;
+  font-size: 12px;
+  letter-spacing: .10em;
+  line-height: 2.1;
+  white-space: pre-line;
+  text-align: center;
+  text-shadow:
+    0 0 12px rgba(0,180,255,0.55),
+    0 1px 3px rgba(0,0,0,0.98),
+    0 2px 14px rgba(0,0,0,0.90);
 }
 
-/* ─── mobile: compact strip above the nav buttons ──────────────────────────── */
+/* ─── mobile ─────────────────────────────────────────────────────────────── */
 @media (max-width: 640px) {
-  #_slide-card {
-    left: 0 !important;
-    right: 0 !important;
-    top: auto !important;
-    bottom: 58px !important;
-    transform: none !important;
-    max-width: 100vw !important;
-    width: 100%;
-    max-height: 28vh;
-    overflow: hidden;
-    box-sizing: border-box;
-    padding: 8px 16px 6px;
-    background: rgba(2,8,18,0.88);
-    backdrop-filter: blur(8px);
-    border-top: 1px solid rgba(0,150,200,0.28);
-  }
-  #_slide-card ._sc-line-top,
-  #_slide-card ._sc-line-bot { display: none; }
-  #_slide-card ._sc-divider  { margin-bottom: 4px; width: 24px; }
-  #_sTitle { font-size: 13px; margin-bottom: 4px; }
-  #_sBody  { font-size: 9px; line-height: 1.6; letter-spacing: .06em; }
-
-  /* Projects slide — minimal padding only, body text shows normally */
-  #_slide-card.slide-projects { padding: 6px 16px 5px; }
-  #_slide-card.slide-projects #_sTitle { font-size: 12px; margin-bottom: 3px; }
-  #_slide-card.slide-projects ._sc-divider { margin-bottom: 3px; }
+  #_slide-body-panel { bottom: 62px; }
+  #_sBody { font-size: 9px; line-height: 1.7; letter-spacing: .06em; }
 }
 
 /* ─── bottom bar ─────────────────────────────────────────────────────────── */
@@ -264,6 +255,14 @@ export const presentBtn = _mkLb('▶ &nbsp;PRESENT');
 presentBtn.style.display = 'none';
 _bar.appendChild(presentBtn);
 
+export const prevBtn = _mkLb('←', '_lb-arrow');
+prevBtn.style.display = 'none';
+_bar.appendChild(prevBtn);
+
+export const pauseBtn = _mkLb('⏸', '_lb-arrow');
+pauseBtn.style.display = 'none';
+_bar.appendChild(pauseBtn);
+
 export const nextBtn = _mkLb('→', '_lb-arrow');
 nextBtn.style.display = 'none';
 _bar.appendChild(nextBtn);
@@ -299,6 +298,21 @@ export function showPresentingUI() {
 export function showExploreUI() {
   presentBtn.style.display = 'none';
   exploreBtn.style.display = 'none';
+  prevBtn.style.display    = 'none';
+  pauseBtn.style.display   = 'none';
+  nextBtn.style.display    = 'none';
+  progressWrap.style.display = 'none';
+}
+
+export function showWhiteWorldUI() {
+  // Hide everything except the back button
+  presentBtn.style.display = 'none';
+  exploreBtn.style.display = 'none';
+  prevBtn.style.display    = 'none';
+  pauseBtn.style.display   = 'none';
+  nextBtn.style.display    = 'none';
+  progressWrap.style.display = 'none';
+  backBtn.style.display    = 'inline-flex';
 }
 
 export function showBackBtn() {
@@ -316,8 +330,9 @@ export function setProgressFill(fraction) {
 }
 
 export function hideCard() {
-  card.style.opacity = '0';
-  card.className = '';   // clear any slide-specific classes
+  card.style.opacity      = '0';
+  bodyPanel.style.opacity = '0';
+  card.className = '';
   if (_timerA) clearInterval(_timerA);
   if (_timerB) clearInterval(_timerB);
   slideTitle.textContent = '';
@@ -330,7 +345,9 @@ export function showCard(title, body, delay = 550, slideName = '') {
   setTimeout(() => {
     card.style.opacity = '1';
     _timerA = _typeWrite(slideTitle, title, 38, () => {
-      _timerB = _typeWrite(slideBody, body, 20);
+      // Body fades in and types after title finishes
+      bodyPanel.style.opacity = '1';
+      _timerB = _typeWrite(slideBody, body, 18);
     });
   }, delay);
 }

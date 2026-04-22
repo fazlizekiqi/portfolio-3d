@@ -50,8 +50,8 @@ export const SLIDES = [
   },
   {
     name:      'projects',
-    camPos:    new THREE.Vector3(0, -0.2, 8.5),
-    camTarget: new THREE.Vector3(0, 1.8, 1.0),
+    camPos:    new THREE.Vector3(0, -0.5, 10),
+    camTarget: new THREE.Vector3(0, 2, 0),
     // On mobile the card sits at the bottom, so we pull the camera back a bit
     // and look straight at the character's torso — this centres them in the
     // upper 70 % of the screen above the card strip.
@@ -64,7 +64,7 @@ export const SLIDES = [
     clipLoop:  false,
     drift:     { x: 0.016, y: 0.022, xf: 0.19, yf: 0.27 },
     title:     'Selected Work',
-    body:      'These are some of the projects I\'ve worked on recently. Click the cards to see them. Some of them were doing for different clients and some of them are personal projects where i had the freedom to explore and experiment with new technologies and ideas.',
+    body:      'These are some of the projects I\'ve worked on recently. \n Click the cards to see them.\n Some of them are done for different clients and some of them are personal projects.',
   },
   {
     name:      'mindset',
@@ -85,8 +85,8 @@ export const SLIDES = [
     camTarget: new THREE.Vector3(0, 0.9, 0),
     duration:  10000,
     easing:    'inOut',
-    clip:      'wiping-sweat',
-    clips:      ['relieved-sigh', 'relieved-sigh'],
+    clip:      'relieved-sigh',
+    clips:      ['relieved-sigh', 'wiping-sweat'],
     clipLoop:  false,
     drift:     { x: 0.014, y: 0.010, xf: 0.24, yf: 0.16 },
     title:     'Experience',

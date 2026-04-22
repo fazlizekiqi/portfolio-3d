@@ -25,8 +25,8 @@ import {
   resetSlideElapsed,
 } from './camera.js';
 import {
-  progressWrap, nextBtn, presentBtn, exploreBtn, backBtn,
-  showIdleUI, showPresentingUI, showExploreUI, showBackBtn,
+  progressWrap, nextBtn, prevBtn, pauseBtn, presentBtn, exploreBtn, backBtn,
+  showIdleUI, showPresentingUI, showExploreUI, showWhiteWorldUI, showBackBtn,
   resetPresentBtn, setProgressFill, hideCard, showCard,
 } from './ui.js';
 
@@ -35,6 +35,7 @@ export { currentCamLook }  from './camera.js';
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let _active        = false;
+let _paused        = false;
 let _currentSlide  = SLIDES[0];
 let _slideTimer    = 0;
 let _glideDuration = 1400;
@@ -45,7 +46,6 @@ let _camMoveDuration = 1400; // tracks current camera-move leg duration
 
 // ── CTA slide — just show contact info, no auto-transition ───────────────────
 function _onEnterCta() {
-  showExploreUI();
   _frozen = false;
 }
 
@@ -66,11 +66,10 @@ function _onEnterMyWorld() {
 // ── After iris opens — player takes control ───────────────────────────────────
 function _endFromCta() {
   _active = false;
+  _paused = false;
 
   hideBubbles();
-  progressWrap.style.display = 'none';
-  nextBtn.style.display      = 'none';
-  resetPresentBtn();
+  hideCard();
 
   _slideTimer = 0;
   resetSlideElapsed();
@@ -80,7 +79,7 @@ function _endFromCta() {
     _frozen = false;
     controls.target.copy(currentCamLook);
     playerTakeControl();
-    showBackBtn();
+    showWhiteWorldUI();
   }, 3200);
 }
 
@@ -102,6 +101,9 @@ export function goToSlide(name) {
   resetSlideElapsed();
 
   nextBtn.style.display = isLastSlide(name) ? 'none' : 'inline-flex';
+  if (_active) {
+    prevBtn.style.display = indexOf(name) > 0 ? 'inline-flex' : 'none';
+  }
   const isMobile = window.innerWidth < 768;
   const camPos    = (isMobile && slide.mobileCamPos)    ? slide.mobileCamPos    : slide.camPos;
   const camTarget = (isMobile && slide.mobileCamTarget) ? slide.mobileCamTarget : slide.camTarget;
@@ -141,20 +143,36 @@ export function goToSlide(name) {
 
 function _goToNextSlide() {
   const next = SLIDES[indexOf(_currentSlide.name) + 1];
-  if (!next) return;   // myworld handles its own exit via _onEnterMyWorld
+  if (!next) return;
   goToSlide(next.name);
+}
+
+function _goToPrevSlide() {
+  const idx = indexOf(_currentSlide.name);
+  if (idx <= 0) return;
+  goToSlide(SLIDES[idx - 1].name);
+}
+
+function _togglePause() {
+  _paused = !_paused;
+  const span = pauseBtn.querySelector('span:last-child');
+  if (span) span.textContent = _paused ? '▶' : '⏸';
 }
 
 function _startPresentation() {
   _active = true;
+  _paused = false;
   controls.enabled = false;
   playerReleaseControl();
   showPresentingUI();
+  prevBtn.style.display  = 'none'; // hidden on first slide
+  pauseBtn.style.display = 'inline-flex';
   goToSlide('intro');
 }
 
 function _endPresentation() {
   _active = false;
+  _paused = false;
   if (_ctaTimeout)  { clearTimeout(_ctaTimeout);  _ctaTimeout  = null; }
   if (_cam2Timeout) { clearTimeout(_cam2Timeout); _cam2Timeout = null; }
 
@@ -162,6 +180,10 @@ function _endPresentation() {
   hideCard();
   progressWrap.style.display = 'none';
   nextBtn.style.display      = 'none';
+  prevBtn.style.display      = 'none';
+  pauseBtn.style.display     = 'none';
+  const span = pauseBtn.querySelector('span:last-child');
+  if (span) span.textContent = '⏸';
   resetPresentBtn();
   showIdleUI();
 
@@ -175,9 +197,14 @@ function _endPresentation() {
 function _returnHome() {
   _frozen          = true;
   _active          = false;
+  _paused          = false;
   controls.enabled = false;
   playerStop();
   if (_cam2Timeout) { clearTimeout(_cam2Timeout); _cam2Timeout = null; }
+
+  resetPresentBtn();
+  hideCard();
+  hideBubbles();
 
   if (!isWhiteWorld()) {
     controls.maxDistance = 20;
@@ -219,16 +246,20 @@ function _glideHome() {
 }
 
 // ── Button wiring ─────────────────────────────────────────────────────────────
-nextBtn.addEventListener('click',    () => { if (_active) _goToNextSlide(); });
+nextBtn.addEventListener('click',    () => { if (_active && !_paused) _goToNextSlide(); });
+prevBtn.addEventListener('click',    () => { if (_active) _goToPrevSlide(); });
+pauseBtn.addEventListener('click',   () => { if (_active) _togglePause(); });
 backBtn.addEventListener('click',    () => { backBtn.style.display = 'none'; _returnHome(); });
 presentBtn.addEventListener('click', () => { _active ? _endPresentation() : _startPresentation(); });
 
 exploreBtn.addEventListener('click', () => {
+  _paused = false;
+  const span = pauseBtn.querySelector('span:last-child');
+  if (span) span.textContent = '⏸';
   showExploreUI();
   if (!_active) {
     _active = true;
     controls.enabled = false;
-    progressWrap.style.display = 'block';
   }
   goToSlide('myworld');
 });
@@ -247,9 +278,11 @@ export function tickPresentation(delta, elapsed) {
   const { done } = tickCamera(delta, elapsed, _active ? _currentSlide : null, slideIndex, totalDur, _frozen);
 
   if (_active) {
-    _slideTimer -= delta * 1000;
+    if (!_paused) {
+      _slideTimer -= delta * 1000;
+      if (_slideTimer <= 0 && !_frozen) _goToNextSlide();
+    }
     setProgressFill(1 - _slideTimer / _currentSlide.duration);
-    if (_slideTimer <= 0 && !_frozen) _goToNextSlide();
   } else if (!_frozen && done) {
     _slideTimer = 0;
     controls.target.copy(camLookTarget);
