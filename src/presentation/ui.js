@@ -120,7 +120,7 @@ _style.textContent = `
 }
 #_slide-body-panel.slide-experience #_sBodyInner {
   text-align: left;
-  width: 44%;
+  width: 46%;
   margin-left: -4%;
   padding: 0;
 }
@@ -130,29 +130,72 @@ _style.textContent = `
   white-space: normal;
 }
 
-/* ── job block ── */
+/* ── timeline wrap — svg left, cards right ── */
+._exp-timeline-wrap {
+  display: flex;
+  align-items: stretch;
+  gap: 14px;
+}
+._exp-tl-svg {
+  flex-shrink: 0;
+  width: 24px;
+  overflow: visible;
+}
+
+/* ── cards column ── */
+._exp-cards {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ── job block — card style ── */
 ._exp-block {
-  margin-bottom: 28px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+  background: rgba(4, 14, 36, 0.78);
+  border: 1px solid rgba(0, 140, 200, 0.18);
+  border-radius: 8px;
+  margin-bottom: 0;
+}
+._exp-logo {
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+  flex-shrink: 0;
+  filter: brightness(1.1) drop-shadow(0 0 6px rgba(0,180,255,0.3));
+}
+._exp-logo-placeholder {
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+}
+._exp-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 ._exp-role {
-  font-size: 18px;
+  font-size: 13px;
   font-weight: 700;
-  letter-spacing: .14em;
+  letter-spacing: .12em;
   color: #e8f4ff;
-  text-shadow: 0 0 18px rgba(0,180,255,0.75);
-  margin-bottom: 5px;
+  text-shadow: 0 0 14px rgba(0,180,255,0.6);
 }
 ._exp-company {
-  font-size: 15px;
-  letter-spacing: .10em;
+  font-size: 11px;
+  letter-spacing: .09em;
   color: #7ecfea;
-  margin-bottom: 6px;
 }
 ._exp-stack {
-  font-size: 13px;
-  letter-spacing: .08em;
-  color: rgba(160,215,230,0.85);
+  font-size: 10px;
+  letter-spacing: .07em;
+  color: rgba(150,210,228,0.75);
   text-shadow: none;
+  margin-top: 2px;
 }
 
 @media (max-width: 640px) {
@@ -165,10 +208,12 @@ _style.textContent = `
     width: 56%;
     margin-left: 0;
   }
-  ._exp-role    { font-size: 12px; }
-  ._exp-company { font-size: 10px; }
-  ._exp-stack   { font-size: 9px; }
-  ._exp-block   { margin-bottom: 16px; }
+  ._exp-role    { font-size: 10px; }
+  ._exp-company { font-size: 9px; }
+  ._exp-stack   { font-size: 8px; }
+  ._exp-block   { gap: 10px; padding: 8px 10px; }
+  ._exp-logo    { width: 36px; height: 36px; }
+  ._exp-tl-svg  { width: 18px; }
 }
 
 /* ─── bottom bar ─────────────────────────────────────────────────────────── */
@@ -379,6 +424,110 @@ function _typeWrite(el, text, speed, cb) {
   return t;
 }
 
+// ── Experience timeline dot animation ─────────────────────────────────────────
+let _expRafId = null;
+
+function _stopExperienceTimeline() {
+  if (_expRafId) { cancelAnimationFrame(_expRafId); _expRafId = null; }
+}
+
+function _startExperienceTimeline() {
+  _stopExperienceTimeline();
+
+  // Wait for stagger animations + layout to settle before measuring
+  setTimeout(() => {
+    const svg    = slideBody.querySelector('#_exp-tl-svg');
+    const dot    = slideBody.querySelector('#_exp-tl-dot');
+    const line   = slideBody.querySelector('#_exp-tl-line');
+    const nodes  = Array.from(slideBody.querySelectorAll('._exp-tl-node'));
+    const blocks = Array.from(slideBody.querySelectorAll('._exp-block'));
+    if (!svg || !dot || !blocks.length) return;
+
+    // Measure node Y centres relative to the SVG element
+    const svgRect = svg.getBoundingClientRect();
+    const svgH    = svg.closest('._exp-timeline-wrap').getBoundingClientRect().height;
+
+    // Update SVG dimensions to match actual cards height
+    svg.setAttribute('height', svgH);
+    svg.setAttribute('viewBox', `0 0 24 ${svgH}`);
+
+    // Y centre of each block relative to the SVG top
+    const nodeYs = blocks.map(b => {
+      const r = b.getBoundingClientRect();
+      return (r.top - svgRect.top) + r.height / 2;
+    });
+
+    // Update line to span first → last node
+    line.setAttribute('y1', nodeYs[0]);
+    line.setAttribute('y2', nodeYs[nodeYs.length - 1]);
+
+    // Update node circle positions: blocks are [SEB(0), Cepheid(1), Expleo(2)]
+    nodes.forEach((n, i) => { if (nodeYs[i] != null) n.setAttribute('cy', nodeYs[i]); });
+
+    // Dot travels Expleo(2) → Cepheid(1) → SEB(0)  =  bottom → top
+    const startY = nodeYs[2];
+    const endY   = nodeYs[0];
+    dot.setAttribute('cy', startY);
+
+    const TRAVEL_MS = 2800;
+    const PAUSE_MS  = 700;
+    const PULSE_MS  = 320;
+
+    let startTime  = null;
+    let pauseUntil = 0;
+    let activeNode = -1;
+
+    function pulseNode(nodeEl) {
+      let t0 = null;
+      (function step(ts) {
+        if (!t0) t0 = ts;
+        const p = Math.min((ts - t0) / PULSE_MS, 1);
+        const s = p < 0.5 ? p * 2 : (1 - p) * 2;
+        nodeEl.setAttribute('r', 4 + s * 5);
+        if (p < 1) requestAnimationFrame(step);
+        else nodeEl.setAttribute('r', 4);
+      })(performance.now());
+    }
+
+    function tick(ts) {
+      _expRafId = requestAnimationFrame(tick);
+      if (!startTime) { startTime = ts; return; }
+      if (ts < pauseUntil) return;
+
+      const elapsed  = ts - startTime;
+      const progress = Math.min(elapsed / TRAVEL_MS, 1);
+      // ease-in-out cubic
+      const ease = progress < 0.5
+        ? 4 * progress ** 3
+        : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+
+      const cy = startY + (endY - startY) * ease;  // startY > endY → travels up
+      dot.setAttribute('cy', cy);
+
+      // Check proximity to each node (travel order: 2 → 1 → 0)
+      for (const idx of [2, 1, 0]) {
+        if (activeNode !== idx && Math.abs(cy - nodeYs[idx]) < 5) {
+          activeNode = idx;
+          pulseNode(nodes[idx]);
+          pauseUntil = ts + PAUSE_MS;
+          startTime  = ts + PAUSE_MS - elapsed;
+          return;
+        }
+      }
+
+      if (progress >= 1) {
+        // Reset to bottom and loop
+        startTime  = null;
+        pauseUntil = ts + 900;
+        activeNode = -1;
+        dot.setAttribute('cy', startY);
+      }
+    }
+
+    requestAnimationFrame(tick);
+  }, 900); // after stagger completes (3 blocks × 220ms ≈ 660ms + buffer)
+}
+
 // ── UI mode helpers ───────────────────────────────────────────────────────────
 export function showIdleUI() {
   backBtn.style.display    = 'none';
@@ -427,6 +576,7 @@ export function setProgressFill(fraction) {
 }
 
 export function hideCard() {
+  _stopExperienceTimeline();
   card.style.opacity      = '0';
   bodyPanel.style.opacity = '0';
   card.className = '';
@@ -441,13 +591,33 @@ export function hideCard() {
 
 /** Parse the experience body text into structured HTML blocks. */
 function _buildExperienceHTML(body) {
-  // Each job block is separated by \n\n, lines are: ROLE \n · Company \n Stack
+  const base = import.meta.env.BASE_URL;
+
+  const _imgMap = {
+    'seb':      `${base}experience/seb-wireframe.png`,
+    'cepheid':  `${base}experience/cepheid-wireframe.png`,
+    'expleo':   `${base}experience/expleo-wireframe.png`,
+  };
+
+  function _imgFor(company) {
+    const key = Object.keys(_imgMap).find(k => company.toLowerCase().includes(k));
+    return key ? _imgMap[key] : null;
+  }
+
   return body.split('\n\n').map(block => {
     const [role, company, stack] = block.split('\n');
+    const img = _imgFor(company ?? '');
+    const imgHTML = img
+      ? `<img class="_exp-logo" src="${img}" alt="" />`
+      : `<div class="_exp-logo _exp-logo-placeholder"></div>`;
+
     return `<div class="_exp-block">
-      <div class="_exp-role">${role ?? ''}</div>
-      <div class="_exp-company">${company ?? ''}</div>
-      <div class="_exp-stack">${stack ?? ''}</div>
+      ${imgHTML}
+      <div class="_exp-text">
+        <div class="_exp-role">${role ?? ''}</div>
+        <div class="_exp-company">${company ?? ''}</div>
+        <div class="_exp-stack">${stack ?? ''}</div>
+      </div>
     </div>`;
   }).join('');
 }
@@ -465,16 +635,16 @@ export function showCard(title, body, delay = 550, slideName = '', subtitle = ''
       bodyPanel.style.opacity = '1';
       if (slideName === 'experience') {
         slideBody.innerHTML = _buildExperienceHTML(body);
-        // Stagger-animate each block in
         slideBody.querySelectorAll('._exp-block').forEach((el, i) => {
-          el.style.opacity = '0';
+          el.style.opacity   = '0';
           el.style.transform = 'translateX(-12px)';
           setTimeout(() => {
             el.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
-            el.style.opacity = '1';
-            el.style.transform = 'translateX(0)';
+            el.style.opacity    = '1';
+            el.style.transform  = 'translateX(0)';
           }, i * 220);
         });
+        _startExperienceTimeline();
       } else {
         _timerB = _typeWrite(slideBody, body, 18);
       }

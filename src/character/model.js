@@ -4,6 +4,7 @@ import { scene, camera } from '../scene.js';
 import { LAYER } from '../layers.js';
 import { aimLights } from '../world/blueworld.js';
 import { initExplode, setOnReassembled, setExplodeCartoon } from './explode.js';
+import { initAboutWireframe } from './about-wireframe.js';
 import { setTornadoCartoon } from '../world/tornado-travel.js';
 import CARTOON_EFFECT from '../shaders/cartoon.frag.glsl?raw';
 import { showIdleUI } from '../presentation/ui.js';
@@ -386,6 +387,7 @@ export function loadModel(onReady, onProgress) {
       spawnRotation.copy(model.rotation);
 
       initExplode(meshes, model);
+      initAboutWireframe(meshes.filter(m => m.isSkinnedMesh), model);
       const targetPos = new THREE.Vector3();
       new THREE.Box3().setFromObject(model).getCenter(targetPos);
       targetPos.y += 0.2;

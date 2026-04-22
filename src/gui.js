@@ -96,21 +96,32 @@ for (const slide of SLIDES) {
   const f = fSlides.addFolder(slide.name);
   const apply = () => applySlideCam(slide);
 
-  const fD = f.addFolder('Desktop');
-  const fDPos = fD.addFolder('camPos');
-  fDPos.add(slide.camPos, 'x', -15, 15, 0.05).name('X').onChange(apply);
-  fDPos.add(slide.camPos, 'y',  -2, 10, 0.05).name('Y').onChange(apply);
-  fDPos.add(slide.camPos, 'z',  -8, 20, 0.05).name('Z').onChange(apply);
-  const fDTgt = fD.addFolder('camTarget');
-  fDTgt.add(slide.camTarget, 'x', -10, 10, 0.05).name('X').onChange(apply);
-  fDTgt.add(slide.camTarget, 'y',  -2,  6, 0.05).name('Y').onChange(apply);
-  fDTgt.add(slide.camTarget, 'z', -10, 10, 0.05).name('Z').onChange(apply);
+  // Only add camPos/camTarget controls for slides that use absolute coords
+  if (slide.camPos && slide.camTarget) {
+    const fD = f.addFolder('Desktop');
+    const fDPos = fD.addFolder('camPos');
+    fDPos.add(slide.camPos, 'x', -15, 15, 0.05).name('X').onChange(apply);
+    fDPos.add(slide.camPos, 'y',  -2, 10, 0.05).name('Y').onChange(apply);
+    fDPos.add(slide.camPos, 'z',  -8, 20, 0.05).name('Z').onChange(apply);
+    const fDTgt = fD.addFolder('camTarget');
+    fDTgt.add(slide.camTarget, 'x', -10, 10, 0.05).name('X').onChange(apply);
+    fDTgt.add(slide.camTarget, 'y',  -2,  6, 0.05).name('Y').onChange(apply);
+    fDTgt.add(slide.camTarget, 'z', -10, 10, 0.05).name('Z').onChange(apply);
+  }
 
   if (slide.anchor) {
-    const fA = f.addFolder('⚓ Anchor (news-cam)');
-    fA.add(slide.anchor, 'dist',         0.5, 8.0, 0.05).name('Cam distance').onChange(apply);
-    fA.add(slide.anchor, 'chestHeight',  0.5, 3.0, 0.05).name('Chest height').onChange(apply);
-    fA.add(slide.anchor, 'targetOffset',-3.0, 3.0, 0.05).name('Target offset (←+)').onChange(apply);
+    const fA = f.addFolder('⚓ Anchor (spawn-relative)');
+    fA.add(slide.anchor, 'dist',        0.5, 12.0, 0.05).name('Cam Z distance').onChange(apply);
+    fA.add(slide.anchor, 'chestHeight', 0.5,  3.0, 0.05).name('Chest height').onChange(apply);
+    // experience-style: single targetOffset
+    if ('targetOffset' in slide.anchor) {
+      fA.add(slide.anchor, 'targetOffset', -3.0, 3.0, 0.05).name('Target offset X').onChange(apply);
+    }
+    // about-style: separate cam + target X offsets
+    if ('camOffsetX' in slide.anchor) {
+      fA.add(slide.anchor, 'camOffsetX',    -5.0, 5.0, 0.05).name('Cam offset X').onChange(apply);
+      fA.add(slide.anchor, 'targetOffsetX', -5.0, 5.0, 0.05).name('Target offset X').onChange(apply);
+    }
   }
 
   if (slide.mobileCamPos && slide.mobileCamTarget) {
@@ -123,6 +134,16 @@ for (const slide of SLIDES) {
     fMTgt.add(slide.mobileCamTarget, 'x', -10, 10, 0.05).name('X').onChange(apply);
     fMTgt.add(slide.mobileCamTarget, 'y',  -2,  6, 0.05).name('Y').onChange(apply);
     fMTgt.add(slide.mobileCamTarget, 'z', -10, 10, 0.05).name('Z').onChange(apply);
+  }
+
+  // Mobile anchor (about-style)
+  if (slide.mobileAnchor && !slide.mobileCamPos) {
+    const fMA = f.addFolder('⚓ Mobile Anchor');
+    fMA.add(slide.mobileAnchor, 'dist',        0.5, 15.0, 0.05).name('Cam Z distance').onChange(apply);
+    fMA.add(slide.mobileAnchor, 'chestHeight', 0.5,  3.0, 0.05).name('Chest height').onChange(apply);
+    if ('camOffsetX'    in slide.mobileAnchor) fMA.add(slide.mobileAnchor, 'camOffsetX',    -5, 5, 0.05).name('Cam offset X').onChange(apply);
+    if ('targetOffsetX' in slide.mobileAnchor) fMA.add(slide.mobileAnchor, 'targetOffsetX', -5, 5, 0.05).name('Target offset X').onChange(apply);
+    if ('targetOffset'  in slide.mobileAnchor) fMA.add(slide.mobileAnchor, 'targetOffset',  -5, 5, 0.05).name('Target offset X').onChange(apply);
   }
 }
 

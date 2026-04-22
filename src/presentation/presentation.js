@@ -31,6 +31,7 @@ import {
   resetPresentBtn, setProgressFill, hideCard, showCard,
 } from './ui.js';
 import { showHowIWorkOverlay, hideHowIWorkOverlay } from './how-i-work-overlay.js';
+import { showAboutWireframe, hideAboutWireframe, tickAboutWireframe } from '../character/about-wireframe.js';
 
 export { initCameraState } from './camera.js';
 export { currentCamLook }  from './camera.js';
@@ -46,6 +47,17 @@ function _experienceCam(slide) {
   return { pos, target };
 }
 
+/** Camera for the about slide — character right, wireframe ghost left. */
+function _aboutCam(slide) {
+  const isMobile = window.innerWidth < 768;
+  const a      = (isMobile && slide.mobileAnchor) ? slide.mobileAnchor : slide.anchor;
+  const base   = spawnPosition;
+  const chestY = base.y + a.chestHeight;
+  const pos    = new THREE.Vector3(base.x + a.camOffsetX, chestY, base.z + a.dist);
+  const target = new THREE.Vector3(base.x + a.targetOffsetX, chestY, base.z);
+  return { pos, target };
+}
+
 /** Re-applies a slide's camera live — pass the slide object from the GUI. */
 export function applySlideCam(slide) {
   const s = slide || _currentSlide;
@@ -55,6 +67,8 @@ export function applySlideCam(slide) {
 
   if (s.name === 'experience') {
     ({ pos, target } = _experienceCam(s));
+  } else if (s.name === 'about') {
+    ({ pos, target } = _aboutCam(s));
   } else {
     const isMobile = window.innerWidth < 768;
     pos    = (isMobile && s.mobileCamPos)    ? s.mobileCamPos    : s.camPos;
@@ -142,6 +156,8 @@ export function goToSlide(name) {
   let camPos, camTarget;
   if (name === 'experience') {
     ({ pos: camPos, target: camTarget } = _experienceCam(slide));
+  } else if (name === 'about') {
+    ({ pos: camPos, target: camTarget } = _aboutCam(slide));
   } else {
     camPos    = (isMobile && slide.mobileCamPos)    ? slide.mobileCamPos    : slide.camPos;
     camTarget = (isMobile && slide.mobileCamTarget) ? slide.mobileCamTarget : slide.camTarget;
@@ -183,10 +199,14 @@ export function goToSlide(name) {
     _overlayTimeout = setTimeout(() => {
       _overlayTimeout = null;
       showHowIWorkOverlay();
-    }, 1600); // slightly after camMoveDuration (1400ms) so camera is in place
+    }, 1600);
   } else {
     hideHowIWorkOverlay();
   }
+
+  // about wireframe ghost — shown after camera settles
+  if (name === 'about') showAboutWireframe();
+  else                  hideAboutWireframe();
 
   // myworld card shows immediately in the blue world while camera sweeps behind character
   // mindset: title + subtitle only — the arch overlay carries the body content
@@ -231,6 +251,7 @@ function _endPresentation() {
   hideBubbles();
   hideCard();
   hideHowIWorkOverlay();
+  hideAboutWireframe();
   progressWrap.style.display = 'none';
   nextBtn.style.display      = 'none';
   prevBtn.style.display      = 'none';
@@ -256,6 +277,7 @@ function _returnHome() {
   hideCard();
   hideBubbles();
   hideHowIWorkOverlay();
+  hideAboutWireframe();
 
   if (!isWhiteWorld()) {
     controls.maxDistance = 20;
@@ -326,6 +348,7 @@ export function tickPresentation(delta, elapsed) {
   const { done } = tickCamera(delta, elapsed, _active ? _currentSlide : null, slideIndex, totalDur, _frozen);
 
   if (_active) {
+    if (_currentSlide.name === 'about') tickAboutWireframe(delta);
     if (!_paused) {
       _slideTimer -= delta * 1000;
       if (_slideTimer <= 0 && !_frozen) _goToNextSlide();

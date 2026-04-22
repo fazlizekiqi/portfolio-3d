@@ -104,10 +104,13 @@ export const SLIDES = [
     body:      'SENIOR SOFTWARE ENGINEER\n· SEB Stockholm\nJava  Kafka  GCP  OpenShift  Angular\n\nSOFTWARE ENGINEER\n· Cepheid AB Stockholm\nJava  Spring Boot  Angular  AWS\n\nSOFTWARE ENGINEER\n· Expleo Stockholm\nJava  React  AWS  MySQL  Agile',
   },
   {
-    name:      'about',
-    camPos:    new THREE.Vector3(1.6, 1.6, 4.0),
-    camTarget: new THREE.Vector3(0, 1.0, 0),
-    duration:  10000,
+    name:            'about',
+    // Camera sits left-of-centre, looks right toward the character.
+    // Anchor is relative to spawnPosition — same pattern as experience.
+    anchor:          { dist:5.45, camOffsetX:-1.3, targetOffsetX: -1.3, chestHeight: 1.35 },
+    mobileAnchor:    { dist: 8.0, camOffsetX: 0.4, targetOffsetX: -0.4, chestHeight: 1.0 },
+    duration:        10000,
+    camMoveDuration: 1600,
     easing:    'outBack',
     clip:      'briefcase-standing',
     clips:     ['briefcase-standing', 'annoyed-head-shake'],
