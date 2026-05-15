@@ -111,15 +111,25 @@ for (const slide of SLIDES) {
 
   if (slide.anchor) {
     const fA = f.addFolder('⚓ Anchor (spawn-relative)');
-    fA.add(slide.anchor, 'dist',        0.5, 12.0, 0.05).name('Cam Z distance').onChange(apply);
-    fA.add(slide.anchor, 'chestHeight', 0.5,  3.0, 0.05).name('Chest height').onChange(apply);
-    // experience-style: single targetOffset
+    fA.add(slide.anchor, 'dist', 0.5, 12.0, 0.05).name('Cam Z distance').onChange(apply);
+    // Legacy shape: chestHeight + targetOffset
+    if ('chestHeight' in slide.anchor) {
+      fA.add(slide.anchor, 'chestHeight', 0.5, 3.0, 0.05).name('Chest height').onChange(apply);
+    }
     if ('targetOffset' in slide.anchor) {
       fA.add(slide.anchor, 'targetOffset', -3.0, 3.0, 0.05).name('Target offset X').onChange(apply);
     }
-    // about-style: separate cam + target X offsets
+    // New shape: explicit camY / targetY + X offsets
+    if ('camY' in slide.anchor) {
+      fA.add(slide.anchor, 'camY',    -1.0, 4.0, 0.05).name('Cam Y').onChange(apply);
+    }
+    if ('targetY' in slide.anchor) {
+      fA.add(slide.anchor, 'targetY', -1.0, 4.0, 0.05).name('Target Y').onChange(apply);
+    }
     if ('camOffsetX' in slide.anchor) {
       fA.add(slide.anchor, 'camOffsetX',    -5.0, 5.0, 0.05).name('Cam offset X').onChange(apply);
+    }
+    if ('targetOffsetX' in slide.anchor) {
       fA.add(slide.anchor, 'targetOffsetX', -5.0, 5.0, 0.05).name('Target offset X').onChange(apply);
     }
   }
@@ -139,11 +149,13 @@ for (const slide of SLIDES) {
   // Mobile anchor (about-style)
   if (slide.mobileAnchor && !slide.mobileCamPos) {
     const fMA = f.addFolder('⚓ Mobile Anchor');
-    fMA.add(slide.mobileAnchor, 'dist',        0.5, 15.0, 0.05).name('Cam Z distance').onChange(apply);
-    fMA.add(slide.mobileAnchor, 'chestHeight', 0.5,  3.0, 0.05).name('Chest height').onChange(apply);
-    if ('camOffsetX'    in slide.mobileAnchor) fMA.add(slide.mobileAnchor, 'camOffsetX',    -5, 5, 0.05).name('Cam offset X').onChange(apply);
-    if ('targetOffsetX' in slide.mobileAnchor) fMA.add(slide.mobileAnchor, 'targetOffsetX', -5, 5, 0.05).name('Target offset X').onChange(apply);
-    if ('targetOffset'  in slide.mobileAnchor) fMA.add(slide.mobileAnchor, 'targetOffset',  -5, 5, 0.05).name('Target offset X').onChange(apply);
+    fMA.add(slide.mobileAnchor, 'dist', 0.5, 15.0, 0.05).name('Cam Z distance').onChange(apply);
+    if ('chestHeight'   in slide.mobileAnchor) fMA.add(slide.mobileAnchor, 'chestHeight',   0.5,  3.0, 0.05).name('Chest height').onChange(apply);
+    if ('camY'          in slide.mobileAnchor) fMA.add(slide.mobileAnchor, 'camY',         -1.0,  4.0, 0.05).name('Cam Y').onChange(apply);
+    if ('targetY'       in slide.mobileAnchor) fMA.add(slide.mobileAnchor, 'targetY',      -1.0,  4.0, 0.05).name('Target Y').onChange(apply);
+    if ('camOffsetX'    in slide.mobileAnchor) fMA.add(slide.mobileAnchor, 'camOffsetX',   -5.0,  5.0, 0.05).name('Cam offset X').onChange(apply);
+    if ('targetOffsetX' in slide.mobileAnchor) fMA.add(slide.mobileAnchor, 'targetOffsetX',-5.0,  5.0, 0.05).name('Target offset X').onChange(apply);
+    if ('targetOffset'  in slide.mobileAnchor) fMA.add(slide.mobileAnchor, 'targetOffset', -5.0,  5.0, 0.05).name('Target offset X').onChange(apply);
   }
 }
 

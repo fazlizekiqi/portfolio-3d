@@ -125,6 +125,7 @@ export function tickCamera(delta, elapsed, activeSlide, slideIndex, totalDur, fr
         if (d) {
           camera.position.x = camPosTarget.x + Math.sin(elapsed * d.xf + slideIndex * 1.3) * d.x * s;
           camera.position.y = camPosTarget.y + Math.sin(elapsed * d.yf + slideIndex * 0.9) * d.y * s;
+          if (d.z) camera.position.z = camPosTarget.z + Math.sin(elapsed * d.zf + slideIndex * 0.5) * d.z * s;
         }
       }
     }

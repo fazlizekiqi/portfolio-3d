@@ -110,18 +110,20 @@ _style.textContent = `
   }
 }
 
-/* ─── experience slide — body on left, character on right ────────────────── */
+/* ─── experience slide — panel pinned to left third ─────────────────────── */
 #_slide-body-panel.slide-experience {
-  justify-content: center;
+  justify-content: flex-start;
   align-items: center;
-  padding-left: 0;
+  padding-left: 20%;
+  padding-right: 0;
   bottom: 0;
-  top: 60px;
+  top: 56px;
 }
 #_slide-body-panel.slide-experience #_sBodyInner {
   text-align: left;
-  width: 46%;
-  margin-left: -4%;
+  width: 38%;
+  max-width: 440px;
+  margin-left: 0;
   padding: 0;
 }
 #_slide-body-panel.slide-experience #_sBody {
@@ -134,11 +136,11 @@ _style.textContent = `
 ._exp-timeline-wrap {
   display: flex;
   align-items: stretch;
-  gap: 14px;
+  gap: 16px;
 }
 ._exp-tl-svg {
   flex-shrink: 0;
-  width: 24px;
+  width: 26px;
   overflow: visible;
 }
 
@@ -147,7 +149,7 @@ _style.textContent = `
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 
 /* ── job block — card style ── */
@@ -155,57 +157,102 @@ _style.textContent = `
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 10px 14px;
-  background: rgba(4, 14, 36, 0.78);
-  border: 1px solid rgba(0, 140, 200, 0.18);
-  border-radius: 8px;
+  padding: 8px 4px;
+  background: none;
+  border: none;
+  border-radius: 0;
   margin-bottom: 0;
+  cursor: pointer;
+  transition: transform 0.35s ease, opacity 0.35s ease;
+  will-change: transform;
 }
+._exp-block:hover {
+  transform: translateX(4px) scale(1.016);
+  animation: none;
+}
+._exp-block.exp-active {
+  transform: translateX(2px) scale(1.020);
+}
+@keyframes _exp-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.85; }
+}
+@keyframes _exp-pulse {
+  0%, 100% { box-shadow: 0 0 22px rgba(0, 180, 255, 0.28); }
+  50%       { box-shadow: 0 0 36px rgba(0, 210, 255, 0.48); }
+}
+
 ._exp-logo {
-  width: 52px;
-  height: 52px;
+  width: 50px;
+  height: 50px;
   object-fit: contain;
   flex-shrink: 0;
   filter: brightness(1.1) drop-shadow(0 0 6px rgba(0,180,255,0.3));
+  transition: filter 0.3s ease;
+}
+._exp-block:hover ._exp-logo,
+._exp-block.exp-active ._exp-logo {
+  filter: brightness(1.35) drop-shadow(0 0 10px rgba(0,210,255,0.55));
 }
 ._exp-logo-placeholder {
-  width: 52px;
-  height: 52px;
+  width: 50px;
+  height: 50px;
   flex-shrink: 0;
 }
 ._exp-text {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
 }
+/* ── Visual hierarchy: Role > Company > Stack ── */
 ._exp-role {
   font-size: 13px;
   font-weight: 700;
   letter-spacing: .12em;
-  color: #e8f4ff;
-  text-shadow: 0 0 14px rgba(0,180,255,0.6);
+  color: #eef6ff;
+  text-shadow: 0 0 16px rgba(0,190,255,0.55);
+  transition: color 0.3s, text-shadow 0.3s;
+}
+._exp-block.exp-active ._exp-role {
+  color: #ffffff;
+  text-shadow: 0 0 22px rgba(0, 210, 255, 0.75), 0 0 6px rgba(255,255,255,0.3);
 }
 ._exp-company {
   font-size: 11px;
-  letter-spacing: .09em;
-  color: #7ecfea;
+  letter-spacing: .10em;
+  color: #4dcfea;
+  text-shadow: 0 0 8px rgba(0,200,255,0.35);
+  transition: color 0.3s, text-shadow 0.3s;
+}
+._exp-block:hover ._exp-company {
+  color: #00e5ff;
+  text-shadow: 0 0 14px rgba(0,230,255,0.70);
+}
+._exp-block.exp-active ._exp-company {
+  color: #00f0ff;
+  text-shadow: 0 0 16px rgba(0,240,255,0.90);
 }
 ._exp-stack {
-  font-size: 10px;
+  font-size: 9.5px;
   letter-spacing: .07em;
-  color: rgba(150,210,228,0.75);
+  color: rgba(130, 195, 215, 0.55);
   text-shadow: none;
   margin-top: 2px;
+  transition: color 0.3s;
+}
+._exp-block.exp-active ._exp-stack {
+  color: rgba(160, 215, 235, 0.72);
 }
 
 @media (max-width: 640px) {
   #_slide-body-panel.slide-experience {
     justify-content: flex-start;
-    padding-left: 16px;
+    padding-left: 12px;
     top: 50px;
   }
   #_slide-body-panel.slide-experience #_sBodyInner {
-    width: 56%;
+    width: 58%;
+    max-width: none;
     margin-left: 0;
   }
   ._exp-role    { font-size: 10px; }
@@ -434,48 +481,76 @@ function _stopExperienceTimeline() {
 function _startExperienceTimeline() {
   _stopExperienceTimeline();
 
+  // Attach hover listeners to each block
+  slideBody.querySelectorAll('._exp-block').forEach((el, i) => {
+    el.addEventListener('mouseenter', () => {
+      document.dispatchEvent(new CustomEvent('exp-block-hover', { detail: { index: i } }));
+    });
+  });
+
   // Wait for stagger animations + layout to settle before measuring
   setTimeout(() => {
-    const svg    = slideBody.querySelector('#_exp-tl-svg');
-    const dot    = slideBody.querySelector('#_exp-tl-dot');
-    const line   = slideBody.querySelector('#_exp-tl-line');
-    const nodes  = Array.from(slideBody.querySelectorAll('._exp-tl-node'));
-    const blocks = Array.from(slideBody.querySelectorAll('._exp-block'));
+    const svg       = slideBody.querySelector('#_exp-tl-svg');
+    const dot       = slideBody.querySelector('#_exp-tl-dot');
+    const trackLine = slideBody.querySelector('#_exp-tl-line');
+    const glowLine  = slideBody.querySelector('#_exp-tl-glow-line');
+    const nodes     = Array.from(slideBody.querySelectorAll('._exp-tl-node'));
+    const blocks    = Array.from(slideBody.querySelectorAll('._exp-block'));
     if (!svg || !dot || !blocks.length) return;
 
-    // Measure node Y centres relative to the SVG element
     const svgRect = svg.getBoundingClientRect();
-    const svgH    = svg.closest('._exp-timeline-wrap').getBoundingClientRect().height;
+    const wrapH   = svg.closest('._exp-timeline-wrap').getBoundingClientRect().height;
 
-    // Update SVG dimensions to match actual cards height
-    svg.setAttribute('height', svgH);
-    svg.setAttribute('viewBox', `0 0 24 ${svgH}`);
+    // Resize SVG to match actual content height
+    svg.setAttribute('height', wrapH);
+    svg.setAttribute('viewBox', `0 0 26 ${wrapH}`);
+    trackLine.setAttribute('y2', wrapH);
 
-    // Y centre of each block relative to the SVG top
+    // Y centre of each block relative to SVG top
     const nodeYs = blocks.map(b => {
       const r = b.getBoundingClientRect();
       return (r.top - svgRect.top) + r.height / 2;
     });
 
-    // Update line to span first → last node
-    line.setAttribute('y1', nodeYs[0]);
-    line.setAttribute('y2', nodeYs[nodeYs.length - 1]);
+    // Update track line & glow line extents
+    trackLine.setAttribute('y1', nodeYs[0]);
+    trackLine.setAttribute('y2', nodeYs[nodeYs.length - 1]);
+    glowLine.setAttribute('y1', nodeYs[0]);
+    glowLine.setAttribute('y2', nodeYs[0]); // starts at top, fills down
 
-    // Update node circle positions: blocks are [SEB(0), Cepheid(1), Expleo(2)]
+    // Place node circles
     nodes.forEach((n, i) => { if (nodeYs[i] != null) n.setAttribute('cy', nodeYs[i]); });
 
-    // Dot travels Expleo(2) → Cepheid(1) → SEB(0)  =  bottom → top
-    const startY = nodeYs[2];
-    const endY   = nodeYs[0];
+    // Dot travels top (SEB=0) → bottom (Expleo=last) — newest-first ordering
+    const startY = nodeYs[0];
+    const endY   = nodeYs[nodeYs.length - 1];
     dot.setAttribute('cy', startY);
 
-    const TRAVEL_MS = 2800;
-    const PAUSE_MS  = 700;
-    const PULSE_MS  = 320;
+    const TRAVEL_MS = 3200;
+    const PAUSE_MS  = 750;
+    const PULSE_MS  = 380;
 
     let startTime  = null;
     let pauseUntil = 0;
-    let activeNode = -1;
+    let activeIdx  = -1;
+
+    function setActive(idx) {
+      blocks.forEach((b, i) => b.classList.toggle('exp-active', i === idx));
+      // light up node: bright fill for active, dim for others
+      nodes.forEach((n, i) => {
+        if (i === idx) {
+          n.setAttribute('fill', '#00e5ff');
+          n.setAttribute('r', '5.5');
+          n.setAttribute('stroke', 'rgba(0,230,255,0.8)');
+          n.setAttribute('stroke-width', '2');
+        } else {
+          n.setAttribute('fill', 'rgba(0,120,180,0.6)');
+          n.setAttribute('r', '4');
+          n.setAttribute('stroke', 'rgba(0,180,255,0.45)');
+          n.setAttribute('stroke-width', '1');
+        }
+      });
+    }
 
     function pulseNode(nodeEl) {
       let t0 = null;
@@ -483,9 +558,9 @@ function _startExperienceTimeline() {
         if (!t0) t0 = ts;
         const p = Math.min((ts - t0) / PULSE_MS, 1);
         const s = p < 0.5 ? p * 2 : (1 - p) * 2;
-        nodeEl.setAttribute('r', 4 + s * 5);
+        nodeEl.setAttribute('r', 5.5 + s * 5);
         if (p < 1) requestAnimationFrame(step);
-        else nodeEl.setAttribute('r', 4);
+        else nodeEl.setAttribute('r', '5.5');
       })(performance.now());
     }
 
@@ -501,13 +576,17 @@ function _startExperienceTimeline() {
         ? 4 * progress ** 3
         : 1 - Math.pow(-2 * progress + 2, 3) / 2;
 
-      const cy = startY + (endY - startY) * ease;  // startY > endY → travels up
+      const cy = startY + (endY - startY) * ease;
       dot.setAttribute('cy', cy);
 
-      // Check proximity to each node (travel order: 2 → 1 → 0)
-      for (const idx of [2, 1, 0]) {
-        if (activeNode !== idx && Math.abs(cy - nodeYs[idx]) < 5) {
-          activeNode = idx;
+      // Advance glow line to current dot position
+      glowLine.setAttribute('y2', cy);
+
+      // Check proximity to each node (travel order: 0 → 1 → 2 → ...)
+      for (let idx = 0; idx < nodeYs.length; idx++) {
+        if (activeIdx !== idx && Math.abs(cy - nodeYs[idx]) < 6) {
+          activeIdx  = idx;
+          setActive(idx);
           pulseNode(nodes[idx]);
           pauseUntil = ts + PAUSE_MS;
           startTime  = ts + PAUSE_MS - elapsed;
@@ -516,16 +595,20 @@ function _startExperienceTimeline() {
       }
 
       if (progress >= 1) {
-        // Reset to bottom and loop
+        // Reset to top and loop
         startTime  = null;
-        pauseUntil = ts + 900;
-        activeNode = -1;
+        pauseUntil = ts + 1100;
+        activeIdx  = -1;
         dot.setAttribute('cy', startY);
+        glowLine.setAttribute('y2', startY);
+        setActive(-1);
       }
     }
 
+    // Set first block active immediately
+    setActive(0);
     requestAnimationFrame(tick);
-  }, 900); // after stagger completes (3 blocks × 220ms ≈ 660ms + buffer)
+  }, 950);
 }
 
 // ── UI mode helpers ───────────────────────────────────────────────────────────
@@ -604,14 +687,14 @@ function _buildExperienceHTML(body) {
     return key ? _imgMap[key] : null;
   }
 
-  return body.split('\n\n').map(block => {
+  const blocks = body.split('\n\n').map((block, idx) => {
     const [role, company, stack] = block.split('\n');
     const img = _imgFor(company ?? '');
     const imgHTML = img
       ? `<img class="_exp-logo" src="${img}" alt="" />`
       : `<div class="_exp-logo _exp-logo-placeholder"></div>`;
 
-    return `<div class="_exp-block">
+    return `<div class="_exp-block" data-index="${idx}">
       ${imgHTML}
       <div class="_exp-text">
         <div class="_exp-role">${role ?? ''}</div>
@@ -619,7 +702,48 @@ function _buildExperienceHTML(body) {
         <div class="_exp-stack">${stack ?? ''}</div>
       </div>
     </div>`;
-  }).join('');
+  });
+
+  // SVG timeline — height is placeholder; JS will update after layout
+  const svgH = 300;
+  const svgMarkup = `<svg id="_exp-tl-svg" class="_exp-tl-svg" width="26" height="${svgH}" viewBox="0 0 26 ${svgH}" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="_exp-tl-grad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#00ccff" stop-opacity="0.90"/>
+        <stop offset="100%" stop-color="#003388" stop-opacity="0.25"/>
+      </linearGradient>
+      <filter id="_exp-glow" x="-80%" y="-80%" width="260%" height="260%">
+        <feGaussianBlur stdDeviation="2.5" result="blur"/>
+        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <filter id="_exp-dot-glow" x="-120%" y="-120%" width="340%" height="340%">
+        <feGaussianBlur stdDeviation="3.5" result="blur"/>
+        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+    </defs>
+    <!-- track line -->
+    <line id="_exp-tl-line" x1="13" y1="0" x2="13" y2="${svgH}"
+          stroke="rgba(0,100,180,0.35)" stroke-width="1.5" stroke-dasharray="3 4"/>
+    <!-- glow line (progress fill) -->
+    <line id="_exp-tl-glow-line" x1="13" y1="0" x2="13" y2="0"
+          stroke="url(#_exp-tl-grad)" stroke-width="2" stroke-linecap="round"/>
+    <!-- node circles (one per block) — cy updated by JS -->
+    ${blocks.map((_, i) =>
+      `<circle class="_exp-tl-node" data-ni="${i}" cx="13" cy="${(i + 0.5) * (svgH / blocks.length)}" r="4"
+        fill="rgba(0,120,180,0.6)" stroke="rgba(0,180,255,0.45)" stroke-width="1"
+        filter="url(#_exp-glow)"/>`
+    ).join('\n    ')}
+    <!-- travelling dot -->
+    <circle id="_exp-tl-dot" cx="13" cy="0" r="5.5"
+            fill="#00e5ff" filter="url(#_exp-dot-glow)" opacity="0.95"/>
+  </svg>`;
+
+  return `<div class="_exp-timeline-wrap">
+    ${svgMarkup}
+    <div class="_exp-cards">
+      ${blocks.join('')}
+    </div>
+  </div>`;
 }
 
 export function showCard(title, body, delay = 550, slideName = '', subtitle = '') {
@@ -637,12 +761,13 @@ export function showCard(title, body, delay = 550, slideName = '', subtitle = ''
         slideBody.innerHTML = _buildExperienceHTML(body);
         slideBody.querySelectorAll('._exp-block').forEach((el, i) => {
           el.style.opacity   = '0';
-          el.style.transform = 'translateX(-12px)';
+          el.style.transform = 'translateX(-18px)';
+          el.style.transition = 'none';
           setTimeout(() => {
-            el.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+            el.style.transition = 'opacity 0.50s ease, transform 0.50s cubic-bezier(0.22,0.61,0.36,1)';
             el.style.opacity    = '1';
             el.style.transform  = 'translateX(0)';
-          }, i * 220);
+          }, 160 + i * 230);
         });
         _startExperienceTimeline();
       } else {

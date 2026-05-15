@@ -41,9 +41,14 @@ function _experienceCam(slide) {
   const isMobile = window.innerWidth < 768;
   const a      = (isMobile && slide.mobileAnchor) ? slide.mobileAnchor : slide.anchor;
   const base   = spawnPosition;
-  const chestY = base.y + a.chestHeight;
-  const pos    = new THREE.Vector3(base.x, chestY, base.z + a.dist);
-  const target = new THREE.Vector3(base.x - a.targetOffset, chestY, base.z);
+  // New anchor format: camOffsetX, camY, targetOffsetX, targetY
+  // Legacy format: chestHeight, targetOffset (kept for backwards compat)
+  const camY      = a.camY    ?? (base.y + (a.chestHeight ?? 1.1));
+  const targetY   = a.targetY ?? camY;
+  const camX      = a.camOffsetX    != null ? base.x + a.camOffsetX    : base.x;
+  const targetX   = a.targetOffsetX != null ? base.x + a.targetOffsetX : base.x - (a.targetOffset ?? 0);
+  const pos    = new THREE.Vector3(camX,    base.y + camY,    base.z + a.dist);
+  const target = new THREE.Vector3(targetX, base.y + targetY, base.z);
   return { pos, target };
 }
 
@@ -176,7 +181,7 @@ export function goToSlide(name) {
   cancelIdleLoop();
   // Cinematic character rotation for experience slide
   if (name === 'experience' && modelGroup) {
-    modelGroup.rotation.y = spawnRotation.y + 0.35; // ~20° turned toward camera-left
+    modelGroup.rotation.y = spawnRotation.y + 0.62; // ~35° 3/4 turn — cinematic angle
   } else if (modelGroup) {
     modelGroup.rotation.copy(spawnRotation);
   }
@@ -317,6 +322,16 @@ function _glideHome() {
   _slideTimer    = dur;
   return dur;
 }
+
+// ── Experience — subtle character reaction on hover ───────────────────────────
+document.addEventListener('exp-block-hover', () => {
+  if (_currentSlide?.name !== 'experience') return;
+  // Very brief head nod to acknowledge the hovered item
+  playClip('head-nod-yes');
+  setTimeout(() => {
+    if (_currentSlide?.name === 'experience') playClip('idle');
+  }, 1200);
+});
 
 // ── Button wiring ─────────────────────────────────────────────────────────────
 nextBtn.addEventListener('click',    () => { if (_active && !_paused) _goToNextSlide(); });
