@@ -88,13 +88,16 @@ export const SLIDES = [
         body: 'Click any card to open the project.',
     },
     {
-        // ── MINDSET: Medium wide + bottom card row overlay ────────────────────
-        // NO phase-2 close-up. The How-I-Work card row lives at the BOTTOM of
-        // the screen, character clearly visible above it.
+        // ── MINDSET: Medium wide + side-column card overlay ───────────────────
+        // NO phase-2 close-up. Desktop: two How-I-Work cards per side column,
+        // character fully visible in the middle. Mobile: compact 2×2 grid at
+        // the bottom — mobile camera frames the character above the grid.
         // Duration extended so the 4-card stagger animation fully completes.
         name: 'mindset',
         camPos:    new THREE.Vector3(0, 1.0, 6.2),
         camTarget: new THREE.Vector3(0, 0.9, 0),
+        mobileCamPos:    new THREE.Vector3(0, 1.3, 9.5),
+        mobileCamTarget: new THREE.Vector3(0, 0.25, 0),
         duration: 16000,
         camMoveDuration: 1400,
         easing: 'inOut',
@@ -143,14 +146,20 @@ export const SLIDES = [
         body: '__ABOUT_STATS__',
     },
     {
-        // ── CTA: Stable eye-level, slight high angle, clickable contact links ──
+        // ── CTA: Stable eye-level, clickable contact links ────────────────────
         // No orbit — user needs a stable scene to actually CLICK the links.
-        // Phase-2 gentle settle into mid-shot after the reveal.
+        // Desktop phase-2 settles with the camera shifted LEFT so the character
+        // lands right-of-centre and the link panel owns the left third.
+        // Mobile keeps the character centred but high in the frame, links below.
         name: 'cta',
         camPos:    new THREE.Vector3(0, 2.2, 8.0),
         camTarget: new THREE.Vector3(0, 0.7, 0),
-        camPos2:    new THREE.Vector3(0, 1.5, 7.0),
-        camTarget2: new THREE.Vector3(0, 0.9, 0),
+        camPos2:    new THREE.Vector3(-1.15, 1.5, 7.0),
+        camTarget2: new THREE.Vector3(-1.15, 0.9, 0),
+        mobileCamPos:    new THREE.Vector3(0, 2.4, 12.0),
+        mobileCamTarget: new THREE.Vector3(0, -0.2, 0),
+        mobileCamPos2:    new THREE.Vector3(0, 1.5, 10.5),
+        mobileCamTarget2: new THREE.Vector3(0, -0.55, 0),
         cam2Delay:    1800,
         cam2Duration: 2400,
         duration: 14000,

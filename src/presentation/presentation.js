@@ -171,10 +171,12 @@ export function goToSlide(name) {
 
   // Schedule phase-2 camera sweep (e.g. experience: side → front after turn)
   if (slide.camPos2 && slide.cam2Delay) {
+    const camPos2    = (isMobile && slide.mobileCamPos2)    ? slide.mobileCamPos2    : slide.camPos2;
+    const camTarget2 = (isMobile && slide.mobileCamTarget2) ? slide.mobileCamTarget2 : slide.camTarget2;
     _cam2Timeout = setTimeout(() => {
       _cam2Timeout = null;
       _camMoveDuration = slide.cam2Duration ?? 2000;
-      startCameraMove(slide.camPos2, slide.camTarget2);
+      startCameraMove(camPos2, camTarget2);
     }, slide.cam2Delay);
   }
 

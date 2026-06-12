@@ -1,15 +1,18 @@
 /**
  * how-i-work-overlay.js
  *
- * "How I Work" — four principle cards slide up from the BOTTOM of the
- * viewport with staggered reveal. A horizontal scan-dot pulses each card
- * in sequence.
+ * "How I Work" — four principle cards with staggered reveal. A pulse
+ * cycle highlights each card in sequence.
  *
- * Layout (desktop/mobile):
+ * Layout:
+ *   Desktop — two cards per side column, character free in the middle:
  *   ┌──────────────────────────────────────────────────────────┐
- *   │   3D character visible in upper portion of screen         │
- *   ├─[DESIGN]──[CLEAN]──[OBSERVE]──[COLLABORATE]──────────────┤  ← bottom
+ *   │ [DESIGN]                                       [OBSERVE] │
+ *   │              3D character fully visible                   │
+ *   │ [CLEAN]                                   [COLLABORATE]  │
  *   └──────────────────────────────────────────────────────────┘
+ *   Mobile — compact 2×2 grid anchored to the bottom, camera frames
+ *   the character above it.
  *
  * Public API
  * ──────────
@@ -31,26 +34,29 @@ const _style = document.createElement('style');
 _style.textContent = `
 #_hiw-wrap {
   position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  inset: 0;
   z-index: 15;
   pointer-events: none;
   display: flex;
   justify-content: center;
-  align-items: flex-end;
-  padding: 0 20px 72px;
+  align-items: center;
+  padding: 64px 28px 84px;
   box-sizing: border-box;
 }
 #_hiw-row {
-  display: flex;
-  gap: 14px;
-  align-items: flex-end;
+  display: grid;
   width: 100%;
-  max-width: 880px;
+  max-width: 1480px;
+  grid-template-columns: clamp(170px, 18vw, 235px) 1fr clamp(170px, 18vw, 235px);
+  grid-template-rows: auto auto;
+  row-gap: 18px;
+  align-items: center;
 }
+._hiw-card:nth-child(1) { grid-column: 1; grid-row: 1; }
+._hiw-card:nth-child(2) { grid-column: 1; grid-row: 2; }
+._hiw-card:nth-child(3) { grid-column: 3; grid-row: 1; }
+._hiw-card:nth-child(4) { grid-column: 3; grid-row: 2; }
 ._hiw-card {
-  flex: 1;
   border-radius: 8px;
   overflow: hidden;
   background: rgba(2, 10, 28, 0.88);
@@ -58,13 +64,15 @@ _style.textContent = `
   box-shadow: 0 0 0 1px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.6),
               inset 0 1px 0 rgba(0,200,255,0.08);
   opacity: 0;
-  transform: translateY(40px);
   transition: opacity 0.55s ease, transform 0.55s cubic-bezier(0.22,0.61,0.36,1),
               border-color 0.35s ease, box-shadow 0.35s ease;
 }
+/* left column slides in from the left, right column from the right */
+._hiw-card:nth-child(-n+2) { transform: translateX(-44px); }
+._hiw-card:nth-child(n+3)  { transform: translateX(44px); }
 ._hiw-card.hiw-visible {
   opacity: 1;
-  transform: translateY(0);
+  transform: translateX(0);
 }
 ._hiw-card.hiw-active {
   border-color: rgba(0, 225, 255, 0.60);
@@ -143,8 +151,22 @@ _style.textContent = `
 }
 
 @media (max-width: 640px) {
-  #_hiw-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: end; }
-  #_hiw-wrap { padding: 0 10px 58px; }
+  #_hiw-wrap { align-items: flex-end; padding: 0 10px 60px; }
+  #_hiw-row {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto;
+    gap: 10px;
+    align-items: end;
+    max-width: none;
+  }
+  ._hiw-card:nth-child(1) { grid-column: 1; grid-row: 1; }
+  ._hiw-card:nth-child(2) { grid-column: 2; grid-row: 1; }
+  ._hiw-card:nth-child(3) { grid-column: 1; grid-row: 2; }
+  ._hiw-card:nth-child(4) { grid-column: 2; grid-row: 2; }
+  /* on mobile all cards rise from the bottom */
+  ._hiw-card:nth-child(-n+2), ._hiw-card:nth-child(n+3) { transform: translateY(32px); }
+  ._hiw-card.hiw-visible { transform: translateY(0); }
+  ._hiw-img-wrap { aspect-ratio: 21 / 9; }
   ._hiw-title   { font-size: 9px; }
   ._hiw-caption { font-size: 8px; }
   ._hiw-footer  { padding: 7px 9px 8px; }

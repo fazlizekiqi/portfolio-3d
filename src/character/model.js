@@ -387,7 +387,9 @@ export function loadModel(onReady, onProgress) {
       spawnRotation.copy(model.rotation);
 
       initExplode(meshes, model);
-      initAboutWireframe(meshes.filter(m => m.isSkinnedMesh), model);
+      // ALL meshes — rigid attachments (hat/glasses) must burn away too,
+      // otherwise they stay visible after the about-slide dissolve
+      initAboutWireframe(meshes, model);
       const targetPos = new THREE.Vector3();
       new THREE.Box3().setFromObject(model).getCenter(targetPos);
       targetPos.y += 0.2;

@@ -358,16 +358,6 @@ _style.textContent = `
   text-shadow: 0 0 10px rgba(0,200,255,0.55);
 }
 
-/* ─── CTA interactive contact links ─────────────────────────────────────── */
-/* (full styles are defined above, in the slide-specific positioning block)  */
-
-@media (max-width: 640px) {
-  ._cta-link { min-width: 0; width: 90vw; font-size: 10px; padding: 8px 14px; }
-  ._ab-val   { font-size: 22px; }
-  ._about-stats-row { gap: 16px; }
-  ._term-boot { font-size: 10px; }
-}
-
 /* ─── intro slide — terminal pinned bottom-left so character is free ─────── */
 #_slide-body-panel.slide-intro {
   justify-content: flex-start;
@@ -422,15 +412,18 @@ _style.textContent = `
 #_slide-body-panel.slide-about ._about-stats-row { justify-content: flex-end; }
 #_slide-body-panel.slide-about ._ab-bio { text-align: right; }
 
-/* ─── CTA — wider centered panel with proper spacing ────────────────────── */
+/* ─── CTA — desktop: link panel pinned to the LEFT third, vertically
+       centred, character right-of-centre (camera shifts on phase-2) ──────── */
 #_slide-body-panel.slide-cta {
   pointer-events: auto;
-  justify-content: center;
-  align-items: flex-end;
-  padding-bottom: 0;
+  justify-content: flex-start;
+  align-items: center;
+  padding-left: 6%;
+  top: 56px;
+  bottom: 0;
 }
 #_slide-body-panel.slide-cta #_sBodyInner {
-  text-align: center;
+  text-align: left;
   width: auto;
   padding: 0;
 }
@@ -452,13 +445,13 @@ _style.textContent = `
   font-family: 'Share Tech Mono', 'Courier New', monospace;
   font-size: 12px;
   letter-spacing: .08em;
-  padding: 13px 20px 13px 0;
+  padding: 14px 20px 14px 0;
   border: 1px solid rgba(0,180,255,0.20);
   border-radius: 4px;
   background: linear-gradient(135deg, rgba(0,12,30,0.92) 0%, rgba(0,25,55,0.88) 100%);
   backdrop-filter: blur(12px);
   transition: color .22s, border-color .22s, box-shadow .22s, transform .15s, background .22s;
-  width: 340px;
+  width: 360px;
   position: relative;
   overflow: hidden;
   opacity: 0;
@@ -562,8 +555,20 @@ _style.textContent = `
 }
 
 @media (max-width: 640px) {
-  ._cta-link { width: 88vw; font-size: 10px; }
-  ._cta-value { font-size: 10px; }
+  /* CTA mobile — full-width stacked links anchored above the UI bar,
+     generous touch targets (≥ 48px tall) with breathing room between */
+  #_slide-body-panel.slide-cta {
+    top: auto;
+    bottom: 88px;
+    justify-content: center;
+    align-items: flex-end;
+    padding-left: 0;
+  }
+  ._cta-wrap { gap: 12px; }
+  ._cta-link { width: 92vw; font-size: 11px; min-height: 48px; box-sizing: border-box; }
+  ._cta-value { font-size: 11px; }
+  ._cta-label { font-size: 9px; }
+  ._cta-tagline { margin-top: 4px; }
   ._ab-val   { font-size: 22px; }
   ._about-stats-row { gap: 16px; }
   ._term-boot { font-size: 10px; }

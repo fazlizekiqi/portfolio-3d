@@ -8,12 +8,18 @@
  *   2.8–5.5  BURN        — per-fragment noise dissolve sweeps HEAD → FEET:
  *                          the character mesh literally burns away like paper —
  *                          noisy jagged edge, cyan→gold glow at the boundary,
- *                          wireframe reveals beneath as fragments are discarded.
- *                          DOM scan labels appear as burn passes each region.
- *   5.5+     BUILD       — full wireframe glow, electric pulses, oscillation
+ *                          the hologram ghost reveals beneath as fragments are
+ *                          discarded. DOM scan labels appear per body region.
+ *   5.5+     BUILD       — hologram glow ramps up, electric pulses, oscillation
+ *
+ * The ghost is a fresnel HOLOGRAM shell (bright rim, faint fill, scanlines)
+ * plus ONE low-opacity wireframe pass — the old triple wireframe stack was so
+ * dense on the high-poly mesh that it read as a solid blob.
  *
  * The burn is a SHADER inject — no opacity/transparent hacks.
  * uBurnY uniform drives the dissolve: 999 = full char, sweeps to -999 = gone.
+ * castShadow is disabled while burning — the shadow pass ignores the discard
+ * and would keep a full character shadow on the ground.
  */
 
 import * as THREE from 'three';
@@ -32,12 +38,41 @@ const PULSE_INTERVAL  = 1.8;
 const PULSE_DECAY     = 0.28;
 const ROW_BURN_T      = [0.12, 0.35, 0.60, 0.82];
 
-// ── Wireframe layers ──────────────────────────────────────────────────────────
-const LAYER_DEFS = [
-  [ 1.000,  0.55,  0x00d4ff, THREE.NormalBlending   ],
-  [ 0.996,  0.28,  0x00ffff, THREE.AdditiveBlending ],
-  [ 1.004,  0.16,  0x0077ff, THREE.AdditiveBlending ],
-];
+// ── Ghost look ────────────────────────────────────────────────────────────────
+const WIRE_MAX_OP   = 0.14;  // single faint wireframe pass
+const HOLO_BURN_OP  = 0.70;  // hologram opacity reached at end of burn
+const HOLO_BUILD_OP = 1.00;  // hologram opacity after build ramp
+
+// ── Hologram shell shader (fresnel rim + faint fill + scanlines) ──────────────
+const _holoVert = /* glsl */`
+  varying vec3  vNormal;
+  varying vec3  vViewDir;
+  varying float vWorldY;
+  void main() {
+    vNormal  = normalize(normalMatrix * normal);
+    vec4 mv  = modelViewMatrix * vec4(position, 1.0);
+    vViewDir = normalize(-mv.xyz);
+    vWorldY  = (modelMatrix * vec4(position, 1.0)).y;
+    gl_Position = projectionMatrix * mv;
+  }
+`;
+const _holoFrag = /* glsl */`
+  uniform float uOpacity;
+  uniform float uTime;
+  uniform float uClipY;   // hide fragments below this world-Y (reveal sweep)
+  uniform float uPulse;
+  varying vec3  vNormal;
+  varying vec3  vViewDir;
+  varying float vWorldY;
+  void main() {
+    if (vWorldY < uClipY) discard;
+    float fres = pow(1.0 - abs(dot(normalize(vNormal), normalize(vViewDir))), 2.0);
+    float scan = 0.5 + 0.5 * sin(vWorldY * 70.0 - uTime * 2.6);
+    vec3  col  = mix(vec3(0.0, 0.35, 0.65), vec3(0.25, 0.95, 1.0), fres);
+    float a    = (0.05 + fres * 0.75 + scan * 0.04) * uOpacity * (1.0 + uPulse * 0.9);
+    gl_FragColor = vec4(col, a);
+  }
+`;
 
 // ── Vertex-cloud scatter shader ───────────────────────────────────────────────
 const _dotsVert = /* glsl */`
@@ -218,9 +253,14 @@ _css.textContent = `
     rgba(0,220,255,0.55) 60%,rgba(0,220,255,0.0) 90%,transparent 100%);
   pointer-events:none; z-index:17; opacity:0; transition:opacity 0.25s; filter:blur(0.5px); }
 @media (max-width:640px) {
-  #_bio-scan { left:2%; top:auto; bottom:20%; transform:none; min-width:0; max-width:45vw; }
-  ._bio-k { min-width:72px; font-size:8px; } ._bio-row { font-size:9.5px; }
-  ._bio-bar-track { width:140px; }
+  /* top-left under the title — the bottom half belongs to the stats panel */
+  #_bio-scan { left:4%; top:72px; bottom:auto; transform:none; min-width:0; max-width:58vw; }
+  ._bio-hdr { margin-bottom:10px; }
+  ._bio-sep { margin-bottom:9px; }
+  ._bio-row { font-size:9.5px; margin-bottom:7px; }
+  ._bio-k { min-width:64px; font-size:8px; }
+  ._bio-bar-wrap { margin:10px 0 6px; }
+  ._bio-bar-track { width:130px; }
 }
 `;
 document.head.appendChild(_css);
@@ -254,11 +294,14 @@ const _done = _bioEl.querySelector('#_brDone');
 
 // ── Module state ──────────────────────────────────────────────────────────────
 let _ghostGroup   = null;
-let _layers       = [];
+let _wireMat      = null;
+let _holoUniforms = null;
 let _dotsUniforms = null;
 let _scanPlane    = null;
 let _burnMesh     = null;
 let _burnMat      = null;
+let _charMeshes   = [];
+let _shadowOff    = false;
 let _yMin = 0, _yMax = 2;
 
 // Per-material burn uniforms injected at init
@@ -272,8 +315,9 @@ let _rowsDone  = [false,false,false,false];
 let _doneDone  = false;
 
 // ── Init ──────────────────────────────────────────────────────────────────────
-export function initAboutWireframe(skinnedMeshes, modelGroup) {
+export function initAboutWireframe(charMeshes, modelGroup) {
   renderer.localClippingEnabled = true;
+  _charMeshes = charMeshes;
 
   const box = new THREE.Box3().setFromObject(modelGroup);
   _yMin = box.min.y - 0.05;
@@ -283,9 +327,14 @@ export function initAboutWireframe(skinnedMeshes, modelGroup) {
   _scanPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -_yMax);
 
   // ── Inject burn shader into every character material ─────────────────────
-  skinnedMeshes.forEach(mesh => {
+  // Guard against shared material instances — a double inject would redeclare
+  // the varying and break the shader compile (character would never burn).
+  const _injected = new Set();
+  charMeshes.forEach(mesh => {
     const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
     mats.forEach(mat => {
+      if (_injected.has(mat)) return;
+      _injected.add(mat);
       const uni = {
         uBurnY:    { value: 999.0 },  // 999 = nothing burned yet
         uBurnEdge: { value: 0.20  },  // world-units width of burn edge
@@ -318,7 +367,7 @@ export function initAboutWireframe(skinnedMeshes, modelGroup) {
     depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending,
   });
   const dotsGrp = new THREE.Group();
-  skinnedMeshes.forEach(mesh => {
+  charMeshes.forEach(mesh => {
     const pos     = mesh.geometry.attributes.position;
     const offsets = new Float32Array(pos.count * 3);
     for (let i = 0; i < pos.count; i++) {
@@ -334,23 +383,40 @@ export function initAboutWireframe(skinnedMeshes, modelGroup) {
   });
   _ghostGroup.add(dotsGrp);
 
-  // ── Wireframe layers ──────────────────────────────────────────────────────
-  _layers = LAYER_DEFS.map(([sc, maxOp, col, blend]) => {
-    const mat = new THREE.MeshBasicMaterial({
-      color: col, wireframe: true, transparent: true, opacity: 0,
-      depthWrite: false, depthTest: false, blending: blend,
-      clippingPlanes: [_scanPlane],
-    });
-    const grp = new THREE.Group();
-    grp.scale.setScalar(sc);
-    skinnedMeshes.forEach(mesh => {
-      const wire = new THREE.Mesh(mesh.geometry.clone(), mat);
-      wire.matrix.copy(_relMat(mesh)); wire.matrixAutoUpdate = false;
-      grp.add(wire);
-    });
-    _ghostGroup.add(grp);
-    return { mat, maxOp };
+  // ── Hologram shell (fresnel rim — carries the ghost's shape) ──────────────
+  _holoUniforms = {
+    uOpacity: { value: 0.0 },
+    uTime:    { value: 0.0 },
+    uClipY:   { value: _yMax },
+    uPulse:   { value: 0.0 },
+  };
+  const holoMat = new THREE.ShaderMaterial({
+    vertexShader: _holoVert, fragmentShader: _holoFrag,
+    uniforms: _holoUniforms, transparent: true,
+    depthWrite: false, depthTest: true,
+    blending: THREE.AdditiveBlending, side: THREE.FrontSide,
   });
+  const holoGrp = new THREE.Group();
+  charMeshes.forEach(mesh => {
+    const shell = new THREE.Mesh(mesh.geometry.clone(), holoMat);
+    shell.matrix.copy(_relMat(mesh)); shell.matrixAutoUpdate = false;
+    holoGrp.add(shell);
+  });
+  _ghostGroup.add(holoGrp);
+
+  // ── Single faint wireframe pass (techy texture over the hologram) ─────────
+  _wireMat = new THREE.MeshBasicMaterial({
+    color: 0x00d4ff, wireframe: true, transparent: true, opacity: 0,
+    depthWrite: false, depthTest: true, blending: THREE.AdditiveBlending,
+    clippingPlanes: [_scanPlane],
+  });
+  const wireGrp = new THREE.Group();
+  charMeshes.forEach(mesh => {
+    const wire = new THREE.Mesh(mesh.geometry.clone(), _wireMat);
+    wire.matrix.copy(_relMat(mesh)); wire.matrixAutoUpdate = false;
+    wireGrp.add(wire);
+  });
+  _ghostGroup.add(wireGrp);
 
   // ── Burn-edge glow stripe ─────────────────────────────────────────────────
   _burnMat = new THREE.ShaderMaterial({
@@ -383,13 +449,20 @@ export function showAboutWireframe(onTPoseCue) {
   _rowsDone = [false,false,false,false]; _doneDone = false;
   _active = true;
 
-  // Reset: wireframe fully clipped (not visible), burn not started
+  // Reset: ghost fully clipped (not visible), burn not started
   _scanPlane.constant = -_yMax;
   _dotsUniforms.uSettle.value  = 0.0;
   _dotsUniforms.uOpacity.value = 0.0;
-  _layers.forEach(l => { l.mat.opacity = 0; });
+  _wireMat.opacity = 0;
+  _holoUniforms.uOpacity.value = 0.0;
+  _holoUniforms.uClipY.value   = _yMax;
+  _holoUniforms.uPulse.value   = 0.0;
   _ghostGroup.rotation.y = 0;
   _ghostGroup.visible    = true;
+
+  // Character casts its full shadow again until the burn starts
+  _shadowOff = false;
+  _charMeshes.forEach(m => { m.castShadow = true; });
 
   // Char burn: 999 = nothing burned (full character)
   _setBurnY(999.0);
@@ -418,16 +491,20 @@ export function hideAboutWireframe() {
   _bioEl.style.opacity    = '0';
   _scanLine.style.opacity = '0';
   _burnMesh.visible       = false;
-  // Reset burn — character fully visible again on other slides
+  // Reset burn — character fully visible (and casting shadow) on other slides
   _setBurnY(999.0);
+  _shadowOff = false;
+  _charMeshes.forEach(m => { m.castShadow = true; });
 
   const sD = _dotsUniforms.uOpacity.value;
-  const sL = _layers.map(l => l.mat.opacity);
+  const sW = _wireMat.opacity;
+  const sH = _holoUniforms.uOpacity.value;
   const t0 = performance.now();
   (function fade(ts) {
     const p = Math.min((ts - t0) / 700, 1);
     _dotsUniforms.uOpacity.value = sD * (1 - p);
-    _layers.forEach((l, i) => { l.mat.opacity = sL[i] * (1 - p); });
+    _wireMat.opacity             = sW * (1 - p);
+    _holoUniforms.uOpacity.value = sH * (1 - p);
     if (p < 1) requestAnimationFrame(fade);
     else _ghostGroup.visible = false;
   })(performance.now());
@@ -451,7 +528,16 @@ export function tickAboutWireframe(delta) {
   }
 
   // ── Burn: HEAD → FEET ─────────────────────────────────────────────────────
-  if (t >= T_BURN_START) {
+  // !_doneDone guard: once complete, uBurnY stays at -999 (fully discarded).
+  // Without it this block re-sets uBurnY to _yMin every frame and noise keeps
+  // a band of foot fragments alive — the character never fully disappeared.
+  if (t >= T_BURN_START && !_doneDone) {
+    // The shadow pass ignores the burn discard — kill the shadow when burning
+    if (!_shadowOff) {
+      _shadowOff = true;
+      _charMeshes.forEach(m => { m.castShadow = false; });
+    }
+
     const sp    = _clamp01((t - T_BURN_START) / (T_BURN_END - T_BURN_START));
     const eased = _easeInOut(sp);
 
@@ -462,10 +548,12 @@ export function tickAboutWireframe(delta) {
     _setBurnY(burnY);
     _setBurnTime(t);
 
-    // Wireframe clipping plane shows where y > burnY — exactly the burned region
+    // Ghost reveal follows the burn front — exactly the burned region.
     // Plane normal=(0,1,0), constant c: discards y < -c → set c=-burnY → shows y > burnY
     _scanPlane.constant = -burnY;
-    _layers[0].mat.opacity = eased * _layers[0].maxOp;
+    _holoUniforms.uClipY.value = burnY;
+    _wireMat.opacity             = eased * WIRE_MAX_OP;
+    _holoUniforms.uOpacity.value = eased * HOLO_BURN_OP;
 
     // Burn-edge glow stripe at the burn front
     _burnMesh.visible = sp > 0.005 && sp < 0.995;
@@ -494,17 +582,19 @@ export function tickAboutWireframe(delta) {
       _fill.style.width = '100%'; _pct.textContent = '100%';
       _scanLine.style.opacity = '0';
       _burnMesh.visible = false;
-      // Push burn Y way below so nothing is discarded (wireframe alone is visible)
+      // Character fully burned away — only the hologram ghost remains
       _setBurnY(-999.0);
+      _scanPlane.constant = -_yMin + 0.1;
+      _holoUniforms.uClipY.value = _yMin - 0.1;
       setTimeout(() => { if (_active) _done.classList.add('vis'); }, 300);
     }
   }
 
   // ── Build: glow + pulses ──────────────────────────────────────────────────
+  _holoUniforms.uTime.value = t;
   if (t >= T_BUILD_START) {
     const be = _easeInOut(_clamp01((t - T_BUILD_START) / (T_BUILD_END - T_BUILD_START)));
-    _layers[1].mat.opacity = be * _layers[1].maxOp;
-    _layers[2].mat.opacity = be * _layers[2].maxOp;
+    _holoUniforms.uOpacity.value = HOLO_BURN_OP + be * (HOLO_BUILD_OP - HOLO_BURN_OP);
     _ghostGroup.rotation.y = Math.sin(t * 0.45) * 0.12;
 
     _nextPulse -= delta;
@@ -512,9 +602,10 @@ export function tickAboutWireframe(delta) {
     if (_pulseT > 0) {
       _pulseT = Math.max(0, _pulseT - delta / PULSE_DECAY);
       const s = _pulseT * _pulseT;
-      _layers[0].mat.opacity = _layers[0].maxOp      + s * 0.24;
-      _layers[1].mat.opacity = be * _layers[1].maxOp + s * 0.30;
-      _layers[2].mat.opacity = be * _layers[2].maxOp + s * 0.18;
+      _holoUniforms.uPulse.value = s;
+      _wireMat.opacity = WIRE_MAX_OP + s * 0.10;
+    } else {
+      _holoUniforms.uPulse.value = 0.0;
     }
   }
 }
