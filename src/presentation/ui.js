@@ -263,6 +263,316 @@ _style.textContent = `
   ._exp-tl-svg  { width: 18px; }
 }
 
+/* ─── intro terminal boot sequence ──────────────────────────────────────── */
+._term-boot {
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  font-size: 12px;
+  letter-spacing: .09em;
+  color: #c8eaf5;
+  text-align: left;
+  line-height: 2.15;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.95);
+}
+._tb-row {
+  opacity: 0;
+  animation: _tb-appear 0.45s ease forwards;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+@keyframes _tb-appear {
+  from { opacity: 0; transform: translateX(-10px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+._tb-prompt { color: #00e5ff; flex-shrink: 0; }
+._tb-key    { color: rgba(0,200,255,0.60); min-width: 88px; }
+._tb-val    { color: #eef6ff; text-shadow: 0 0 10px rgba(0,200,255,0.35); }
+._tb-bar    { color: #00ccff; text-shadow: 0 0 10px rgba(0,200,255,0.80); letter-spacing: .02em; }
+._tb-pct    { color: #00ffaa; font-weight: bold; text-shadow: 0 0 12px rgba(0,255,160,0.65); }
+._tb-blink-cursor {
+  color: #00e5ff;
+  animation: _tb-blink-anim 1s step-end infinite;
+  text-shadow: 0 0 8px rgba(0,230,255,0.9);
+}
+@keyframes _tb-blink-anim { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+/* ─── about stats dashboard ──────────────────────────────────────────────── */
+._about-wrap { text-align: center; }
+._about-stats-row {
+  display: flex;
+  justify-content: center;
+  gap: 26px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+._ab-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  opacity: 0;
+  animation: _ab-pop 0.55s cubic-bezier(0.34,1.56,0.64,1) forwards;
+}
+._ab-stat:nth-child(1) { animation-delay: 0.30s; }
+._ab-stat:nth-child(2) { animation-delay: 0.55s; }
+._ab-stat:nth-child(3) { animation-delay: 0.80s; }
+._ab-stat:nth-child(4) { animation-delay: 1.05s; }
+@keyframes _ab-pop {
+  from { opacity: 0; transform: translateY(14px) scale(0.82); }
+  to   { opacity: 1; transform: translateY(0)    scale(1);    }
+}
+._ab-val {
+  font-size: 28px;
+  font-weight: bold;
+  color: #00e5ff;
+  text-shadow: 0 0 22px rgba(0,230,255,0.70), 0 0 6px rgba(0,230,255,0.4);
+  line-height: 1;
+  letter-spacing: .03em;
+}
+._ab-lbl {
+  font-size: 9px;
+  color: rgba(0,200,255,0.55);
+  letter-spacing: .16em;
+}
+._ab-divider {
+  width: 60%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0,180,255,0.30), transparent);
+  margin: 8px auto 12px;
+  opacity: 0;
+  animation: _ab-pop 0.3s ease forwards;
+  animation-delay: 1.25s;
+}
+._ab-bio {
+  font-size: 11px;
+  color: #c8eaf5;
+  line-height: 2.1;
+  letter-spacing: .08em;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.98);
+  opacity: 0;
+  animation: _ab-pop 0.4s ease forwards;
+  animation-delay: 1.45s;
+}
+._ab-tag {
+  color: #00ccff;
+  text-shadow: 0 0 10px rgba(0,200,255,0.55);
+}
+
+/* ─── CTA interactive contact links ─────────────────────────────────────── */
+/* (full styles are defined above, in the slide-specific positioning block)  */
+
+@media (max-width: 640px) {
+  ._cta-link { min-width: 0; width: 90vw; font-size: 10px; padding: 8px 14px; }
+  ._ab-val   { font-size: 22px; }
+  ._about-stats-row { gap: 16px; }
+  ._term-boot { font-size: 10px; }
+}
+
+/* ─── intro slide — terminal pinned bottom-left so character is free ─────── */
+#_slide-body-panel.slide-intro {
+  justify-content: flex-start;
+  align-items: flex-end;
+  padding-left: 5%;
+}
+#_slide-body-panel.slide-intro #_sBodyInner {
+  text-align: left;
+  max-width: 420px;
+  padding: 0;
+}
+#_slide-body-panel.slide-intro #_sBody {
+  text-align: left;
+  white-space: normal;
+}
+
+/* ─── skills / projects slide — body text bottom-right corner ────────────── */
+#_slide-body-panel.slide-skills,
+#_slide-body-panel.slide-projects {
+  justify-content: flex-end;
+  align-items: flex-end;
+  padding-right: 5%;
+}
+#_slide-body-panel.slide-skills #_sBodyInner,
+#_slide-body-panel.slide-projects #_sBodyInner {
+  text-align: right;
+  max-width: 360px;
+  padding: 0;
+}
+#_slide-body-panel.slide-skills #_sBody,
+#_slide-body-panel.slide-projects #_sBody {
+  text-align: right;
+}
+
+/* ─── mindset — body panel hidden (how-i-work overlay carries the content) ── */
+#_slide-body-panel.slide-mindset {
+  display: none !important;
+}
+
+/* ─── about slide — stats panel bottom-right ─────────────────────────────── */
+#_slide-body-panel.slide-about {
+  justify-content: flex-end;
+  align-items: flex-end;
+  padding-right: 4%;
+}
+#_slide-body-panel.slide-about #_sBodyInner {
+  text-align: right;
+  max-width: 340px;
+  padding: 0;
+}
+#_slide-body-panel.slide-about ._about-wrap { text-align: right; }
+#_slide-body-panel.slide-about ._about-stats-row { justify-content: flex-end; }
+#_slide-body-panel.slide-about ._ab-bio { text-align: right; }
+
+/* ─── CTA — wider centered panel with proper spacing ────────────────────── */
+#_slide-body-panel.slide-cta {
+  pointer-events: auto;
+  justify-content: center;
+  align-items: flex-end;
+  padding-bottom: 0;
+}
+#_slide-body-panel.slide-cta #_sBodyInner {
+  text-align: center;
+  width: auto;
+  padding: 0;
+}
+
+/* ─── CTA redesigned links ────────────────────────────────────────────────── */
+._cta-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+._cta-link {
+  display: grid;
+  grid-template-columns: 36px 1fr 24px;
+  align-items: center;
+  gap: 0;
+  color: #c8eaf5;
+  text-decoration: none;
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  font-size: 12px;
+  letter-spacing: .08em;
+  padding: 13px 20px 13px 0;
+  border: 1px solid rgba(0,180,255,0.20);
+  border-radius: 4px;
+  background: linear-gradient(135deg, rgba(0,12,30,0.92) 0%, rgba(0,25,55,0.88) 100%);
+  backdrop-filter: blur(12px);
+  transition: color .22s, border-color .22s, box-shadow .22s, transform .15s, background .22s;
+  width: 340px;
+  position: relative;
+  overflow: hidden;
+  opacity: 0;
+  animation: _cta-in 0.55s ease forwards;
+  box-shadow: 3px 3px 0 rgba(0,55,90,0.55), 0 0 0 0 rgba(0,200,255,0);
+}
+._cta-link::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: linear-gradient(to bottom, rgba(0,200,255,0.4), rgba(0,100,200,0.2));
+  transition: background .22s;
+}
+._cta-link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(0,200,255,0.04) 50%, transparent 100%);
+  transform: translateX(-100%);
+  transition: transform 0.5s ease;
+}
+._cta-link:hover::after { transform: translateX(100%); }
+._cta-link:nth-child(1) { animation-delay: 0.30s; }
+._cta-link:nth-child(2) { animation-delay: 0.52s; }
+._cta-link:nth-child(3) { animation-delay: 0.74s; }
+._cta-link:hover {
+  color: #00e5ff;
+  border-color: rgba(0,220,255,0.60);
+  background: linear-gradient(135deg, rgba(0,20,50,0.96) 0%, rgba(0,45,90,0.92) 100%);
+  box-shadow: 4px 4px 0 rgba(0,70,120,0.75), 0 0 22px rgba(0,180,255,0.22);
+  transform: translateY(-2px) translateX(-1px);
+}
+._cta-link:hover::before {
+  background: linear-gradient(to bottom, rgba(0,230,255,0.85), rgba(0,130,255,0.55));
+}
+._cta-link:active { transform: translateY(1px) translateX(1px); }
+._cta-icon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  flex-shrink: 0;
+}
+._cta-icon {
+  font-size: 15px;
+  color: rgba(0,200,255,0.60);
+  width: 20px;
+  text-align: center;
+  transition: color .22s, text-shadow .22s;
+}
+._cta-link:hover ._cta-icon {
+  color: #00e5ff;
+  text-shadow: 0 0 12px rgba(0,230,255,0.90);
+}
+._cta-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+._cta-label {
+  font-size: 9px;
+  color: rgba(0,190,255,0.45);
+  letter-spacing: .18em;
+  line-height: 1;
+}
+._cta-value {
+  font-size: 11.5px;
+  letter-spacing: .06em;
+  color: #c8eaf5;
+  transition: color .22s;
+  line-height: 1;
+}
+._cta-link:hover ._cta-value { color: #ffffff; }
+._cta-arrow {
+  font-size: 13px;
+  color: rgba(0,190,255,0.35);
+  transition: color .22s, transform .22s;
+  text-align: right;
+  padding-right: 4px;
+}
+._cta-link:hover ._cta-arrow {
+  color: rgba(0,230,255,0.75);
+  transform: translateX(3px);
+}
+._cta-tagline {
+  margin-top: 8px;
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  font-size: 10px;
+  color: rgba(0,200,255,0.40);
+  letter-spacing: .14em;
+  text-align: center;
+  opacity: 0;
+  animation: _cta-in 0.4s ease forwards;
+  animation-delay: 1.0s;
+  text-shadow: 0 0 12px rgba(0,180,255,0.25);
+}
+@keyframes _cta-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 640px) {
+  ._cta-link { width: 88vw; font-size: 10px; }
+  ._cta-value { font-size: 10px; }
+  ._ab-val   { font-size: 22px; }
+  ._about-stats-row { gap: 16px; }
+  ._term-boot { font-size: 10px; }
+  #_slide-body-panel.slide-intro { padding-left: 3%; }
+  #_slide-body-panel.slide-skills,
+  #_slide-body-panel.slide-projects { padding-right: 3%; }
+  #_slide-body-panel.slide-about { padding-right: 3%; }
+}
+
 /* ─── bottom bar ─────────────────────────────────────────────────────────── */
 #_ui-bar {
   position:fixed;
@@ -746,6 +1056,71 @@ function _buildExperienceHTML(body) {
   </div>`;
 }
 
+/** Terminal boot sequence for the intro slide. */
+function _buildIntroHTML() {
+  const rows = [
+    { delay: 0.25, prompt: true, content: `<span class="_tb-blink-cursor">▌</span>&nbsp;ESTABLISHING_CONNECTION<span class="_tb-blink-cursor">...</span>` },
+    { delay: 0.85, prompt: false, content: `<span class="_tb-key">ENGINEER </span><span class="_tb-val">FAZLI ZEKIQI</span>` },
+    { delay: 1.30, prompt: false, content: `<span class="_tb-key">ROLE     </span><span class="_tb-val">SR. SOFTWARE ENGINEER</span>` },
+    { delay: 1.75, prompt: false, content: `<span class="_tb-key">LOCATION </span><span class="_tb-val">STOCKHOLM, SWEDEN</span>` },
+    { delay: 2.20, prompt: false, content: `<span class="_tb-key">FOCUS    </span><span class="_tb-val">DISTRIBUTED SYSTEMS</span>` },
+    { delay: 2.80, prompt: false, content: `<span class="_tb-key">SYSTEMS  </span><span class="_tb-bar">██████████</span>&nbsp;<span class="_tb-pct">100% ONLINE</span>` },
+    { delay: 3.40, prompt: true,  content: `<span class="_tb-blink-cursor">▌</span>` },
+  ];
+  const html = rows.map(r => {
+    const promptHtml = r.prompt ? `<span class="_tb-prompt">&gt;</span>` : `<span class="_tb-prompt" style="opacity:0.35">&gt;</span>`;
+    return `<div class="_tb-row" style="animation-delay:${r.delay}s">${promptHtml}&nbsp;${r.content}</div>`;
+  }).join('');
+  return `<div class="_term-boot">${html}</div>`;
+}
+
+/** Engineering stats dashboard for the about slide (bottom-right). */
+function _buildAboutHTML() {
+  return `<div class="_about-wrap">
+    <div class="_about-stats-row">
+      <div class="_ab-stat"><div class="_ab-val">6+</div><div class="_ab-lbl">YEARS EXP</div></div>
+      <div class="_ab-stat"><div class="_ab-val">3</div><div class="_ab-lbl">COMPANIES</div></div>
+      <div class="_ab-stat"><div class="_ab-val">29</div><div class="_ab-lbl">TECHNOLOGIES</div></div>
+      <div class="_ab-stat"><div class="_ab-val">9+</div><div class="_ab-lbl">PROJECTS</div></div>
+    </div>
+    <div class="_ab-divider"></div>
+    <div class="_ab-bio">
+      Training · Running · Electronics · Robots
+    </div>
+  </div>`;
+}
+
+/** Interactive clickable contact links for the CTA slide. */
+function _buildCtaHTML() {
+  return `<div class="_cta-wrap">
+    <a class="_cta-link" href="mailto:fazlizekiqi1@hotmail.com">
+      <div class="_cta-icon-wrap"><span class="_cta-icon">✉</span></div>
+      <div class="_cta-text">
+        <span class="_cta-label">EMAIL</span>
+        <span class="_cta-value">fazlizekiqi1@hotmail.com</span>
+      </div>
+      <span class="_cta-arrow">→</span>
+    </a>
+    <a class="_cta-link" href="https://linkedin.com/in/fazli-zekiqi" target="_blank" rel="noopener">
+      <div class="_cta-icon-wrap"><span class="_cta-icon" style="font-weight:800;font-size:12px">in</span></div>
+      <div class="_cta-text">
+        <span class="_cta-label">LINKEDIN</span>
+        <span class="_cta-value">fazli-zekiqi</span>
+      </div>
+      <span class="_cta-arrow">→</span>
+    </a>
+    <a class="_cta-link" href="https://github.com/fazlizekiqi" target="_blank" rel="noopener">
+      <div class="_cta-icon-wrap"><span class="_cta-icon">⌥</span></div>
+      <div class="_cta-text">
+        <span class="_cta-label">GITHUB</span>
+        <span class="_cta-value">fazlizekiqi</span>
+      </div>
+      <span class="_cta-arrow">→</span>
+    </a>
+    <div class="_cta-tagline">Ready to build something remarkable together.</div>
+  </div>`;
+}
+
 export function showCard(title, body, delay = 550, slideName = '', subtitle = '') {
   hideCard();
   if (slideName) {
@@ -770,6 +1145,12 @@ export function showCard(title, body, delay = 550, slideName = '', subtitle = ''
           }, 160 + i * 230);
         });
         _startExperienceTimeline();
+      } else if (body === '__INTRO_TERMINAL__') {
+        slideBody.innerHTML = _buildIntroHTML();
+      } else if (body === '__ABOUT_STATS__') {
+        slideBody.innerHTML = _buildAboutHTML();
+      } else if (body === '__CTA_LINKS__') {
+        slideBody.innerHTML = _buildCtaHTML();
       } else {
         _timerB = _typeWrite(slideBody, body, 18);
       }

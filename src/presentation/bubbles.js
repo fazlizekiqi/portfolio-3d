@@ -807,9 +807,14 @@ export function tickBubbles(delta, elapsed) {
             continue;
         }
 
-        // ── Desktop project cards: static ────────────────────────────────────
+        // ── Desktop project cards: static + hover scale ───────────────────
         if (e.isProject) {
             e.mesh.position.copy(e.basePos);
+            // Smooth scale toward hover state
+            const targetScale = (e === _hoveredEntry) ? 1.07 : 1.0;
+            e.mesh.scale.x += (targetScale - e.mesh.scale.x) * 0.10;
+            e.mesh.scale.y += (targetScale - e.mesh.scale.y) * 0.10;
+            e.mesh.scale.z += (targetScale - e.mesh.scale.z) * 0.10;
             continue;
         }
 
@@ -867,6 +872,7 @@ function _destroyEntry(e, idx) {
 
 // ── Click / hover ─────────────────────────────────────────────────────────────
 let _downX = 0, _downY = 0;
+let _hoveredEntry = null;   // currently hovered project card entry
 
 function _ensureClickListener() {
     if (_listening) return;
@@ -926,6 +932,15 @@ function _onMove(event) {
     _updateMouse(event.clientX, event.clientY);
     _raycaster.setFromCamera(_mouse, camera);
     const hits = _raycaster.intersectObjects(_entries.map(e => e.mesh), false);
+    const hit  = hits.length ? _entries.find(e => e.mesh === hits[0].object && !e.popping) : null;
     renderer.domElement.style.cursor = hits.length ? 'pointer' : '';
+
+    const newHovered = hit?.isProject ? hit : null;
+    if (newHovered !== _hoveredEntry) {
+        _hoveredEntry = newHovered;
+        if (_hoveredEntry) {
+            document.dispatchEvent(new CustomEvent('proj-card-hover'));
+        }
+    }
 }
 

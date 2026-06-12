@@ -181,18 +181,20 @@ export function goToSlide(name) {
   cancelIdleLoop();
   // Cinematic character rotation for experience slide
   if (name === 'experience' && modelGroup) {
-    modelGroup.rotation.y = spawnRotation.y + 0.62; // ~35° 3/4 turn — cinematic angle
+    modelGroup.rotation.y = spawnRotation.y + 0.62;
   } else if (modelGroup) {
     modelGroup.rotation.copy(spawnRotation);
   }
-  if (slide.clipLoop) {
-    playClip(slide.clip);
-  } else if (slide.clips?.length > 1) {
-    playClipSequence(slide.clips, slide.clipIdleBetweenMs ?? 2500);
-  } else {
-    playFeaturedClip(slide.clip);
-  }
-  hideCard();
+  // about: animation is driven by the wireframe T-pose cue callback below
+  if (name !== 'about') {
+    if (slide.clipLoop) {
+      playClip(slide.clip);
+    } else if (slide.clips?.length > 1) {
+      playClipSequence(slide.clips, slide.clipIdleBetweenMs ?? 2500);
+    } else {
+      playFeaturedClip(slide.clip);
+    }
+  }  hideCard();
 
   // bubbles
   hideBubbles();
@@ -209,9 +211,18 @@ export function goToSlide(name) {
     hideHowIWorkOverlay();
   }
 
-  // about wireframe ghost — shown after camera settles
-  if (name === 'about') showAboutWireframe();
-  else                  hideAboutWireframe();
+  // about wireframe — T-pose cue: slow crossfade into briefcase-standing,
+  // then freeze on idle at t=2.5s so character is fully static before burn (3.8s)
+  if (name === 'about') showAboutWireframe(() => {
+    cancelIdleLoop();
+    // Slow 1.2s crossfade so the pose change is deliberate, not snappy
+    playClip('briefcase-standing', 1.0, 1.2);
+    // After 2.5s freeze on idle so character stops any micro-animations
+    setTimeout(() => {
+      if (_currentSlide?.name === 'about') playClip('idle', 1.0, 0.8);
+    }, 2500);
+  });
+  else hideAboutWireframe();
 
   // myworld card shows immediately in the blue world while camera sweeps behind character
   // mindset: title + subtitle only — the arch overlay carries the body content
@@ -326,11 +337,23 @@ function _glideHome() {
 // ── Experience — subtle character reaction on hover ───────────────────────────
 document.addEventListener('exp-block-hover', () => {
   if (_currentSlide?.name !== 'experience') return;
-  // Very brief head nod to acknowledge the hovered item
   playClip('head-nod-yes');
   setTimeout(() => {
     if (_currentSlide?.name === 'experience') playClip('idle');
   }, 1200);
+});
+
+// ── Projects — character reacts when user hovers a card ───────────────────────
+let _lastProjHover = 0;
+document.addEventListener('proj-card-hover', () => {
+  if (_currentSlide?.name !== 'projects') return;
+  const now = Date.now();
+  if (now - _lastProjHover < 2200) return;
+  _lastProjHover = now;
+  playClip('head-nod-yes');
+  setTimeout(() => {
+    if (_currentSlide?.name === 'projects') playClip('happy-idle');
+  }, 1400);
 });
 
 // ── Button wiring ─────────────────────────────────────────────────────────────

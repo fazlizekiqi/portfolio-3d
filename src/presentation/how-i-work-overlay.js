@@ -1,19 +1,24 @@
 /**
  * how-i-work-overlay.js
  *
- * Renders the "How I Work" segmental-arch SVG animation as a fixed
- * full-viewport overlay that sits on top of the 3D canvas.
+ * "How I Work" — four principle cards slide up from the BOTTOM of the
+ * viewport with staggered reveal. A horizontal scan-dot pulses each card
+ * in sequence.
+ *
+ * Layout (desktop/mobile):
+ *   ┌──────────────────────────────────────────────────────────┐
+ *   │   3D character visible in upper portion of screen         │
+ *   ├─[DESIGN]──[CLEAN]──[OBSERVE]──[COLLABORATE]──────────────┤  ← bottom
+ *   └──────────────────────────────────────────────────────────┘
  *
  * Public API
  * ──────────
- *   showHowIWorkOverlay()  – fade in + start dot animation
- *   hideHowIWorkOverlay()  – fade out + stop animation
+ *   showHowIWorkOverlay()  – stagger-in + start pulse cycle
+ *   hideHowIWorkOverlay()  – stagger-out + stop animation
  */
 
-// ── Data ─────────────────────────────────────────────────────────────────────
-// Images are numbered 1–4 right-to-left in the folder, so card 0 (leftmost) = 4.png
-// Paths are relative to the Vite base (/portfolio-3d/ in prod, / in dev via import.meta.env.BASE_URL)
 const _base = import.meta.env.BASE_URL;
+
 const CARDS = [
   { title: 'Design',      caption: 'Scalability & Reliability',  img: `${_base}how-i-work/1.png` },
   { title: 'Clean',       caption: 'Maintainable Architecture',  img: `${_base}how-i-work/2.png` },
@@ -21,285 +26,206 @@ const CARDS = [
   { title: 'Collaborate', caption: 'Teams & Stakeholders',       img: `${_base}how-i-work/4.png` },
 ];
 
-// ── DOM Setup ─────────────────────────────────────────────────────────────────
-const _wrap = document.createElement('div');
-_wrap.id = '_how-i-work-overlay';
-_wrap.style.cssText = `
+// ── Styles ────────────────────────────────────────────────────────────────────
+const _style = document.createElement('style');
+_style.textContent = `
+#_hiw-wrap {
   position: fixed;
-  inset: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
   z-index: 15;
   pointer-events: none;
   display: flex;
-  align-items: flex-start;
   justify-content: center;
-  opacity: 0;
-  transition: opacity 0.7s ease;
-  padding-top: 48px;
-`;
-
-const _svgNS = 'http://www.w3.org/2000/svg';
-const _svg = document.createElementNS(_svgNS, 'svg');
-_svg.setAttribute('id', '_arch-svg');
-_svg.setAttribute('viewBox', '0 0 960 310');
-_svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-_svg.style.cssText = 'width: min(920px, 94vw); overflow: visible;';
-
-// ── Layout constants (must be above defs loop) ────────────────────────────────
-const CARD_W = 160, CARD_H = 156, IMG_H = 100, CONN_LEN = 38;
-
-// ── Defs ──────────────────────────────────────────────────────────────────────
-const defs = document.createElementNS(_svgNS, 'defs');
-for (let i = 0; i < 4; i++) {
-  const cp = document.createElementNS(_svgNS, 'clipPath');
-  cp.setAttribute('id', `_card-clip-${i}`);
-  const r = document.createElementNS(_svgNS, 'rect');
-  r.setAttribute('x', 8); r.setAttribute('y', 8);
-  r.setAttribute('rx', 6); r.setAttribute('width', CARD_W - 16); r.setAttribute('height', IMG_H);
-  cp.appendChild(r);
-  defs.appendChild(cp);
+  align-items: flex-end;
+  padding: 0 20px 72px;
+  box-sizing: border-box;
 }
-_svg.appendChild(defs);
+#_hiw-row {
+  display: flex;
+  gap: 14px;
+  align-items: flex-end;
+  width: 100%;
+  max-width: 880px;
+}
+._hiw-card {
+  flex: 1;
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(2, 10, 28, 0.88);
+  border: 1px solid rgba(0, 180, 255, 0.22);
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.6),
+              inset 0 1px 0 rgba(0,200,255,0.08);
+  opacity: 0;
+  transform: translateY(40px);
+  transition: opacity 0.55s ease, transform 0.55s cubic-bezier(0.22,0.61,0.36,1),
+              border-color 0.35s ease, box-shadow 0.35s ease;
+}
+._hiw-card.hiw-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+._hiw-card.hiw-active {
+  border-color: rgba(0, 225, 255, 0.60);
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.4), 0 8px 28px rgba(0,0,0,0.6),
+              0 0 18px rgba(0,200,255,0.28), inset 0 1px 0 rgba(0,220,255,0.15);
+}
+._hiw-img-wrap {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  position: relative;
+}
+._hiw-img-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  filter: brightness(0.72) saturate(0.85);
+  transition: filter 0.35s ease;
+}
+._hiw-card.hiw-active ._hiw-img-wrap img {
+  filter: brightness(1.05) saturate(1.1);
+}
+._hiw-img-wrap::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom,
+    transparent 0%, rgba(0,200,255,0.06) 48%,
+    rgba(0,200,255,0.12) 50%, rgba(0,200,255,0.06) 52%, transparent 100%);
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  pointer-events: none;
+}
+._hiw-card.hiw-active ._hiw-img-wrap::after { opacity: 1; }
+._hiw-footer { padding: 10px 12px 11px; }
+._hiw-title {
+  font-family: 'Share Tech Mono','Courier New',monospace;
+  font-size: 11px;
+  font-weight: 700;
+  color: #e0f4ff;
+  letter-spacing: .12em;
+  margin: 0 0 4px;
+  text-shadow: 0 0 12px rgba(0,200,255,0.40);
+  transition: color 0.3s, text-shadow 0.3s;
+}
+._hiw-card.hiw-active ._hiw-title {
+  color: #00e5ff;
+  text-shadow: 0 0 18px rgba(0,230,255,0.80);
+}
+._hiw-caption {
+  font-family: 'Share Tech Mono','Courier New',monospace;
+  font-size: 9px;
+  color: rgba(0,190,255,0.50);
+  letter-spacing: .09em;
+  margin: 0;
+  line-height: 1.4;
+  transition: color 0.3s;
+}
+._hiw-card.hiw-active ._hiw-caption { color: rgba(0,220,255,0.78); }
 
-// ── Arch path ─────────────────────────────────────────────────────────────────
-const _archPath = document.createElementNS(_svgNS, 'path');
-_archPath.setAttribute('id', '_arch-path');
-_archPath.setAttribute('d', 'M 80 260 A 480 480 0 0 1 880 260');
-_archPath.setAttribute('fill', 'none');
-_archPath.setAttribute('stroke', '#1a4a7a');
-_archPath.setAttribute('stroke-width', '2');
-_archPath.style.filter = 'drop-shadow(0 0 6px rgba(10,143,255,0.3))';
-_svg.appendChild(_archPath);
+#_hiw-rail {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: 2px;
+  background: rgba(0,150,200,0.10);
+  z-index: 16;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.5s;
+}
+#_hiw-rail-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #005577, #00ccff);
+}
 
-// ── Cards root ────────────────────────────────────────────────────────────────
-const _cardsRoot = document.createElementNS(_svgNS, 'g');
-_svg.appendChild(_cardsRoot);
-
-// ── Travel dot ────────────────────────────────────────────────────────────────
-const _dot = document.createElementNS(_svgNS, 'circle');
-_dot.setAttribute('r', '5.5');
-_dot.setAttribute('fill', '#00d4ff');
-_dot.style.filter = 'drop-shadow(0 0 5px #00d4ff) drop-shadow(0 0 10px #0a8fff)';
-// dot is appended after cards so it renders on top
-
-_wrap.appendChild(_svg);
-document.body.appendChild(_wrap);
-
-// ── CSS ───────────────────────────────────────────────────────────────────────
-const _style = document.createElement('style');
-_style.textContent = `
-._hiw-connector { stroke: #1e3a5f; stroke-width: 1.5; stroke-dasharray: 4 4; }
-._hiw-node-ring { fill: #080d24; stroke: #0a8fff; stroke-width: 2; }
-._hiw-node-inner { fill: #00d4ff; }
-._hiw-card-group { transition: filter 0.35s ease-in-out; }
-._hiw-card-group.active { filter: drop-shadow(0 8px 18px rgba(0,212,255,0.4)); }
-._hiw-card-title { fill: #e8f4ff; font-size: 13px; font-weight: 600; font-family: system-ui,sans-serif; dominant-baseline: middle; text-anchor: middle; }
-._hiw-card-caption { fill: #8bc8f0; font-size: 10px; letter-spacing: 0.08em; font-family: ui-monospace,Consolas,monospace; dominant-baseline: middle; text-anchor: middle; }
+@media (max-width: 640px) {
+  #_hiw-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: end; }
+  #_hiw-wrap { padding: 0 10px 58px; }
+  ._hiw-title   { font-size: 9px; }
+  ._hiw-caption { font-size: 8px; }
+  ._hiw-footer  { padding: 7px 9px 8px; }
+}
 `;
 document.head.appendChild(_style);
 
-// ── Build nodes & cards ───────────────────────────────────────────────────────
-const NODE_T = [0.14, 0.36, 0.64, 0.86];
+// ── DOM ───────────────────────────────────────────────────────────────────────
+const _wrap = document.createElement('div');
+_wrap.id = '_hiw-wrap';
+const _row = document.createElement('div');
+_row.id = '_hiw-row';
+_wrap.appendChild(_row);
+document.body.appendChild(_wrap);
 
-// These are populated lazily on first show (path length needs layout)
-let _built      = false;
-const _nodeRings  = [];
-const _nodeInners = [];
-const _cardGroups = [];
-const _origCardY  = []; // store original Y for reset
+const _rail = document.createElement('div');
+_rail.id = '_hiw-rail';
+_rail.innerHTML = `<div id="_hiw-rail-fill"></div>`;
+document.body.appendChild(_rail);
+const _railFill = _rail.querySelector('#_hiw-rail-fill');
 
-function _build() {
-  if (_built) return;
-  _built = true;
-
-  const totalLen = _archPath.getTotalLength();
-
-  NODE_T.forEach((t, i) => {
-    const pt = _archPath.getPointAtLength(t * totalLen);
-
-    // connector
-    const conn = document.createElementNS(_svgNS, 'line');
-    conn.setAttribute('class', '_hiw-connector');
-    conn.setAttribute('x1', pt.x); conn.setAttribute('y1', pt.y + 8);
-    conn.setAttribute('x2', pt.x); conn.setAttribute('y2', pt.y + 8 + CONN_LEN);
-    _cardsRoot.appendChild(conn);
-
-    // card
-    const cardY = pt.y + 8 + CONN_LEN;
-    const cardX = pt.x - CARD_W / 2;
-    _origCardY.push(cardY);
-
-    const g = document.createElementNS(_svgNS, 'g');
-    g.setAttribute('class', '_hiw-card-group');
-    g.setAttribute('transform', `translate(${cardX},${cardY})`);
-
-    const bg = document.createElementNS(_svgNS, 'rect');
-    bg.setAttribute('width', CARD_W); bg.setAttribute('height', CARD_H);
-    bg.setAttribute('rx', 10);
-    bg.setAttribute('stroke', '#1a4a7a'); bg.setAttribute('stroke-width', 1);
-    bg.setAttribute('fill', 'rgba(10,20,50,0.88)');
-    g.appendChild(bg);
-
-    const imgEl = document.createElementNS(_svgNS, 'image');
-    imgEl.setAttribute('x', 8); imgEl.setAttribute('y', 8);
-    imgEl.setAttribute('width', CARD_W - 16); imgEl.setAttribute('height', IMG_H);
-    imgEl.setAttribute('href', CARDS[i].img);
-    imgEl.setAttribute('preserveAspectRatio', 'xMidYMid slice');
-    imgEl.setAttribute('clip-path', `url(#_card-clip-${i})`);
-    g.appendChild(imgEl);
-
-    const titleEl = document.createElementNS(_svgNS, 'text');
-    titleEl.setAttribute('class', '_hiw-card-title');
-    titleEl.setAttribute('x', CARD_W / 2); titleEl.setAttribute('y', 8 + IMG_H + 18);
-    titleEl.textContent = CARDS[i].title;
-    g.appendChild(titleEl);
-
-    const capEl = document.createElementNS(_svgNS, 'text');
-    capEl.setAttribute('class', '_hiw-card-caption');
-    capEl.setAttribute('x', CARD_W / 2); capEl.setAttribute('y', 8 + IMG_H + 36);
-    capEl.textContent = CARDS[i].caption;
-    g.appendChild(capEl);
-
-    _cardsRoot.appendChild(g);
-    _cardGroups.push(g);
-
-    // node ring
-    const ring = document.createElementNS(_svgNS, 'circle');
-    ring.setAttribute('class', '_hiw-node-ring');
-    ring.setAttribute('cx', pt.x); ring.setAttribute('cy', pt.y); ring.setAttribute('r', 8);
-    _cardsRoot.appendChild(ring);
-    _nodeRings.push(ring);
-
-    const inner = document.createElementNS(_svgNS, 'circle');
-    inner.setAttribute('class', '_hiw-node-inner');
-    inner.setAttribute('cx', pt.x); inner.setAttribute('cy', pt.y); inner.setAttribute('r', 3.5);
-    _cardsRoot.appendChild(inner);
-    _nodeInners.push(inner);
-  });
-
-  _cardsRoot.appendChild(_dot);
-  // Place dot at start
-  const startPt = _archPath.getPointAtLength(NODE_T[0] * _archPath.getTotalLength());
-  _dot.setAttribute('cx', startPt.x);
-  _dot.setAttribute('cy', startPt.y);
-}
+const _cardEls = CARDS.map(c => {
+  const el = document.createElement('div');
+  el.className = '_hiw-card';
+  el.innerHTML = `
+    <div class="_hiw-img-wrap">
+      <img src="${c.img}" alt="${c.title}" loading="lazy" />
+    </div>
+    <div class="_hiw-footer">
+      <div class="_hiw-title">${c.title.toUpperCase()}</div>
+      <div class="_hiw-caption">${c.caption}</div>
+    </div>`;
+  _row.appendChild(el);
+  return el;
+});
 
 // ── Animation ─────────────────────────────────────────────────────────────────
-const TRAVEL_MS = 7000, PAUSE_MS = 700, PULSE_MS = 380;
+const CYCLE_MS   = 1900;
+const STAGGER_MS = 150;
 
-let _rafId     = null;
-let _startTime = null;
-let _pauseUntil = 0;
-let _activeNode = -1;
-const _pulsing = new Set();
+let _rafId      = null;
+let _staggerIds = [];
+let _activeIdx  = -1;
+let _cycleStart = null;
 
-function _setDotPos(len) {
-  const pt = _archPath.getPointAtLength(len);
-  _dot.setAttribute('cx', pt.x);
-  _dot.setAttribute('cy', pt.y);
-}
-
-function _triggerPulse(i) {
-  if (_pulsing.has(i)) return;
-  _pulsing.add(i);
-
-  const g    = _cardGroups[i];
-  g.classList.add('active');
-  const cardX = pt_x(g);
-  const cardY0 = _origCardY[i];
-  g.setAttribute('transform', `translate(${cardX},${cardY0 - 6})`);
-
-  const ring = _nodeRings[i];
-  let t0 = null;
-  function animRing(ts) {
-    if (!t0) t0 = ts;
-    const p = Math.min((ts - t0) / PULSE_MS, 1);
-    const scale = p < 0.5 ? p * 2 : (1 - p) * 2;
-    ring.setAttribute('r', 8 + scale * 5);
-    if (p < 1) requestAnimationFrame(animRing);
-    else { ring.setAttribute('r', 8); _pulsing.delete(i); }
-  }
-  requestAnimationFrame(animRing);
-
-  setTimeout(() => {
-    g.classList.remove('active');
-    g.setAttribute('transform', `translate(${cardX},${cardY0})`);
-  }, PAUSE_MS + 80);
-}
-
-function pt_x(g) {
-  return parseFloat(g.getAttribute('transform').match(/translate\(([^,]+)/)[1]);
-}
-
-function _resetAll() {
-  _nodeRings.forEach(r => r.setAttribute('r', 8));
-  _cardGroups.forEach((g, i) => {
-    const cx = pt_x(g);
-    g.setAttribute('transform', `translate(${cx},${_origCardY[i]})`);
-    g.classList.remove('active');
-  });
-  _pulsing.clear();
-  _activeNode = -1;
+function _setActive(idx) {
+  _cardEls.forEach((el, i) => el.classList.toggle('hiw-active', i === idx));
+  _activeIdx = idx;
 }
 
 function _tick(ts) {
   _rafId = requestAnimationFrame(_tick);
-
-  if (!_startTime) {
-    _startTime = ts;
-    const totalLen = _archPath.getTotalLength();
-    _setDotPos(NODE_T[0] * totalLen);
-    return;
-  }
-
-  if (ts < _pauseUntil) return;
-
-  const totalLen   = _archPath.getTotalLength();
-  const nodeLens   = NODE_T.map(t => t * totalLen);
-  const startLen   = nodeLens[0];
-  const travelSpan = nodeLens[nodeLens.length - 1] - startLen;
-
-  const elapsed  = ts - _startTime;
-  const progress = Math.min(elapsed / TRAVEL_MS, 1);
-  const ease = progress < 0.5
-    ? 4 * progress ** 3
-    : 1 - Math.pow(-2 * progress + 2, 3) / 2;
-
-  const currentLen = startLen + ease * travelSpan;
-  _setDotPos(currentLen);
-
-  for (let i = 0; i < nodeLens.length; i++) {
-    if (_activeNode !== i && Math.abs(currentLen - nodeLens[i]) < 4) {
-      _activeNode = i;
-      _triggerPulse(i);
-      _pauseUntil = ts + PAUSE_MS;
-      _startTime  = ts + PAUSE_MS - elapsed;
-      return;
-    }
-  }
-
-  if (progress >= 1) {
-    _startTime  = null;
-    _pauseUntil = ts + 1200;
-    _resetAll();
-  }
+  if (!_cycleStart) { _cycleStart = ts; return; }
+  const elapsed = ts - _cycleStart;
+  const total   = CYCLE_MS * CARDS.length;
+  const idx     = Math.floor((elapsed % total) / CYCLE_MS) % CARDS.length;
+  if (idx !== _activeIdx) _setActive(idx);
+  _railFill.style.width = `${((elapsed % total) / total) * 100}%`;
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
 export function showHowIWorkOverlay() {
-  _build();
-  _resetAll();
-  _startTime  = null;
-  _pauseUntil = 0;
-  _activeNode = -1;
+  if (_rafId) { cancelAnimationFrame(_rafId); _rafId = null; }
+  _staggerIds.forEach(clearTimeout); _staggerIds = [];
+  _cardEls.forEach(el => el.classList.remove('hiw-visible', 'hiw-active'));
+  _cycleStart = null; _activeIdx = -1;
 
-  _wrap.style.opacity = '1';
-
-  if (_rafId) cancelAnimationFrame(_rafId);
-  _rafId = requestAnimationFrame(_tick);
+  _cardEls.forEach((el, i) => {
+    _staggerIds.push(setTimeout(() => el.classList.add('hiw-visible'), i * STAGGER_MS));
+  });
+  _staggerIds.push(setTimeout(() => { _rail.style.opacity = '1'; }, CARDS.length * STAGGER_MS + 250));
+  _staggerIds.push(setTimeout(() => { _rafId = requestAnimationFrame(_tick); }, CARDS.length * STAGGER_MS + 380));
 }
 
 export function hideHowIWorkOverlay() {
-  _wrap.style.opacity = '0';
   if (_rafId) { cancelAnimationFrame(_rafId); _rafId = null; }
+  _staggerIds.forEach(clearTimeout); _staggerIds = [];
+  _cycleStart = null;
+  [..._cardEls].reverse().forEach((el, i) => {
+    _staggerIds.push(setTimeout(() => el.classList.remove('hiw-visible', 'hiw-active'), i * 80));
+  });
+  _rail.style.opacity = '0';
+  _railFill.style.width = '0%';
 }
-
