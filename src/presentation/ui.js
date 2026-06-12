@@ -297,7 +297,7 @@ _style.textContent = `
 @keyframes _tb-blink-anim { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
 
 /* ─── about stats dashboard ──────────────────────────────────────────────── */
-._about-wrap { text-align: center; }
+._about-wrap {  }
 ._about-stats-row {
   display: flex;
   justify-content: center;
@@ -428,129 +428,140 @@ _style.textContent = `
   padding: 0;
 }
 
-/* ─── CTA redesigned links ────────────────────────────────────────────────── */
+/* ─── CTA connect cards ───────────────────────────────────────────────────── */
 ._cta-wrap {
   display: flex;
   flex-direction: column;
-  align-items: center;
   gap: 10px;
 }
 ._cta-link {
-  display: grid;
-  grid-template-columns: 36px 1fr 24px;
-  align-items: center;
-  gap: 0;
-  color: #c8eaf5;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 270px;
+  padding: 14px 16px 12px;
   text-decoration: none;
   font-family: 'Share Tech Mono', 'Courier New', monospace;
-  font-size: 12px;
-  letter-spacing: .08em;
-  padding: 14px 20px 14px 0;
-  border: 1px solid rgba(0,180,255,0.20);
+  background: rgba(0,6,22,0.96);
   border-radius: 4px;
-  background: linear-gradient(135deg, rgba(0,12,30,0.92) 0%, rgba(0,25,55,0.88) 100%);
-  backdrop-filter: blur(12px);
-  transition: color .22s, border-color .22s, box-shadow .22s, transform .15s, background .22s;
-  width: 360px;
-  position: relative;
   overflow: hidden;
   opacity: 0;
-  animation: _cta-in 0.55s ease forwards;
-  box-shadow: 3px 3px 0 rgba(0,55,90,0.55), 0 0 0 0 rgba(0,200,255,0);
+  animation: _cta-in 0.5s ease forwards;
+  transition: transform .18s, box-shadow .18s;
+  cursor: pointer;
 }
+/* Blueprint grid texture */
 ._cta-link::before {
   content: '';
   position: absolute;
-  left: 0; top: 0; bottom: 0;
-  width: 3px;
-  background: linear-gradient(to bottom, rgba(0,200,255,0.4), rgba(0,100,200,0.2));
-  transition: background .22s;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+  background-size: 18px 18px;
+  pointer-events: none;
 }
+._cta-link:hover  { transform: translateY(-3px); }
+._cta-link:active { transform: translateY(0); }
+
+/* ── per-service accent borders & glows ── */
+._cta-email   { border: 1px solid rgba(0,255,160,0.35);  }
+._cta-linkedin { border: 1px solid rgba(50,180,255,0.35); }
+._cta-github  { border: 1px solid rgba(180,130,255,0.35); }
+._cta-email:hover   { box-shadow: 0 4px 24px rgba(0,255,160,0.18),  0 0 0 1px rgba(0,255,160,0.25); }
+._cta-linkedin:hover { box-shadow: 0 4px 24px rgba(50,180,255,0.18), 0 0 0 1px rgba(50,180,255,0.25); }
+._cta-github:hover  { box-shadow: 0 4px 24px rgba(180,130,255,0.18),0 0 0 1px rgba(180,130,255,0.25); }
+
+/* ── top accent bar ── */
 ._cta-link::after {
   content: '';
   position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, transparent 0%, rgba(0,200,255,0.04) 50%, transparent 100%);
-  transform: translateX(-100%);
-  transition: transform 0.5s ease;
+  top: 0; left: 0; right: 0;
+  height: 2px;
 }
-._cta-link:hover::after { transform: translateX(100%); }
-._cta-link:nth-child(1) { animation-delay: 0.30s; }
-._cta-link:nth-child(2) { animation-delay: 0.52s; }
-._cta-link:nth-child(3) { animation-delay: 0.74s; }
-._cta-link:hover {
-  color: #00e5ff;
-  border-color: rgba(0,220,255,0.60);
-  background: linear-gradient(135deg, rgba(0,20,50,0.96) 0%, rgba(0,45,90,0.92) 100%);
-  box-shadow: 4px 4px 0 rgba(0,70,120,0.75), 0 0 22px rgba(0,180,255,0.22);
-  transform: translateY(-2px) translateX(-1px);
-}
-._cta-link:hover::before {
-  background: linear-gradient(to bottom, rgba(0,230,255,0.85), rgba(0,130,255,0.55));
-}
-._cta-link:active { transform: translateY(1px) translateX(1px); }
-._cta-icon-wrap {
+._cta-email::after   { background: linear-gradient(90deg, transparent, rgba(0,255,160,0.70),  transparent); }
+._cta-linkedin::after { background: linear-gradient(90deg, transparent, rgba(50,180,255,0.70), transparent); }
+._cta-github::after  { background: linear-gradient(90deg, transparent, rgba(180,130,255,0.70),transparent); }
+
+/* ── icon + name row ── */
+._cta-service-row {
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 36px;
-  flex-shrink: 0;
+  gap: 11px;
 }
 ._cta-icon {
-  font-size: 15px;
-  color: rgba(0,200,255,0.60);
-  width: 20px;
-  text-align: center;
-  transition: color .22s, text-shadow .22s;
+  width: 34px; height: 34px;
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+  transition: filter .2s;
 }
-._cta-link:hover ._cta-icon {
-  color: #00e5ff;
-  text-shadow: 0 0 12px rgba(0,230,255,0.90);
-}
-._cta-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-._cta-label {
-  font-size: 9px;
-  color: rgba(0,190,255,0.45);
-  letter-spacing: .18em;
+._cta-email   ._cta-icon { background: rgba(0,255,160,0.10); color: #00ff99; border: 1px solid rgba(0,255,160,0.30); }
+._cta-linkedin ._cta-icon { background: rgba(50,180,255,0.10); color: #4db8ff; border: 1px solid rgba(50,180,255,0.30); }
+._cta-github  ._cta-icon { background: rgba(180,130,255,0.10); color: #cc99ff; border: 1px solid rgba(180,130,255,0.30); }
+._cta-link:hover ._cta-icon { filter: brightness(1.3); }
+
+._cta-service-info { display: flex; flex-direction: column; gap: 2px; }
+._cta-service-name {
+  font-size: 13px;
+  letter-spacing: .12em;
   line-height: 1;
 }
+._cta-email   ._cta-service-name { color: #00ff99; text-shadow: 0 0 12px rgba(0,255,160,0.45); }
+._cta-linkedin ._cta-service-name { color: #4db8ff; text-shadow: 0 0 12px rgba(50,180,255,0.45); }
+._cta-github  ._cta-service-name { color: #cc99ff; text-shadow: 0 0 12px rgba(180,130,255,0.45); }
+
+._cta-service-desc {
+  font-size: 8px;
+  color: rgba(180,210,230,0.40);
+  letter-spacing: .12em;
+}
+
+/* ── contact value ── */
 ._cta-value {
-  font-size: 11.5px;
-  letter-spacing: .06em;
-  color: #c8eaf5;
-  transition: color .22s;
-  line-height: 1;
+  font-size: 11px;
+  color: #c8e8ff;
+  letter-spacing: .04em;
+  padding-left: 45px;
+  transition: color .18s;
 }
 ._cta-link:hover ._cta-value { color: #ffffff; }
-._cta-arrow {
-  font-size: 13px;
-  color: rgba(0,190,255,0.35);
-  transition: color .22s, transform .22s;
-  text-align: right;
-  padding-right: 4px;
+
+/* ── connect button ── */
+._cta-connect {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255,255,255,0.07);
+  font-size: 9px;
+  letter-spacing: .16em;
+  transition: color .18s, letter-spacing .18s;
 }
-._cta-link:hover ._cta-arrow {
-  color: rgba(0,230,255,0.75);
-  transform: translateX(3px);
-}
+._cta-email   ._cta-connect { color: rgba(0,255,160,0.50); }
+._cta-linkedin ._cta-connect { color: rgba(50,180,255,0.50); }
+._cta-github  ._cta-connect { color: rgba(180,130,255,0.50); }
+._cta-email:hover   ._cta-connect { color: #00ff99; letter-spacing: .20em; }
+._cta-linkedin:hover ._cta-connect { color: #4db8ff; letter-spacing: .20em; }
+._cta-github:hover  ._cta-connect { color: #cc99ff; letter-spacing: .20em; }
+._cta-connect-arrow { font-size: 13px; transition: transform .18s; }
+._cta-link:hover ._cta-connect-arrow { transform: translateX(4px); }
+
 ._cta-tagline {
-  margin-top: 8px;
+  margin-top: 4px;
   font-family: 'Share Tech Mono', 'Courier New', monospace;
-  font-size: 10px;
-  color: rgba(0,200,255,0.40);
+  font-size: 8px;
+  color: rgba(150,200,230,0.28);
   letter-spacing: .14em;
-  text-align: center;
   opacity: 0;
   animation: _cta-in 0.4s ease forwards;
   animation-delay: 1.0s;
-  text-shadow: 0 0 12px rgba(0,180,255,0.25);
 }
 @keyframes _cta-in {
-  from { opacity: 0; transform: translateY(14px); }
+  from { opacity: 0; transform: translateY(10px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
@@ -564,18 +575,56 @@ _style.textContent = `
     align-items: flex-end;
     padding-left: 0;
   }
-  ._cta-wrap { gap: 12px; }
-  ._cta-link { width: 92vw; font-size: 11px; min-height: 48px; box-sizing: border-box; }
-  ._cta-value { font-size: 11px; }
-  ._cta-label { font-size: 9px; }
-  ._cta-tagline { margin-top: 4px; }
+  /* ── CTA mobile: compact cards stacked above the nav bar ── */
+  #_slide-body-panel.slide-cta {
+    top: auto;
+    bottom: 72px;
+    justify-content: center;
+    align-items: center;
+    padding-left: 0;
+    padding-right: 0;
+  }
+  #_slide-body-panel.slide-cta #_sBodyInner { padding: 0 12px; width: 100%; max-width: 320px; }
+  ._cta-wrap { gap: 7px; width: 100%; }
+  ._cta-link {
+    width: 100%;
+    /* Compact single row on mobile */
+    display: grid;
+    grid-template-columns: 36px 1fr auto;
+    grid-template-rows: auto;
+    align-items: center;
+    gap: 0 10px;
+    padding: 10px 12px;
+    flex-direction: unset;
+  }
+  ._cta-service-row { grid-column: 2; grid-row: 1; margin: 0; }
+  ._cta-icon { width: 28px; height: 28px; font-size: 13px; grid-column: 1; grid-row: 1 / 3; align-self: center; }
+  ._cta-service-name { font-size: 11px; }
+  ._cta-service-desc { display: none; }
+  ._cta-value { grid-column: 2; grid-row: 2; padding-left: 0; font-size: 9px; color: rgba(200,230,255,0.55); margin-bottom: 0; }
+  ._cta-connect { grid-column: 3; grid-row: 1 / 3; border: none; padding: 0; font-size: 11px; margin: 0; }
+  ._cta-connect-arrow { display: block; }
+  ._cta-tagline { display: none; }
   ._ab-val   { font-size: 22px; }
   ._about-stats-row { gap: 16px; }
   ._term-boot { font-size: 10px; }
   #_slide-body-panel.slide-intro { padding-left: 3%; }
   #_slide-body-panel.slide-skills,
   #_slide-body-panel.slide-projects { padding-right: 3%; }
-  #_slide-body-panel.slide-about { padding-right: 3%; }
+  #_slide-body-panel.slide-about {
+    justify-content: center;
+    align-items: flex-end;
+    padding-right: 0;
+    padding-left: 0;
+  }
+  #_slide-body-panel.slide-about #_sBodyInner {
+    text-align: center;
+    max-width: 100%;
+    padding: 0 16px;
+  }
+  #_slide-body-panel.slide-about ._about-wrap  { text-align: center; }
+  #_slide-body-panel.slide-about ._about-stats-row { justify-content: center; }
+  #_slide-body-panel.slide-about ._ab-bio      { text-align: center; }
 }
 
 /* ─── bottom bar ─────────────────────────────────────────────────────────── */
@@ -975,8 +1024,9 @@ export function setProgressFill(fraction) {
 
 export function hideCard() {
   _stopExperienceTimeline();
-  card.style.opacity      = '0';
-  bodyPanel.style.opacity = '0';
+  card.style.opacity           = '0';
+  bodyPanel.style.opacity      = '0';
+  bodyPanel.style.pointerEvents = 'none';  // restore non-interactive default
   card.className = '';
   bodyPanel.className = '';
   if (_timerA) clearInterval(_timerA);
@@ -1086,7 +1136,7 @@ function _buildAboutHTML() {
       <div class="_ab-stat"><div class="_ab-val">6+</div><div class="_ab-lbl">YEARS EXP</div></div>
       <div class="_ab-stat"><div class="_ab-val">3</div><div class="_ab-lbl">COMPANIES</div></div>
       <div class="_ab-stat"><div class="_ab-val">29</div><div class="_ab-lbl">TECHNOLOGIES</div></div>
-      <div class="_ab-stat"><div class="_ab-val">9+</div><div class="_ab-lbl">PROJECTS</div></div>
+      <div class="_ab-stat"><div class="_ab-val">50+</div><div class="_ab-lbl">PROJECTS</div></div>
     </div>
     <div class="_ab-divider"></div>
     <div class="_ab-bio">
@@ -1098,31 +1148,44 @@ function _buildAboutHTML() {
 /** Interactive clickable contact links for the CTA slide. */
 function _buildCtaHTML() {
   return `<div class="_cta-wrap">
-    <a class="_cta-link" href="mailto:fazlizekiqi1@hotmail.com">
-      <div class="_cta-icon-wrap"><span class="_cta-icon">✉</span></div>
-      <div class="_cta-text">
-        <span class="_cta-label">EMAIL</span>
-        <span class="_cta-value">fazlizekiqi1@hotmail.com</span>
+
+    <a class="_cta-link _cta-email" href="mailto:fazlizekiqi1@hotmail.com" style="animation-delay:0.25s">
+      <div class="_cta-service-row">
+        <div class="_cta-icon">✉</div>
+        <div class="_cta-service-info">
+          <div class="_cta-service-name">EMAIL</div>
+          <div class="_cta-service-desc">DIRECT MESSAGE</div>
+        </div>
       </div>
-      <span class="_cta-arrow">→</span>
+      <div class="_cta-value">fazlizekiqi1@hotmail.com</div>
+      <div class="_cta-connect">SEND A MESSAGE <span class="_cta-connect-arrow">→</span></div>
     </a>
-    <a class="_cta-link" href="https://linkedin.com/in/fazli-zekiqi" target="_blank" rel="noopener">
-      <div class="_cta-icon-wrap"><span class="_cta-icon" style="font-weight:800;font-size:12px">in</span></div>
-      <div class="_cta-text">
-        <span class="_cta-label">LINKEDIN</span>
-        <span class="_cta-value">fazli-zekiqi</span>
+
+    <a class="_cta-link _cta-linkedin" href="https://linkedin.com/in/fazli-zekiqi" target="_blank" rel="noopener" style="animation-delay:0.45s">
+      <div class="_cta-service-row">
+        <div class="_cta-icon" style="font-weight:900;font-size:14px;letter-spacing:0">in</div>
+        <div class="_cta-service-info">
+          <div class="_cta-service-name">LINKEDIN</div>
+          <div class="_cta-service-desc">PROFESSIONAL NETWORK</div>
+        </div>
       </div>
-      <span class="_cta-arrow">→</span>
+      <div class="_cta-value">fazli-zekiqi</div>
+      <div class="_cta-connect">VIEW PROFILE <span class="_cta-connect-arrow">→</span></div>
     </a>
-    <a class="_cta-link" href="https://github.com/fazlizekiqi" target="_blank" rel="noopener">
-      <div class="_cta-icon-wrap"><span class="_cta-icon">⌥</span></div>
-      <div class="_cta-text">
-        <span class="_cta-label">GITHUB</span>
-        <span class="_cta-value">fazlizekiqi</span>
+
+    <a class="_cta-link _cta-github" href="https://github.com/fazlizekiqi" target="_blank" rel="noopener" style="animation-delay:0.65s">
+      <div class="_cta-service-row">
+        <div class="_cta-icon" style="font-size:18px">⌥</div>
+        <div class="_cta-service-info">
+          <div class="_cta-service-name">GITHUB</div>
+          <div class="_cta-service-desc">OPEN SOURCE · CODE</div>
+        </div>
       </div>
-      <span class="_cta-arrow">→</span>
+      <div class="_cta-value">fazlizekiqi</div>
+      <div class="_cta-connect">EXPLORE REPOS <span class="_cta-connect-arrow">→</span></div>
     </a>
-    <div class="_cta-tagline">Ready to build something remarkable together.</div>
+
+    <div class="_cta-tagline">// OPEN TO OPPORTUNITIES &amp; COLLABORATIONS</div>
   </div>`;
 }
 
@@ -1132,6 +1195,10 @@ export function showCard(title, body, delay = 550, slideName = '', subtitle = ''
     card.classList.add(`slide-${slideName}`);
     bodyPanel.classList.add(`slide-${slideName}`);
   }
+  // The bodyPanel has pointer-events:none as an inline style (needed for all
+  // other slides so the 3D scene stays interactive). CTA links must be clickable,
+  // so we override it here via JS — the only way to beat an inline style.
+  bodyPanel.style.pointerEvents = slideName === 'cta' ? 'auto' : 'none';
   setTimeout(() => {
     card.style.opacity = '1';
     _timerA = _typeWrite(slideTitle, title, 38, () => {
