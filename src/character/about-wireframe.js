@@ -33,15 +33,15 @@ const T_DOTS_FADE_OUT = 4.0;
 const T_BURN_START    = 3.8;   // burn starts after T-pose is held for ~1.5s
 const T_BURN_END      = 7.0;
 const T_BUILD_START   = 6.5;
-const T_BUILD_END     = 17.0;
+const T_OUTRO_START   = 13.0;  // hologram burns head→feet, character re-materializes feet→head
+const T_OUTRO_END     = 17.0;  // outro complete — character fully back, ghost gone
 const PULSE_INTERVAL  = 1.8;
 const PULSE_DECAY     = 0.28;
 const ROW_BURN_T      = [0.12, 0.35, 0.60, 0.82];
 
 // ── Ghost look ────────────────────────────────────────────────────────────────
-const WIRE_MAX_OP   = 0.14;  // single faint wireframe pass
-const HOLO_BURN_OP  = 0.70;  // hologram opacity reached at end of burn
-const HOLO_BUILD_OP = 1.00;  // hologram opacity after build ramp
+const WIRE_MAX_OP   = 0.55;  // electricity shader opacity gate — higher = more visible
+const HOLO_BUILD_OP = 1.00;  // hologram opacity — full brightness throughout all phases
 
 // ── Hologram shell shader (fresnel rim + faint fill + scanlines) ──────────────
 const _holoVert = /* glsl */`
@@ -59,13 +59,26 @@ const _holoVert = /* glsl */`
 const _holoFrag = /* glsl */`
   uniform float uOpacity;
   uniform float uTime;
-  uniform float uClipY;   // hide fragments below this world-Y (reveal sweep)
+  uniform float uClipY;      // hide fragments below this world-Y (reveal sweep)
+  uniform float uClipYMax;   // outro burn: discard fragments above this + noise (head→feet)
   uniform float uPulse;
   varying vec3  vNormal;
   varying vec3  vViewDir;
   varying float vWorldY;
+  // compact value noise — same functions used in the character burn shader
+  float _hh(vec2 p){p=fract(p*vec2(127.1,311.7));p+=dot(p,p+19.19);return fract(p.x*p.y);}
+  float _hn(vec2 p){vec2 i=floor(p),f=fract(p),u=f*f*(3.-2.*f);
+    return mix(mix(_hh(i),_hh(i+vec2(1,0)),u.x),mix(_hh(i+vec2(0,1)),_hh(i+vec2(1,1)),u.x),u.y);}
+  float _hf(vec2 p){float v=0.,a=.5;for(int i=0;i<4;i++){v+=a*_hn(p);p=p*2.1;a*=.5;}return v;}
   void main() {
     if (vWorldY < uClipY) discard;
+    // Outro: noisy dissolve from head down (mirrors character intro burn direction)
+    if (uClipYMax < 900.0) {
+      float _e = 0.20;
+      float _n = _hf(vec2(vWorldY * 5.5, uTime * 0.45)) * _e * 1.9
+               + _hn(vec2(vWorldY * 13.0, uTime * 0.35)) * _e * 0.6;
+      if (vWorldY > uClipYMax + _n) discard;
+    }
     float fres = pow(1.0 - abs(dot(normalize(vNormal), normalize(vViewDir))), 2.0);
     float scan = 0.5 + 0.5 * sin(vWorldY * 70.0 - uTime * 2.6);
     vec3  col  = mix(vec3(0.0, 0.35, 0.65), vec3(0.25, 0.95, 1.0), fres);
@@ -118,8 +131,52 @@ const _burnFrag = /* glsl */`
   }
 `;
 
+// ── Electricity wire shader ───────────────────────────────────────────────────
+// uClipY mirrors the hologram's clip — fragments below are discarded so the
+// wire stays in perfect sync with the burn/reveal boundary without needing
+// THREE.js clipping-plane machinery.
+const _wireVert = /* glsl */`
+  varying vec3 vWorldPos;
+  void main() {
+    vWorldPos   = (modelMatrix * vec4(position, 1.0)).xyz;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+const _wireFrag = /* glsl */`
+  uniform float uOpacity;
+  uniform float uTime;
+  uniform float uClipY;   // same boundary as hologram uClipY
+  varying vec3  vWorldPos;
+
+  void main() {
+    if (uOpacity <= 0.001) discard;
+    if (vWorldPos.y < uClipY) discard;   // sync with burn / reveal front
+
+    float y = vWorldPos.y;
+
+    // Two flowing current bands moving up the body
+    float f1  = fract(y * 2.5 - uTime * 1.6);
+    float b1  = pow(1.0 - clamp(abs(f1 - 0.5) * 5.0, 0.0, 1.0), 3.0);
+
+    float f2  = fract(y * 5.0 - uTime * 3.0);
+    float b2  = pow(1.0 - clamp(abs(f2 - 0.5) * 8.0, 0.0, 1.0), 3.0) * 0.5;
+
+    float total = b1 + b2;
+
+    // Colour: dim-cyan → bright-cyan → near-white
+    vec3 c0 = vec3(0.00, 0.40, 0.75);
+    vec3 c1 = vec3(0.00, 0.75, 1.00);
+    vec3 c2 = vec3(0.70, 0.93, 1.00);
+
+    vec3 col = mix(c0, c1, clamp(total,       0.0, 1.0));
+    col      = mix(col, c2, clamp(total - 1.0, 0.0, 1.0));
+
+    float alpha = (0.20 + clamp(total, 0.0, 1.0) * 0.50) * uOpacity;
+    gl_FragColor = vec4(col, clamp(alpha, 0.0, 1.0));
+  }
+`;
+
 // ── Per-material burn shader inject ───────────────────────────────────────────
-// Injected into THREE.js MeshStandardMaterial via onBeforeCompile.
 // uBurnY = 999  → nothing discarded (full char visible)
 // uBurnY sweeps from yMax → yMin  → burns head-to-feet
 // uBurnY = -999 → everything discarded (fully burned)
@@ -313,6 +370,7 @@ let _nextPulse = PULSE_INTERVAL;
 let _pulseT    = 0;
 let _rowsDone  = [false,false,false,false];
 let _doneDone  = false;
+let _outroDone = false;
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 export function initAboutWireframe(charMeshes, modelGroup) {
@@ -385,10 +443,11 @@ export function initAboutWireframe(charMeshes, modelGroup) {
 
   // ── Hologram shell (fresnel rim — carries the ghost's shape) ──────────────
   _holoUniforms = {
-    uOpacity: { value: 0.0 },
-    uTime:    { value: 0.0 },
-    uClipY:   { value: _yMax },
-    uPulse:   { value: 0.0 },
+    uOpacity:  { value: 0.0 },
+    uTime:     { value: 0.0 },
+    uClipY:    { value: _yMax },
+    uClipYMax: { value: 999.0 },  // 999 = no outro clip active
+    uPulse:    { value: 0.0 },
   };
   const holoMat = new THREE.ShaderMaterial({
     vertexShader: _holoVert, fragmentShader: _holoFrag,
@@ -404,11 +463,18 @@ export function initAboutWireframe(charMeshes, modelGroup) {
   });
   _ghostGroup.add(holoGrp);
 
-  // ── Single faint wireframe pass (techy texture over the hologram) ─────────
-  _wireMat = new THREE.MeshBasicMaterial({
-    color: 0x00d4ff, wireframe: true, transparent: true, opacity: 0,
-    depthWrite: false, depthTest: true, blending: THREE.AdditiveBlending,
-    clippingPlanes: [_scanPlane],
+  // ── Electric wireframe (animated current flowing through edges) ──────────
+  _wireMat = new THREE.ShaderMaterial({
+    vertexShader:   _wireVert,
+    fragmentShader: _wireFrag,
+    uniforms: {
+      uOpacity: { value: 0.0 },
+      uTime:    { value: 0.0 },
+      uClipY:   { value: 999.0 },  // 999 = everything clipped (invisible at start)
+    },
+    transparent: true, wireframe: true,
+    depthWrite: false, depthTest: true,
+    blending: THREE.AdditiveBlending,
   });
   const wireGrp = new THREE.Group();
   charMeshes.forEach(mesh => {
@@ -446,16 +512,18 @@ export function showAboutWireframe(onTPoseCue) {
   if (!_ghostGroup) return;
 
   _slideTime = 0; _nextPulse = PULSE_INTERVAL; _pulseT = 0;
-  _rowsDone = [false,false,false,false]; _doneDone = false;
+  _rowsDone = [false,false,false,false]; _doneDone = false; _outroDone = false;
   _active = true;
 
   // Reset: ghost fully clipped (not visible), burn not started
   _scanPlane.constant = -_yMax;
   _dotsUniforms.uSettle.value  = 0.0;
   _dotsUniforms.uOpacity.value = 0.0;
-  _wireMat.opacity = 0;
+  _wireMat.uniforms.uOpacity.value = 0;
+  _wireMat.uniforms.uClipY.value   = 999.0;  // fully hidden until burn starts
   _holoUniforms.uOpacity.value = 0.0;
   _holoUniforms.uClipY.value   = _yMax;
+  _holoUniforms.uClipYMax.value = 999.0;
   _holoUniforms.uPulse.value   = 0.0;
   _ghostGroup.rotation.y = 0;
   _ghostGroup.visible    = true;
@@ -495,16 +563,18 @@ export function hideAboutWireframe() {
   _setBurnY(999.0);
   _shadowOff = false;
   _charMeshes.forEach(m => { m.castShadow = true; });
+  // Reset hologram outro clip so it's clean for the next show
+  if (_holoUniforms) _holoUniforms.uClipYMax.value = 999.0;
 
   const sD = _dotsUniforms.uOpacity.value;
-  const sW = _wireMat.opacity;
+  const sW = _wireMat.uniforms.uOpacity.value;
   const sH = _holoUniforms.uOpacity.value;
   const t0 = performance.now();
   (function fade(ts) {
     const p = Math.min((ts - t0) / 700, 1);
-    _dotsUniforms.uOpacity.value = sD * (1 - p);
-    _wireMat.opacity             = sW * (1 - p);
-    _holoUniforms.uOpacity.value = sH * (1 - p);
+    _dotsUniforms.uOpacity.value     = sD * (1 - p);
+    _wireMat.uniforms.uOpacity.value = sW * (1 - p);
+    _holoUniforms.uOpacity.value     = sH * (1 - p);
     if (p < 1) requestAnimationFrame(fade);
     else _ghostGroup.visible = false;
   })(performance.now());
@@ -550,10 +620,14 @@ export function tickAboutWireframe(delta) {
 
     // Ghost reveal follows the burn front — exactly the burned region.
     // Plane normal=(0,1,0), constant c: discards y < -c → set c=-burnY → shows y > burnY
-    _scanPlane.constant = -burnY;
-    _holoUniforms.uClipY.value = burnY;
-    _wireMat.opacity             = eased * WIRE_MAX_OP;
-    _holoUniforms.uOpacity.value = eased * HOLO_BURN_OP;
+    // Full brightness from the first burned pixel — same as outro ghost above revealY.
+    _scanPlane.constant           = -burnY;
+    _holoUniforms.uClipY.value    = burnY;
+    _wireMat.uniforms.uClipY.value = burnY;   // wire clips below burn front (in-shader)
+    _holoUniforms.uClipYMax.value = 999.0;      // no top clip during intro
+    _holoUniforms.uOpacity.value  = HOLO_BUILD_OP;  // match outro brightness
+    _holoUniforms.uPulse.value    = 0.0;
+    _wireMat.uniforms.uOpacity.value = WIRE_MAX_OP;
 
     // Burn-edge glow stripe at the burn front
     _burnMesh.visible = sp > 0.005 && sp < 0.995;
@@ -585,16 +659,17 @@ export function tickAboutWireframe(delta) {
       // Character fully burned away — only the hologram ghost remains
       _setBurnY(-999.0);
       _scanPlane.constant = -_yMin + 0.1;
-      _holoUniforms.uClipY.value = _yMin - 0.1;
+      _holoUniforms.uClipY.value     = _yMin - 0.1;
+      _wireMat.uniforms.uClipY.value = _yMin - 0.1;  // fully open — wire visible everywhere
       setTimeout(() => { if (_active) _done.classList.add('vis'); }, 300);
     }
   }
 
-  // ── Build: glow + pulses ──────────────────────────────────────────────────
+  // ── Build: glow + pulses (stops when outro begins) ───────────────────────
   _holoUniforms.uTime.value = t;
-  if (t >= T_BUILD_START) {
-    const be = _easeInOut(_clamp01((t - T_BUILD_START) / (T_BUILD_END - T_BUILD_START)));
-    _holoUniforms.uOpacity.value = HOLO_BURN_OP + be * (HOLO_BUILD_OP - HOLO_BURN_OP);
+  if (t >= T_BUILD_START && t < T_OUTRO_START && !_outroDone) {
+    // Opacity is already at HOLO_BUILD_OP from the intro burn — no ramp needed.
+    _holoUniforms.uOpacity.value = HOLO_BUILD_OP;
     _ghostGroup.rotation.y = Math.sin(t * 0.45) * 0.12;
 
     _nextPulse -= delta;
@@ -602,10 +677,83 @@ export function tickAboutWireframe(delta) {
     if (_pulseT > 0) {
       _pulseT = Math.max(0, _pulseT - delta / PULSE_DECAY);
       const s = _pulseT * _pulseT;
-      _holoUniforms.uPulse.value = s;
-      _wireMat.opacity = WIRE_MAX_OP + s * 0.10;
+      _holoUniforms.uPulse.value       = s;
+      _wireMat.uniforms.uOpacity.value = WIRE_MAX_OP + s * 0.10;
     } else {
       _holoUniforms.uPulse.value = 0.0;
+    }
+  }
+
+  // ── Outro: shared boundary sweeps FEET → HEAD ────────────────────────────
+  // Exact mirror of the intro (which swept HEAD → FEET):
+  //   above the boundary → wireframe/ghost visible, character burned away
+  //   below the boundary → character visible (revealed), ghost clipped out
+  // Both the character uBurnY and the ghost uClipY track the SAME revealY.
+  if (t >= T_OUTRO_START && !_outroDone) {
+    const op    = _clamp01((t - T_OUTRO_START) / (T_OUTRO_END - T_OUTRO_START));
+    const eased = _easeInOut(op);
+
+    // Shared boundary: starts just below feet, sweeps upward past the head
+    const revealY = _yMin - 0.2 + (_yMax - _yMin + 0.4) * eased;
+    const clipY   = Math.min(revealY, _yMax);  // keep clip within model bounds
+
+    // 1. Character: reveal everything BELOW the boundary
+    //    The burn shader discards vBurnWorldY > uBurnY+noise; raising uBurnY
+    //    uncovers fragments from the bottom upward.
+    _setBurnY(revealY);
+    _setBurnTime(t);
+
+    // Re-enable shadow casting once the lower half has materialised
+    if (_shadowOff && op > 0.35) {
+      _shadowOff = false;
+      _charMeshes.forEach(m => { m.castShadow = true; });
+    }
+
+    // 2. Ghost: show only ABOVE the boundary (same uClipY logic as intro)
+    //    uClipY rises from yMin → yMax, clipping ghost from the bottom up.
+    _scanPlane.constant          = -clipY;
+    _holoUniforms.uClipY.value   = clipY;
+    _holoUniforms.uClipYMax.value = 999.0;      // no top-clip needed
+    _holoUniforms.uOpacity.value     = HOLO_BUILD_OP;  // full opacity above the boundary
+    _wireMat.uniforms.uOpacity.value = WIRE_MAX_OP;    // clip (not fade) handles the hide
+    _wireMat.uniforms.uClipY.value   = clipY;          // wire shrinks from bottom in sync
+    _holoUniforms.uPulse.value       = 0.0;
+    // Settle the gentle sway back to forward-facing
+    _ghostGroup.rotation.y = Math.sin(T_OUTRO_START * 0.45) * 0.12 * (1.0 - eased);
+
+    // 3. Burn-edge glow at the shared boundary (moving upward)
+    const glowActive = clipY > _yMin && clipY < _yMax;
+    _burnMesh.visible = glowActive;
+    if (glowActive) {
+      _burnMesh.position.set(_ghostGroup.position.x, clipY, _ghostGroup.position.z);
+      _burnMesh.lookAt(_burnMesh.position.x, _burnMesh.position.y, _burnMesh.position.z + 10);
+      _burnMat.uniforms.uOpacity.value = Math.sin(op * Math.PI) * 1.1;
+    }
+
+    // 4. Scan line sweeps UPWARD (reversal of the intro downward pass)
+    _scanLine.style.opacity = op > 0.02 && op < 0.98 ? '1' : '0';
+    _scanLine.style.top     = `${92 - eased * 88}%`;
+
+    // 5. DOM biometric panel fades out during the first half of the outro
+    _bioEl.style.opacity = String(Math.max(0, 1.0 - op * 2.5).toFixed(3));
+
+    // 6. Progress bar reverses to 0
+    const pv = Math.round((1.0 - op) * 100);
+    _fill.style.width = `${pv}%`; _pct.textContent = `${pv}%`;
+
+    // Complete — character is fully back, ghost fully gone
+    if (op >= 1.0) {
+      _outroDone = true;
+      _scanLine.style.opacity = '0';
+      _burnMesh.visible = false;
+      _setBurnY(999.0);
+      _holoUniforms.uClipYMax.value = 999.0;
+      _holoUniforms.uOpacity.value     = 0.0;
+      _wireMat.uniforms.uOpacity.value = 0;
+      _ghostGroup.visible = false;
+      _bioEl.style.opacity = '0';
+      _shadowOff = false;
+      _charMeshes.forEach(m => { m.castShadow = true; });
     }
   }
 }

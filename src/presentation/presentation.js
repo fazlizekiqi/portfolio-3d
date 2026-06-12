@@ -187,7 +187,8 @@ export function goToSlide(name) {
   } else if (modelGroup) {
     modelGroup.rotation.copy(spawnRotation);
   }
-  // about: animation is driven by the wireframe T-pose cue callback below
+  // about: animation is driven by the wireframe T-pose cue callback below;
+  // all other slides play their configured clip immediately.
   if (name !== 'about') {
     if (slide.clipLoop) {
       playClip(slide.clip);
@@ -196,7 +197,8 @@ export function goToSlide(name) {
     } else {
       playFeaturedClip(slide.clip);
     }
-  }  hideCard();
+  }
+  hideCard();
 
   // bubbles
   hideBubbles();
@@ -213,16 +215,16 @@ export function goToSlide(name) {
     hideHowIWorkOverlay();
   }
 
-  // about wireframe — T-pose cue: slow crossfade into briefcase-standing,
-  // then freeze on idle at t=2.5s so character is fully static before burn (3.8s)
+  // about wireframe — plays the slide's configured T-pose clip (e.g. 't-pose-frozen'
+  // with clipLoop:true), then keeps the character frozen through the burn.
   if (name === 'about') showAboutWireframe(() => {
     cancelIdleLoop();
-    // Slow 1.2s crossfade so the pose change is deliberate, not snappy
-    playClip('briefcase-standing', 1.0, 1.2);
-    // After 2.5s freeze on idle so character stops any micro-animations
-    setTimeout(() => {
-      if (_currentSlide?.name === 'about') playClip('idle', 1.0, 0.8);
-    }, 2500);
+    // Slow 1.2 s crossfade so the T-pose transition is visible and deliberate.
+    // slide.clip is whatever is configured in slides.js (e.g. 't-pose-frozen').
+    // playClip always loops, matching clipLoop:true — character stays frozen
+    // through the entire burn so the real mesh and the hologram ghost share
+    // the same T-pose when the dissolve sweeps head → feet.
+    playClip(slide.clip, 1.0, 1.2);
   });
   else hideAboutWireframe();
 
