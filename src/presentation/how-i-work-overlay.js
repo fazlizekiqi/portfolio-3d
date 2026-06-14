@@ -23,10 +23,34 @@
 const _base = import.meta.env.BASE_URL;
 
 const CARDS = [
-  { title: 'Design',      caption: 'Scalability & Reliability',  img: `${_base}how-i-work/1.png` },
-  { title: 'Clean',       caption: 'Maintainable Architecture',  img: `${_base}how-i-work/2.png` },
-  { title: 'Observe',     caption: 'Observability & Monitoring', img: `${_base}how-i-work/3.png` },
-  { title: 'Collaborate', caption: 'Teams & Stakeholders',       img: `${_base}how-i-work/4.png` },
+  {
+    num: '01',
+    title: 'Design First',
+    caption: 'Scalability & Reliability',
+    tags: ['API CONTRACTS', 'FAIL FAST', 'SCALE BY DEFAULT'],
+    img: `${_base}how-i-work/1.png`,
+  },
+  {
+    num: '02',
+    title: 'Clean Code',
+    caption: 'Maintainable Architecture',
+    tags: ['SOLID', 'DRY', 'READABLE'],
+    img: `${_base}how-i-work/2.png`,
+  },
+  {
+    num: '03',
+    title: 'Observe',
+    caption: 'Observability & Monitoring',
+    tags: ['METRICS', 'TRACING', 'ALERTING'],
+    img: `${_base}how-i-work/3.png`,
+  },
+  {
+    num: '04',
+    title: 'Collaborate',
+    caption: 'Teams & Stakeholders',
+    tags: ['ASYNC-FIRST', 'FEEDBACK LOOPS', 'SHARED OWNERSHIP'],
+    img: `${_base}how-i-work/4.png`,
+  },
 ];
 
 // ── Styles ────────────────────────────────────────────────────────────────────
@@ -56,16 +80,19 @@ _style.textContent = `
 ._hiw-card:nth-child(2) { grid-column: 1; grid-row: 2; }
 ._hiw-card:nth-child(3) { grid-column: 3; grid-row: 1; }
 ._hiw-card:nth-child(4) { grid-column: 3; grid-row: 2; }
+
 ._hiw-card {
-  border-radius: 8px;
+  background: rgba(2,8,24,0.92);
+  border: 1px solid rgba(0,150,200,0.18);
+  border-radius: 6px;
   overflow: hidden;
-  background: rgba(2, 10, 28, 0.88);
-  border: 1px solid rgba(0, 180, 255, 0.22);
-  box-shadow: 0 0 0 1px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.6),
-              inset 0 1px 0 rgba(0,200,255,0.08);
+  position: relative;
   opacity: 0;
-  transition: opacity 0.55s ease, transform 0.55s cubic-bezier(0.22,0.61,0.36,1),
-              border-color 0.35s ease, box-shadow 0.35s ease;
+  transition:
+    opacity 0.55s ease,
+    transform 0.55s cubic-bezier(0.22,0.61,0.36,1),
+    border-color 0.35s ease,
+    box-shadow 0.35s ease;
 }
 /* left column slides in from the left, right column from the right */
 ._hiw-card:nth-child(-n+2) { transform: translateX(-44px); }
@@ -75,10 +102,93 @@ _style.textContent = `
   transform: translateX(0);
 }
 ._hiw-card.hiw-active {
-  border-color: rgba(0, 225, 255, 0.60);
-  box-shadow: 0 0 0 1px rgba(0,0,0,0.4), 0 8px 28px rgba(0,0,0,0.6),
-              0 0 18px rgba(0,200,255,0.28), inset 0 1px 0 rgba(0,220,255,0.15);
+  border-color: rgba(0,220,255,0.70);
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,0.4),
+    0 8px 28px rgba(0,0,0,0.6),
+    0 0 22px rgba(0,200,255,0.35),
+    0 0 6px rgba(0,220,255,0.20),
+    inset 0 1px 0 rgba(0,220,255,0.12);
 }
+
+/* ── Corner brackets ─────────────────────────────────────────────────────── */
+._hiw-c {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  pointer-events: none;
+  z-index: 3;
+}
+._hiw-c-tl {
+  top: 5px;
+  left: 5px;
+  border-top: 1.5px solid rgba(0,200,255,0.45);
+  border-left: 1.5px solid rgba(0,200,255,0.45);
+  transition: border-color 0.35s ease;
+}
+._hiw-c-tr {
+  top: 5px;
+  right: 5px;
+  border-top: 1.5px solid rgba(0,200,255,0.45);
+  border-right: 1.5px solid rgba(0,200,255,0.45);
+  transition: border-color 0.35s ease;
+}
+._hiw-card.hiw-active ._hiw-c-tl,
+._hiw-card.hiw-active ._hiw-c-tr {
+  border-color: rgba(0,240,255,0.90);
+}
+
+/* ── Number badge ────────────────────────────────────────────────────────── */
+._hiw-num {
+  position: absolute;
+  top: 8px;
+  left: 10px;
+  font-size: 9px;
+  letter-spacing: .16em;
+  color: rgba(0,180,255,0.40);
+  font-family: 'Share Tech Mono','Courier New',monospace;
+  z-index: 2;
+  transition: color 0.35s ease;
+}
+._hiw-card.hiw-active ._hiw-num {
+  color: rgba(0,220,255,0.85);
+}
+
+/* ── Pulse indicator ─────────────────────────────────────────────────────── */
+._hiw-pulse {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 3;
+}
+._hiw-card.hiw-active ._hiw-pulse {
+  opacity: 1;
+}
+._hiw-pulse-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #00ff99;
+  animation: _hiw-pulse-anim 1.2s ease-in-out infinite;
+  display: inline-block;
+}
+@keyframes _hiw-pulse-anim {
+  0%,100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.4; transform: scale(0.7); }
+}
+._hiw-pulse-label {
+  font-size: 8px;
+  letter-spacing: .18em;
+  color: #00ff99;
+  font-family: 'Share Tech Mono','Courier New',monospace;
+}
+
+/* ── Image ───────────────────────────────────────────────────────────────── */
 ._hiw-img-wrap {
   width: 100%;
   aspect-ratio: 16 / 9;
@@ -90,50 +200,93 @@ _style.textContent = `
   height: 100%;
   object-fit: cover;
   display: block;
-  filter: brightness(0.72) saturate(0.85);
-  transition: filter 0.35s ease;
+  filter: brightness(0.60) saturate(0.75);
+  transition: filter 0.4s ease;
 }
 ._hiw-card.hiw-active ._hiw-img-wrap img {
-  filter: brightness(1.05) saturate(1.1);
+  filter: brightness(1.0) saturate(1.15);
 }
-._hiw-img-wrap::after {
-  content: '';
+
+/* ── Scan line ───────────────────────────────────────────────────────────── */
+._hiw-scan {
   position: absolute;
-  inset: 0;
-  background: linear-gradient(to bottom,
-    transparent 0%, rgba(0,200,255,0.06) 48%,
-    rgba(0,200,255,0.12) 50%, rgba(0,200,255,0.06) 52%, transparent 100%);
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(0,220,255,0.65), transparent);
+  top: 0;
   opacity: 0;
-  transition: opacity 0.35s ease;
+  transition: opacity 0.3s ease;
   pointer-events: none;
 }
-._hiw-card.hiw-active ._hiw-img-wrap::after { opacity: 1; }
-._hiw-footer { padding: 10px 12px 11px; }
+._hiw-card.hiw-active ._hiw-scan {
+  opacity: 1;
+  animation: _hiw-scan-move 2.0s linear infinite;
+}
+@keyframes _hiw-scan-move {
+  0%   { top: 0%; }
+  100% { top: 100%; }
+}
+
+/* ── Footer ──────────────────────────────────────────────────────────────── */
+._hiw-footer {
+  padding: 10px 12px 12px;
+}
 ._hiw-title {
   font-family: 'Share Tech Mono','Courier New',monospace;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
-  color: #e0f4ff;
-  letter-spacing: .12em;
-  margin: 0 0 4px;
-  text-shadow: 0 0 12px rgba(0,200,255,0.40);
-  transition: color 0.3s, text-shadow 0.3s;
+  letter-spacing: .14em;
+  color: #c8eaff;
+  margin: 0;
+  transition: color 0.3s ease, text-shadow 0.3s ease;
 }
 ._hiw-card.hiw-active ._hiw-title {
   color: #00e5ff;
-  text-shadow: 0 0 18px rgba(0,230,255,0.80);
+  text-shadow: 0 0 14px rgba(0,230,255,0.75), 0 0 4px rgba(0,220,255,0.50);
+}
+._hiw-rule {
+  height: 1px;
+  background: linear-gradient(90deg, rgba(0,180,255,0.30), transparent);
+  margin: 6px 0;
+  border: none;
 }
 ._hiw-caption {
   font-family: 'Share Tech Mono','Courier New',monospace;
   font-size: 9px;
-  color: rgba(0,190,255,0.50);
   letter-spacing: .09em;
+  color: rgba(0,170,220,0.55);
   margin: 0;
   line-height: 1.4;
-  transition: color 0.3s;
+  transition: color 0.3s ease;
 }
-._hiw-card.hiw-active ._hiw-caption { color: rgba(0,220,255,0.78); }
+._hiw-card.hiw-active ._hiw-caption {
+  color: rgba(0,220,255,0.80);
+}
+._hiw-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 7px;
+}
+._hiw-tag {
+  font-family: 'Share Tech Mono','Courier New',monospace;
+  font-size: 7.5px;
+  letter-spacing: .12em;
+  color: rgba(0,170,220,0.45);
+  background: rgba(0,100,180,0.12);
+  border: 1px solid rgba(0,150,200,0.20);
+  border-radius: 2px;
+  padding: 2px 5px;
+  transition: color 0.3s ease, background 0.3s ease, border-color 0.3s ease;
+}
+._hiw-card.hiw-active ._hiw-tag {
+  color: rgba(0,220,255,0.80);
+  background: rgba(0,120,200,0.20);
+  border-color: rgba(0,200,255,0.40);
+}
 
+/* ── Progress rail ───────────────────────────────────────────────────────── */
 #_hiw-rail {
   position: fixed;
   bottom: 0; left: 0; right: 0;
@@ -150,6 +303,7 @@ _style.textContent = `
   background: linear-gradient(90deg, #005577, #00ccff);
 }
 
+/* ── Mobile ──────────────────────────────────────────────────────────────── */
 @media (max-width: 640px) {
   #_hiw-wrap { align-items: flex-end; padding: 0 10px 60px; }
   #_hiw-row {
@@ -170,6 +324,7 @@ _style.textContent = `
   ._hiw-title   { font-size: 9px; }
   ._hiw-caption { font-size: 8px; }
   ._hiw-footer  { padding: 7px 9px 8px; }
+  ._hiw-tag     { font-size: 6.5px; }
 }
 `;
 document.head.appendChild(_style);
@@ -191,13 +346,24 @@ const _railFill = _rail.querySelector('#_hiw-rail-fill');
 const _cardEls = CARDS.map(c => {
   const el = document.createElement('div');
   el.className = '_hiw-card';
+  const tagsHtml = c.tags.map(t => `<span class="_hiw-tag">${t}</span>`).join('');
   el.innerHTML = `
+    <div class="_hiw-c _hiw-c-tl"></div>
+    <div class="_hiw-c _hiw-c-tr"></div>
+    <div class="_hiw-num">${c.num}</div>
+    <div class="_hiw-pulse">
+      <span class="_hiw-pulse-dot"></span>
+      <span class="_hiw-pulse-label">ONLINE</span>
+    </div>
     <div class="_hiw-img-wrap">
       <img src="${c.img}" alt="${c.title}" loading="lazy" />
+      <div class="_hiw-scan"></div>
     </div>
     <div class="_hiw-footer">
       <div class="_hiw-title">${c.title.toUpperCase()}</div>
+      <div class="_hiw-rule"></div>
       <div class="_hiw-caption">${c.caption}</div>
+      <div class="_hiw-tags">${tagsHtml}</div>
     </div>`;
   _row.appendChild(el);
   return el;

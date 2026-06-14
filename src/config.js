@@ -30,4 +30,20 @@ export const CFG = {
    * Leave empty to fall back to the mailto: link.
    */
   FORMSPREE_ENDPOINT: '',
+
+  /**
+   * EmailJS — powers the inline "Send me a message" form on the Contact slide.
+   * Sends email directly to your inbox without any backend or redirect.
+   *
+   * Setup (free, 200 emails/month):
+   *   1. Sign up at https://www.emailjs.com
+   *   2. Add Email Service → connect your Hotmail/Gmail account
+   *   3. Create an Email Template with variables:
+   *        {{from_name}}  {{reply_to}}  {{message}}
+   *      Set "To email" to fazlizekiqi1@hotmail.com
+   *   4. Fill in the three fields below from your EmailJS dashboard
+   */
+  EMAILJS_PUBLIC_KEY:  '',   // Account → API Keys → Public Key
+  EMAILJS_SERVICE_ID:  '',   // Email Services → Service ID
+  EMAILJS_TEMPLATE_ID: '',   // Email Templates → Template ID
 };

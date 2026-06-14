@@ -111,70 +111,52 @@ export function buildAboutHTML() {
 }
 
 /**
- * Interactive contact cards + CV download for the CTA slide.
- * Place a cv.pdf in /public/ for the download link to work.
+ * Contact slide — inline message form (primary) + social links (secondary).
+ * Form submits via EmailJS; no redirects, no mail-client pop-up.
+ * Place a cv.pdf in /public/ for the CV download to work.
  */
 export function buildCtaHTML() {
   return `<div class="_cta-wrap">
 
-    <a class="_cta-link _cta-email" href="mailto:fazlizekiqi1@hotmail.com" style="animation-delay:0.25s">
-      <div class="_cta-service-row">
-        <div class="_cta-icon">✉</div>
-        <div class="_cta-service-info">
-          <div class="_cta-service-name">EMAIL</div>
-          <div class="_cta-service-desc">DIRECT MESSAGE</div>
-        </div>
+    <!-- ── Inline contact form ─────────────────────────────────────────── -->
+    <div class="_cta-form-card" style="animation:_cta-in 0.55s ease forwards;opacity:0">
+      <div class="_cta-form-hdr">
+        <span class="_cta-form-hdr-dot"></span>
+        <span class="_cta-form-hdr-label">SEND ME A MESSAGE</span>
+        <span class="_cta-form-hdr-addr">fazlizekiqi1@hotmail.com</span>
       </div>
-      <div class="_cta-value">fazlizekiqi1@hotmail.com</div>
-      <div class="_cta-connect">SEND A MESSAGE <span class="_cta-connect-arrow">→</span></div>
-    </a>
-
-    <a class="_cta-link _cta-linkedin" href="https://linkedin.com/in/fazli-zekiqi" target="_blank" rel="noopener" style="animation-delay:0.45s">
-      <div class="_cta-service-row">
-        <div class="_cta-icon" style="font-weight:900;font-size:14px;letter-spacing:0">in</div>
-        <div class="_cta-service-info">
-          <div class="_cta-service-name">LINKEDIN</div>
-          <div class="_cta-service-desc">PROFESSIONAL NETWORK</div>
+      <form class="_cta-form" id="_cta-form" novalidate>
+        <div class="_cta-field-row">
+          <input  type="text"  class="_cta-input" id="_cta-name"  placeholder="YOUR NAME"    maxlength="60"  autocomplete="name" />
+          <input  type="email" class="_cta-input" id="_cta-replyto" placeholder="YOUR EMAIL *" maxlength="100" autocomplete="email" required />
         </div>
-      </div>
-      <div class="_cta-value">fazli-zekiqi</div>
-      <div class="_cta-connect">VIEW PROFILE <span class="_cta-connect-arrow">→</span></div>
-    </a>
-
-    <a class="_cta-link _cta-github" href="https://github.com/fazlizekiqi" target="_blank" rel="noopener" style="animation-delay:0.65s">
-      <div class="_cta-service-row">
-        <div class="_cta-icon" style="font-size:18px">⌥</div>
-        <div class="_cta-service-info">
-          <div class="_cta-service-name">GITHUB</div>
-          <div class="_cta-service-desc">OPEN SOURCE · CODE</div>
+        <textarea class="_cta-textarea" id="_cta-msg" placeholder="YOUR MESSAGE *" maxlength="1000" rows="4" required></textarea>
+        <div class="_cta-form-footer">
+          <span class="_cta-status" id="_cta-status"></span>
+          <button type="submit" class="_cta-send-btn" id="_cta-send-btn">SEND →</button>
         </div>
-      </div>
-      <div class="_cta-value">fazlizekiqi</div>
-      <div class="_cta-connect">EXPLORE REPOS <span class="_cta-connect-arrow">→</span></div>
-    </a>
-
-    <a class="_cta-link _cta-cv" href="${_base}/cv.pdf" download="Fazli_Zekiqi_CV.pdf" style="animation-delay:0.85s">
-      <div class="_cta-service-row">
-        <div class="_cta-icon" style="font-size:16px">↓</div>
-        <div class="_cta-service-info">
-          <div class="_cta-service-name">RÉSUMÉ</div>
-          <div class="_cta-service-desc">PDF · ONE PAGE</div>
-        </div>
-      </div>
-      <div class="_cta-value">Fazli_Zekiqi_CV.pdf</div>
-      <div class="_cta-connect">DOWNLOAD CV <span class="_cta-connect-arrow">→</span></div>
-    </a>
-
-    <div class="_cta-tagline">// OPEN TO OPPORTUNITIES &amp; COLLABORATIONS</div>
-
-    <div class="_guestbook">
-      <button class="_gb-toggle" id="_gb-toggle">+ LEAVE A MESSAGE</button>
-      <form class="_gb-form" id="_gb-form" style="display:none">
-        <input type="text" class="_gb-name" placeholder="YOUR NAME (OPTIONAL)" maxlength="60" autocomplete="name" />
-        <textarea class="_gb-msg" placeholder="SAY SOMETHING..." maxlength="400" rows="3" required></textarea>
-        <button type="submit" class="_gb-submit">SEND MESSAGE →</button>
-        <div class="_gb-status" id="_gb-status"></div>
       </form>
     </div>
+
+    <!-- ── Social / external links row ───────────────────────────────────── -->
+    <div class="_cta-links-row">
+      <a class="_cta-pill _cta-p-linkedin" href="https://linkedin.com/in/fazli-zekiqi" target="_blank" rel="noopener"
+         style="animation:_cta-in 0.45s ease 0.35s forwards;opacity:0">
+        <span class="_cta-pill-icon" style="font-weight:900;font-size:13px;letter-spacing:0">in</span>
+        <span class="_cta-pill-label">LINKEDIN</span>
+      </a>
+      <a class="_cta-pill _cta-p-github" href="https://github.com/fazlizekiqi" target="_blank" rel="noopener"
+         style="animation:_cta-in 0.45s ease 0.50s forwards;opacity:0">
+        <span class="_cta-pill-icon" style="font-size:16px">⌥</span>
+        <span class="_cta-pill-label">GITHUB</span>
+      </a>
+      <a class="_cta-pill _cta-p-cv" href="${_base}/cv.pdf" download="Fazli_Zekiqi_CV.pdf"
+         style="animation:_cta-in 0.45s ease 0.65s forwards;opacity:0">
+        <span class="_cta-pill-icon">↓</span>
+        <span class="_cta-pill-label">RÉSUMÉ</span>
+      </a>
+    </div>
+
+    <div class="_cta-tagline">// OPEN TO OPPORTUNITIES &amp; COLLABORATIONS</div>
   </div>`;
 }
