@@ -2,6 +2,8 @@
  * ui.js — All presentation DOM elements and their visibility helpers.
  */
 import { buildExperienceHTML, buildIntroHTML, buildAboutHTML, buildCtaHTML } from './templates.js';
+import { initGuestbook } from './guestbook.js';
+import { audio } from '../audio.js';
 
 // ── Slide title strip (top) ───────────────────────────────────────────────────
 const card = document.createElement('div');
@@ -663,6 +665,91 @@ _style.textContent = `
   #_slide-body-panel.slide-about ._ab-bio      { text-align: center; }
 }
 
+/* ─── guestbook form ─────────────────────────────────────────────────────── */
+._guestbook {
+  margin-top: 10px;
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+}
+._gb-toggle {
+  background: none;
+  border: none;
+  color: rgba(0,180,220,0.45);
+  font-family: inherit;
+  font-size: 9px;
+  letter-spacing: .16em;
+  cursor: pointer;
+  padding: 4px 0;
+  transition: color .15s;
+}
+._gb-toggle:hover { color: #55eeff; }
+._gb-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+  width: 270px;
+}
+._gb-name,
+._gb-msg {
+  background: rgba(0,6,22,0.90);
+  border: 1px solid rgba(0,150,200,0.30);
+  border-radius: 3px;
+  color: #c8eaf5;
+  font-family: inherit;
+  font-size: 9px;
+  letter-spacing: .10em;
+  padding: 8px 10px;
+  resize: none;
+  outline: none;
+  transition: border-color .15s;
+}
+._gb-name:focus,
+._gb-msg:focus { border-color: rgba(0,200,255,0.65); }
+._gb-msg { line-height: 1.6; }
+._gb-submit {
+  align-self: flex-start;
+  background: rgba(0,6,22,0.90);
+  border: 1px solid rgba(0,150,200,0.40);
+  border-radius: 3px;
+  color: #2299bb;
+  font-family: inherit;
+  font-size: 9px;
+  letter-spacing: .18em;
+  padding: 7px 14px;
+  cursor: pointer;
+  transition: color .15s, border-color .15s;
+}
+._gb-submit:hover  { color: #55eeff; border-color: rgba(0,200,255,0.75); }
+._gb-submit:disabled { opacity: .45; cursor: default; }
+._gb-status { font-size: 8px; letter-spacing: .14em; min-height: 14px; margin-top: 2px; }
+._gb-status-ok  { color: #00ff99; }
+._gb-status-err { color: #ff6666; }
+
+/* ─── audio mute button ───────────────────────────────────────────────────── */
+#_audio-btn {
+  position: fixed;
+  top: 16px;
+  left: 20px;
+  z-index: 25;
+  padding: 6px 10px;
+  background: rgba(2,8,18,0.70);
+  border: 1px solid rgba(0,150,200,0.30);
+  border-radius: 3px;
+  color: rgba(0,180,220,0.55);
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  font-size: 11px;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition: color .15s, border-color .15s, background .15s;
+  line-height: 1;
+}
+#_audio-btn:hover {
+  color: #55eeff;
+  border-color: rgba(0,200,255,0.65);
+  background: rgba(0,20,45,0.90);
+}
+#_audio-btn.muted { color: rgba(0,180,220,0.28); border-color: rgba(0,150,200,0.15); }
+
 /* ─── bottom bar ─────────────────────────────────────────────────────────── */
 #_ui-bar {
   position:fixed;
@@ -864,6 +951,19 @@ skipBtn.id = '_skip-btn';
 skipBtn.textContent = 'SKIP →';
 document.body.appendChild(skipBtn);
 
+// ── Audio mute toggle (top-left corner) ──────────────────────────────────────
+const _audioBtn = document.createElement('button');
+_audioBtn.id = '_audio-btn';
+_audioBtn.title = 'Toggle sound';
+_audioBtn.textContent = '♪';
+document.body.appendChild(_audioBtn);
+_audioBtn.addEventListener('click', () => {
+  audio.resume();
+  const muted = audio.toggle();
+  _audioBtn.textContent = muted ? '♪̸' : '♪';
+  _audioBtn.classList.toggle('muted', muted);
+});
+
 // ── Typewriter ────────────────────────────────────────────────────────────────
 let _timerA = null, _timerB = null;
 
@@ -872,6 +972,8 @@ function _typeWrite(el, text, speed, cb) {
   let i = 0;
   const t = setInterval(() => {
     el.textContent += text[i++];
+    // Play click on every other character so it's noticeable but not overwhelming
+    if (i % 2 === 0) audio.playTypewriterClick();
     if (i >= text.length) { clearInterval(t); if (cb) cb(); }
   }, speed);
   return t;
@@ -1118,6 +1220,7 @@ export function showCard(title, body, delay = 550, slideName = '', subtitle = ''
         slideBody.innerHTML = buildAboutHTML();
       } else if (body === '__CTA_LINKS__') {
         slideBody.innerHTML = buildCtaHTML();
+        initGuestbook(slideBody);
       } else {
         _timerB = _typeWrite(slideBody, body, 18);
       }

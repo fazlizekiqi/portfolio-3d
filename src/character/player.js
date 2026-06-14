@@ -49,6 +49,7 @@ import { camera, controls } from '../scene.js';
 import { modelGroup, mixer, clips, playClip } from './model.js';
 import { getGroundY } from '../world/whiteworld.js';
 import { getJoystickKeys, showJoystick, hideJoystick } from '../joystick.js';
+import { audio } from '../audio.js';
 
 // ── Tuning (exported so dat.gui can mutate them live) ─────────────────────────
 export const playerParams = {
@@ -438,6 +439,9 @@ export function tickPlayer(delta) {
   }
 
   _tickCamera(isMoving, delta);
+
+  // Footstep audio — running when absVT is high enough for the run animation
+  audio.tickFootsteps(isMoving, absVT >= VT_RUN_IN, delta);
 }
 
 // ── Internal helpers ──────────────────────────────────────────────────────────
