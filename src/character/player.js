@@ -97,6 +97,12 @@ function onKeyUp(e) { keys[e.code] = false; }
 document.addEventListener('keydown', onKeyDown);
 document.addEventListener('keyup',   onKeyUp);
 
+/** Remove global key listeners. Call if the player module is torn down. */
+export function destroyPlayer() {
+  document.removeEventListener('keydown', onKeyDown);
+  document.removeEventListener('keyup',   onKeyUp);
+}
+
 // ── DOM — hint label ──────────────────────────────────────────────────────────
 const _hintStyle = document.createElement('style');
 _hintStyle.textContent = `

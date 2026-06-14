@@ -182,7 +182,7 @@ function _colorFromMesh(mesh) {
   return new THREE.Color(0xffffff);
 }
 
-function _loadEnvironment(onProgress) {
+function _loadEnvironment(onProgress, onComplete) {
   new GLTFLoader().load(
     `${import.meta.env.BASE_URL}models/env-2-redone-bigger.glb`,
     (gltf) => {
@@ -222,6 +222,7 @@ function _loadEnvironment(onProgress) {
       setWorldLayer(root, LAYER.WHITE, true);
       scene.add(root);
       root.updateMatrixWorld(true);
+      if (onComplete) onComplete();
     },
     (xhr) => {
       if (onProgress && xhr.total) onProgress(xhr.loaded / xhr.total);
@@ -229,8 +230,8 @@ function _loadEnvironment(onProgress) {
     (err) => console.error('[whiteworld] Failed to load env glb:', err),
   );
 }
-export function loadEnvironment(onProgress) {
-  _loadEnvironment(onProgress);
+export function loadEnvironment(onProgress, onComplete) {
+  _loadEnvironment(onProgress, onComplete);
 }
 scene.add(_waterMesh);   // toon water plane — always present in the white world
 
