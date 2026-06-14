@@ -14,6 +14,7 @@ import { showLoader, updateLoader, hideLoader } from './loader.js';
 import { initJoystick } from './joystick.js';
 import { CFG } from './config.js';
 import { SLIDES } from './presentation/slides.js';
+import { audio } from './audio.js';
 import './gui.js';
 
 // ── Initialise blue world objects + lights ────────────────────────────────────
@@ -80,6 +81,18 @@ function _tryStart() {
     _startApp();
   }, 400);
 }
+
+// ── Audio: resume context + start ambient on first user gesture ───────────────
+let _audioStarted = false;
+function _onFirstInteraction() {
+  if (_audioStarted) return;
+  _audioStarted = true;
+  audio.resume();
+  audio.startAmbient();
+}
+document.addEventListener('click',   _onFirstInteraction, { once: false });
+document.addEventListener('keydown', _onFirstInteraction, { once: false });
+document.addEventListener('touchstart', _onFirstInteraction, { once: false, passive: true });
 
 function _startApp() {
   initCameraState();

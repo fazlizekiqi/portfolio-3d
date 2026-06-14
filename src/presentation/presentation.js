@@ -19,6 +19,7 @@ import { isPlayerActive, playerTakeControl, playerReleaseControl, playerStop } f
 import { explodeAndThen, triggerReassemble, setOnReassembled, resetExplodeGroupTransform } from '../character/explode.js';
 import { isMobile } from '../constants.js';
 import { trackSlide } from '../analytics.js';
+import { audio } from '../audio.js';
 
 import { SLIDES, slideByName, indexOf, isLastSlide } from './slides.js';
 import { showSkillBubbles, showProjectBubbles, hideBubbles } from './bubbles.js';
@@ -104,11 +105,12 @@ function _onEnterCta() {
 function _onEnterMyWorld() {
   showExploreUI();
   _frozen = false;
-  // Fire iris just after the camera lerp finishes (slide duration = 2500ms)
   _ctaTimeout = setTimeout(() => {
     _ctaTimeout = null;
     _frozen     = true;
     hideCard();
+    audio.playIrisWhoosh();
+    audio.stopAmbient(1.0);
     goToWhiteWorld();
     _endFromCta();
   }, 2800);
@@ -229,6 +231,7 @@ export function goToSlide(name) {
   }
 
   trackSlide(name);
+  audio.playSlideWhoosh();
 
   _applyCameraForSlide(slide, name);
   _applyAnimationForSlide(slide, name);
@@ -310,6 +313,7 @@ function _returnHome() {
   }
 
   explodeAndThen(() => {
+    audio.playIrisWhoosh();
     goToBlueWorld();
 
     const irisOpenMs = (1.0 / 0.55 + 0.1) * 1000;
@@ -319,6 +323,7 @@ function _returnHome() {
         modelGroup.rotation.copy(spawnRotation);
       }
       resetExplodeGroupTransform(spawnPosition, spawnRotation);
+      audio.startAmbient();
 
       controls.maxDistance = 20;
       _frozen = false;
@@ -363,12 +368,13 @@ document.addEventListener('proj-card-hover', () => {
 });
 
 // ── Button wiring ─────────────────────────────────────────────────────────────
-nextBtn.addEventListener('click',    () => { if (_active && !_paused) _goToNextSlide(); });
-prevBtn.addEventListener('click',    () => { if (_active) _goToPrevSlide(); });
-backBtn.addEventListener('click',    () => { backBtn.style.display = 'none'; _returnHome(); });
-presentBtn.addEventListener('click', () => { _active ? _endPresentation() : _startPresentation(); });
+nextBtn.addEventListener('click',    () => { audio.resume(); audio.playButtonClick(); if (_active && !_paused) _goToNextSlide(); });
+prevBtn.addEventListener('click',    () => { audio.resume(); audio.playButtonClick(); if (_active) _goToPrevSlide(); });
+backBtn.addEventListener('click',    () => { audio.resume(); audio.playButtonClick(); backBtn.style.display = 'none'; _returnHome(); });
+presentBtn.addEventListener('click', () => { audio.resume(); audio.playButtonClick(); _active ? _endPresentation() : _startPresentation(); });
 
 exploreBtn.addEventListener('click', () => {
+  audio.resume(); audio.playButtonClick();
   _paused = false;
   showExploreUI();
   if (!_active) {
@@ -380,6 +386,7 @@ exploreBtn.addEventListener('click', () => {
 
 skipBtn.addEventListener('click', () => {
   if (_active) {
+    audio.playButtonClick();
     trackSlide('skip');
     goToSlide('myworld');
   }

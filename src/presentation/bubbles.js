@@ -17,6 +17,7 @@ import * as THREE from 'three';
 import { scene, camera, renderer } from '../scene.js';
 import { LAYER } from '../layers.js';
 import { isMobile } from '../constants.js';
+import { trackEvent } from '../analytics.js';
 import BLUEPRINT_VERT from '../shaders/blueprint.vert.glsl?raw';
 import BLUEPRINT_FRAG from '../shaders/blueprint.frag.glsl?raw';
 
@@ -918,6 +919,7 @@ function _onUp(event) {
     if (!entry) return;
 
     if (entry.isProject && entry.item.url) {
+        trackEvent('project_click', entry.item.label);
         window.open(entry.item.url, '_blank', 'noopener,noreferrer');
         return;
     }

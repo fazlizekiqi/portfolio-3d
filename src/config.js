@@ -20,4 +20,14 @@ export const CFG = {
 
   // Presentation
   SLIDE_CARD_DELAY: 550,
+
+  /**
+   * Guestbook — set to your Formspree endpoint to enable the message form.
+   * 1. Sign up at https://formspree.io (free tier supports 50 submissions/month)
+   * 2. Create a new form, copy the endpoint URL
+   * 3. Replace the empty string below, e.g.:
+   *      'https://formspree.io/f/xwkgkqzp'
+   * Leave empty to fall back to the mailto: link.
+   */
+  FORMSPREE_ENDPOINT: '',
 };

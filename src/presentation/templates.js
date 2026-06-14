@@ -166,5 +166,15 @@ export function buildCtaHTML() {
     </a>
 
     <div class="_cta-tagline">// OPEN TO OPPORTUNITIES &amp; COLLABORATIONS</div>
+
+    <div class="_guestbook">
+      <button class="_gb-toggle" id="_gb-toggle">+ LEAVE A MESSAGE</button>
+      <form class="_gb-form" id="_gb-form" style="display:none">
+        <input type="text" class="_gb-name" placeholder="YOUR NAME (OPTIONAL)" maxlength="60" autocomplete="name" />
+        <textarea class="_gb-msg" placeholder="SAY SOMETHING..." maxlength="400" rows="3" required></textarea>
+        <button type="submit" class="_gb-submit">SEND MESSAGE →</button>
+        <div class="_gb-status" id="_gb-status"></div>
+      </form>
+    </div>
   </div>`;
 }
