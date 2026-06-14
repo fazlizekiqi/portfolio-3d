@@ -17,6 +17,8 @@ import * as THREE from 'three';
 import { goToWhiteWorld, goToBlueWorld, isWhiteWorld } from '../transition.js';
 import { isPlayerActive, playerTakeControl, playerReleaseControl, playerStop } from '../character/player.js';
 import { explodeAndThen, triggerReassemble, setOnReassembled, resetExplodeGroupTransform } from '../character/explode.js';
+import { isMobile } from '../constants.js';
+import { trackSlide } from '../analytics.js';
 
 import { SLIDES, slideByName, indexOf, isLastSlide } from './slides.js';
 import { showSkillBubbles, showProjectBubbles, hideBubbles } from './bubbles.js';
@@ -26,7 +28,7 @@ import {
   resetSlideElapsed,
 } from './camera.js';
 import {
-  progressWrap, nextBtn, prevBtn, presentBtn, exploreBtn, backBtn,
+  progressWrap, nextBtn, prevBtn, presentBtn, exploreBtn, backBtn, skipBtn,
   showIdleUI, showPresentingUI, showExploreUI, showWhiteWorldUI, showBackBtn,
   resetPresentBtn, setProgressFill, hideCard, showCard,
 } from './ui.js';
@@ -38,8 +40,7 @@ export { currentCamLook }  from './camera.js';
 
 /** Compute the news-anchor camera pos/target for the experience slide. */
 function _experienceCam(slide) {
-  const isMobile = window.innerWidth < 768;
-  const a      = (isMobile && slide.mobileAnchor) ? slide.mobileAnchor : slide.anchor;
+  const a      = (isMobile() && slide.mobileAnchor) ? slide.mobileAnchor : slide.anchor;
   const base   = spawnPosition;
   // New anchor format: camOffsetX, camY, targetOffsetX, targetY
   // Legacy format: chestHeight, targetOffset (kept for backwards compat)
@@ -54,8 +55,7 @@ function _experienceCam(slide) {
 
 /** Camera for the about slide — character right, wireframe ghost left. */
 function _aboutCam(slide) {
-  const isMobile = window.innerWidth < 768;
-  const a      = (isMobile && slide.mobileAnchor) ? slide.mobileAnchor : slide.anchor;
+  const a      = (isMobile() && slide.mobileAnchor) ? slide.mobileAnchor : slide.anchor;
   const base   = spawnPosition;
   const chestY = base.y + a.chestHeight;
   const pos    = new THREE.Vector3(base.x + a.camOffsetX, chestY, base.z + a.dist);
@@ -75,9 +75,8 @@ export function applySlideCam(slide) {
   } else if (s.name === 'about') {
     ({ pos, target } = _aboutCam(s));
   } else {
-    const isMobile = window.innerWidth < 768;
-    pos    = (isMobile && s.mobileCamPos)    ? s.mobileCamPos    : s.camPos;
-    target = (isMobile && s.mobileCamTarget) ? s.mobileCamTarget : s.camTarget;
+    pos    = (isMobile() && s.mobileCamPos)    ? s.mobileCamPos    : s.camPos;
+    target = (isMobile() && s.mobileCamTarget) ? s.mobileCamTarget : s.camTarget;
   }
 
   _camMoveDuration = 600;
@@ -136,60 +135,48 @@ function _endFromCta() {
 }
 
 
-// ── Flow ──────────────────────────────────────────────────────────────────────
-export function goToSlide(name) {
-  const slide = slideByName[name];
-  if (!slide) { console.warn(`goToSlide: unknown slide "${name}"`); return; }
+// ── goToSlide helpers ─────────────────────────────────────────────────────────
 
-  if (_ctaTimeout)     { clearTimeout(_ctaTimeout);     _ctaTimeout     = null; }
-  if (_cam2Timeout)    { clearTimeout(_cam2Timeout);    _cam2Timeout    = null; }
-  if (_overlayTimeout) { clearTimeout(_overlayTimeout); _overlayTimeout = null; hideHowIWorkOverlay(); }
-
-
-  _frozen = false;
-
-  _currentSlide = slide;
-  _slideTimer   = slide.duration;
-  _camMoveDuration = slide.camMoveDuration ?? slide.duration;
-  resetSlideElapsed();
-
-  nextBtn.style.display = isLastSlide(name) ? 'none' : 'inline-flex';
-  if (_active) {
-    prevBtn.style.display = indexOf(name) > 0 ? 'inline-flex' : 'none';
-  }
-  const isMobile = window.innerWidth < 768;
+function _applyCameraForSlide(slide, name) {
   let camPos, camTarget;
   if (name === 'experience') {
     ({ pos: camPos, target: camTarget } = _experienceCam(slide));
   } else if (name === 'about') {
     ({ pos: camPos, target: camTarget } = _aboutCam(slide));
   } else {
-    camPos    = (isMobile && slide.mobileCamPos)    ? slide.mobileCamPos    : slide.camPos;
-    camTarget = (isMobile && slide.mobileCamTarget) ? slide.mobileCamTarget : slide.camTarget;
+    camPos    = (isMobile() && slide.mobileCamPos)    ? slide.mobileCamPos    : slide.camPos;
+    camTarget = (isMobile() && slide.mobileCamTarget) ? slide.mobileCamTarget : slide.camTarget;
   }
   startCameraMove(camPos, camTarget);
 
-  // Schedule phase-2 camera sweep (e.g. experience: side → front after turn)
+  // Optional phase-2 camera sweep (e.g. experience: side → front after character turn)
   if (slide.camPos2 && slide.cam2Delay) {
-    const camPos2    = (isMobile && slide.mobileCamPos2)    ? slide.mobileCamPos2    : slide.camPos2;
-    const camTarget2 = (isMobile && slide.mobileCamTarget2) ? slide.mobileCamTarget2 : slide.camTarget2;
+    const camPos2    = (isMobile() && slide.mobileCamPos2)    ? slide.mobileCamPos2    : slide.camPos2;
+    const camTarget2 = (isMobile() && slide.mobileCamTarget2) ? slide.mobileCamTarget2 : slide.camTarget2;
     _cam2Timeout = setTimeout(() => {
       _cam2Timeout = null;
       _camMoveDuration = slide.cam2Duration ?? 2000;
       startCameraMove(camPos2, camTarget2);
     }, slide.cam2Delay);
   }
+}
 
+function _applyAnimationForSlide(slide, name) {
   cancelIdleLoop();
-  // Cinematic character rotation for experience slide
+
   if (name === 'experience' && modelGroup) {
     modelGroup.rotation.y = spawnRotation.y + 0.62;
   } else if (modelGroup) {
     modelGroup.rotation.copy(spawnRotation);
   }
-  // about: animation is driven by the wireframe T-pose cue callback below;
-  // all other slides play their configured clip immediately.
-  if (name !== 'about') {
+
+  if (name === 'about') {
+    showAboutWireframe(() => {
+      cancelIdleLoop();
+      playClip(slide.clip, 1.0, 1.2);
+    });
+  } else {
+    hideAboutWireframe();
     if (slide.clipLoop) {
       playClip(slide.clip);
     } else if (slide.clips?.length > 1) {
@@ -198,14 +185,15 @@ export function goToSlide(name) {
       playFeaturedClip(slide.clip);
     }
   }
+}
+
+function _applyUIForSlide(slide, name) {
   hideCard();
 
-  // bubbles
   hideBubbles();
   if (name === 'skills')   showSkillBubbles();
   if (name === 'projects') showProjectBubbles();
 
-  // how-i-work arch overlay — shown only on mindset, after camera has settled
   if (name === 'mindset') {
     _overlayTimeout = setTimeout(() => {
       _overlayTimeout = null;
@@ -215,24 +203,36 @@ export function goToSlide(name) {
     hideHowIWorkOverlay();
   }
 
-  // about wireframe — plays the slide's configured T-pose clip (e.g. 't-pose-frozen'
-  // with clipLoop:true), then keeps the character frozen through the burn.
-  if (name === 'about') showAboutWireframe(() => {
-    cancelIdleLoop();
-    // Slow 1.2 s crossfade so the T-pose transition is visible and deliberate.
-    // slide.clip is whatever is configured in slides.js (e.g. 't-pose-frozen').
-    // playClip always loops, matching clipLoop:true — character stays frozen
-    // through the entire burn so the real mesh and the hologram ghost share
-    // the same T-pose when the dissolve sweeps head → feet.
-    playClip(slide.clip, 1.0, 1.2);
-  });
-  else hideAboutWireframe();
-
-  // myworld card shows immediately in the blue world while camera sweeps behind character
-  // mindset: title + subtitle only — the arch overlay carries the body content
   const mindsetBody = name === 'mindset' ? '' : slide.body;
   if (name !== 'myworld') showCard(slide.title, mindsetBody, 550, name, slide.subtitle ?? '');
   else                    showCard(slide.title, slide.body,  200, name, slide.subtitle ?? '');
+}
+
+// ── Flow ──────────────────────────────────────────────────────────────────────
+export function goToSlide(name) {
+  const slide = slideByName[name];
+  if (!slide) { console.warn(`goToSlide: unknown slide "${name}"`); return; }
+
+  if (_ctaTimeout)     { clearTimeout(_ctaTimeout);     _ctaTimeout     = null; }
+  if (_cam2Timeout)    { clearTimeout(_cam2Timeout);    _cam2Timeout    = null; }
+  if (_overlayTimeout) { clearTimeout(_overlayTimeout); _overlayTimeout = null; hideHowIWorkOverlay(); }
+
+  _frozen = false;
+  _currentSlide    = slide;
+  _slideTimer      = slide.duration;
+  _camMoveDuration = slide.camMoveDuration ?? slide.duration;
+  resetSlideElapsed();
+
+  nextBtn.style.display = isLastSlide(name) ? 'none' : 'inline-flex';
+  if (_active) {
+    prevBtn.style.display = indexOf(name) > 0 ? 'inline-flex' : 'none';
+  }
+
+  trackSlide(name);
+
+  _applyCameraForSlide(slide, name);
+  _applyAnimationForSlide(slide, name);
+  _applyUIForSlide(slide, name);
 
   if (name === 'cta')     _onEnterCta();
   if (name === 'myworld') _onEnterMyWorld();
@@ -257,9 +257,11 @@ function _startPresentation() {
   controls.enabled = false;
   playerReleaseControl();
   showPresentingUI();
-  prevBtn.style.display  = 'none'; // hidden on first slide
+  prevBtn.style.display  = 'none';
   goToSlide('intro');
 }
+
+export function startPresentation() { _startPresentation(); }
 
 function _endPresentation() {
   _active = false;
@@ -374,6 +376,13 @@ exploreBtn.addEventListener('click', () => {
     controls.enabled = false;
   }
   goToSlide('myworld');
+});
+
+skipBtn.addEventListener('click', () => {
+  if (_active) {
+    trackSlide('skip');
+    goToSlide('myworld');
+  }
 });
 
 // ── Per-frame tick ────────────────────────────────────────────────────────────

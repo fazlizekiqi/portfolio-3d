@@ -1,6 +1,7 @@
 /**
  * ui.js — All presentation DOM elements and their visibility helpers.
  */
+import { buildExperienceHTML, buildIntroHTML, buildAboutHTML, buildCtaHTML } from './templates.js';
 
 // ── Slide title strip (top) ───────────────────────────────────────────────────
 const card = document.createElement('div');
@@ -550,6 +551,41 @@ _style.textContent = `
 ._cta-connect-arrow { font-size: 13px; transition: transform .18s; }
 ._cta-link:hover ._cta-connect-arrow { transform: translateX(4px); }
 
+/* ── CV download card ── */
+._cta-cv { border: 1px solid rgba(255,210,0,0.35); }
+._cta-cv:hover { box-shadow: 0 4px 24px rgba(255,210,0,0.18), 0 0 0 1px rgba(255,210,0,0.25); }
+._cta-cv::after { background: linear-gradient(90deg, transparent, rgba(255,210,0,0.70), transparent); }
+._cta-cv ._cta-icon { background: rgba(255,210,0,0.10); color: #ffd000; border: 1px solid rgba(255,210,0,0.30); }
+._cta-cv ._cta-service-name { color: #ffd000; text-shadow: 0 0 12px rgba(255,210,0,0.45); }
+._cta-cv ._cta-connect { color: rgba(255,210,0,0.50); }
+._cta-cv:hover ._cta-connect { color: #ffd000; letter-spacing: .20em; }
+._cta-cv:hover ._cta-icon { filter: brightness(1.3); }
+
+/* ─── Skip intro button ────────────────────────────────────────────────────── */
+#_skip-btn {
+  position: fixed;
+  top: 16px;
+  right: 20px;
+  z-index: 25;
+  display: none;
+  padding: 6px 14px;
+  background: rgba(2,8,18,0.75);
+  border: 1px solid rgba(0,150,200,0.35);
+  border-radius: 3px;
+  color: rgba(0,180,220,0.65);
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  font-size: 9px;
+  letter-spacing: .18em;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition: color .15s, border-color .15s, background .15s;
+}
+#_skip-btn:hover {
+  color: #55eeff;
+  border-color: rgba(0,200,255,0.65);
+  background: rgba(0,20,45,0.90);
+}
+
 ._cta-tagline {
   margin-top: 4px;
   font-family: 'Share Tech Mono', 'Courier New', monospace;
@@ -822,6 +858,12 @@ export const nextBtn = _mkLb('→', '_lb-arrow');
 nextBtn.style.display = 'none';
 _bar.appendChild(nextBtn);
 
+// ── Skip intro button (top-right corner) ─────────────────────────────────────
+export const skipBtn = document.createElement('button');
+skipBtn.id = '_skip-btn';
+skipBtn.textContent = 'SKIP →';
+document.body.appendChild(skipBtn);
+
 // ── Typewriter ────────────────────────────────────────────────────────────────
 let _timerA = null, _timerB = null;
 
@@ -978,12 +1020,14 @@ function _startExperienceTimeline() {
 // ── UI mode helpers ───────────────────────────────────────────────────────────
 export function showIdleUI() {
   backBtn.style.display    = 'none';
+  skipBtn.style.display    = 'none';
   exploreBtn.style.display = 'inline-flex';
   presentBtn.style.display = 'inline-flex';
 }
 
 export function showPresentingUI() {
   backBtn.style.display    = 'none';
+  skipBtn.style.display    = 'inline-block';
   exploreBtn.style.display = 'inline-flex';
   presentBtn.style.display = 'inline-flex';
   _setPresentExit();
@@ -991,6 +1035,7 @@ export function showPresentingUI() {
 }
 
 export function showExploreUI() {
+  skipBtn.style.display    = 'none';
   presentBtn.style.display = 'none';
   exploreBtn.style.display = 'none';
   prevBtn.style.display    = 'none';
@@ -999,7 +1044,7 @@ export function showExploreUI() {
 }
 
 export function showWhiteWorldUI() {
-  // Hide everything except the back button
+  skipBtn.style.display    = 'none';
   presentBtn.style.display = 'none';
   exploreBtn.style.display = 'none';
   prevBtn.style.display    = 'none';
@@ -1037,157 +1082,7 @@ export function hideCard() {
   slideBody.innerHTML    = '';
 }
 
-/** Parse the experience body text into structured HTML blocks. */
-function _buildExperienceHTML(body) {
-  const base = import.meta.env.BASE_URL;
-
-  const _imgMap = {
-    'seb':      `${base}experience/seb-wireframe.png`,
-    'cepheid':  `${base}experience/cepheid-wireframe.png`,
-    'expleo':   `${base}experience/expleo-wireframe.png`,
-  };
-
-  function _imgFor(company) {
-    const key = Object.keys(_imgMap).find(k => company.toLowerCase().includes(k));
-    return key ? _imgMap[key] : null;
-  }
-
-  const blocks = body.split('\n\n').map((block, idx) => {
-    const [role, company, stack] = block.split('\n');
-    const img = _imgFor(company ?? '');
-    const imgHTML = img
-      ? `<img class="_exp-logo" src="${img}" alt="" />`
-      : `<div class="_exp-logo _exp-logo-placeholder"></div>`;
-
-    return `<div class="_exp-block" data-index="${idx}">
-      ${imgHTML}
-      <div class="_exp-text">
-        <div class="_exp-role">${role ?? ''}</div>
-        <div class="_exp-company">${company ?? ''}</div>
-        <div class="_exp-stack">${stack ?? ''}</div>
-      </div>
-    </div>`;
-  });
-
-  // SVG timeline — height is placeholder; JS will update after layout
-  const svgH = 300;
-  const svgMarkup = `<svg id="_exp-tl-svg" class="_exp-tl-svg" width="26" height="${svgH}" viewBox="0 0 26 ${svgH}" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="_exp-tl-grad" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#00ccff" stop-opacity="0.90"/>
-        <stop offset="100%" stop-color="#003388" stop-opacity="0.25"/>
-      </linearGradient>
-      <filter id="_exp-glow" x="-80%" y="-80%" width="260%" height="260%">
-        <feGaussianBlur stdDeviation="2.5" result="blur"/>
-        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-      </filter>
-      <filter id="_exp-dot-glow" x="-120%" y="-120%" width="340%" height="340%">
-        <feGaussianBlur stdDeviation="3.5" result="blur"/>
-        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-      </filter>
-    </defs>
-    <!-- track line -->
-    <line id="_exp-tl-line" x1="13" y1="0" x2="13" y2="${svgH}"
-          stroke="rgba(0,100,180,0.35)" stroke-width="1.5" stroke-dasharray="3 4"/>
-    <!-- glow line (progress fill) -->
-    <line id="_exp-tl-glow-line" x1="13" y1="0" x2="13" y2="0"
-          stroke="url(#_exp-tl-grad)" stroke-width="2" stroke-linecap="round"/>
-    <!-- node circles (one per block) — cy updated by JS -->
-    ${blocks.map((_, i) =>
-      `<circle class="_exp-tl-node" data-ni="${i}" cx="13" cy="${(i + 0.5) * (svgH / blocks.length)}" r="4"
-        fill="rgba(0,120,180,0.6)" stroke="rgba(0,180,255,0.45)" stroke-width="1"
-        filter="url(#_exp-glow)"/>`
-    ).join('\n    ')}
-    <!-- travelling dot -->
-    <circle id="_exp-tl-dot" cx="13" cy="0" r="5.5"
-            fill="#00e5ff" filter="url(#_exp-dot-glow)" opacity="0.95"/>
-  </svg>`;
-
-  return `<div class="_exp-timeline-wrap">
-    ${svgMarkup}
-    <div class="_exp-cards">
-      ${blocks.join('')}
-    </div>
-  </div>`;
-}
-
-/** Terminal boot sequence for the intro slide. */
-function _buildIntroHTML() {
-  const rows = [
-    { delay: 0.25, prompt: true, content: `<span class="_tb-blink-cursor">▌</span>&nbsp;ESTABLISHING_CONNECTION<span class="_tb-blink-cursor">...</span>` },
-    { delay: 0.85, prompt: false, content: `<span class="_tb-key">ENGINEER </span><span class="_tb-val">FAZLI ZEKIQI</span>` },
-    { delay: 1.30, prompt: false, content: `<span class="_tb-key">ROLE     </span><span class="_tb-val">SR. SOFTWARE ENGINEER</span>` },
-    { delay: 1.75, prompt: false, content: `<span class="_tb-key">LOCATION </span><span class="_tb-val">STOCKHOLM, SWEDEN</span>` },
-    { delay: 2.20, prompt: false, content: `<span class="_tb-key">FOCUS    </span><span class="_tb-val">DISTRIBUTED SYSTEMS</span>` },
-    { delay: 2.80, prompt: false, content: `<span class="_tb-key">SYSTEMS  </span><span class="_tb-bar">██████████</span>&nbsp;<span class="_tb-pct">100% ONLINE</span>` },
-    { delay: 3.40, prompt: true,  content: `<span class="_tb-blink-cursor">▌</span>` },
-  ];
-  const html = rows.map(r => {
-    const promptHtml = r.prompt ? `<span class="_tb-prompt">&gt;</span>` : `<span class="_tb-prompt" style="opacity:0.35">&gt;</span>`;
-    return `<div class="_tb-row" style="animation-delay:${r.delay}s">${promptHtml}&nbsp;${r.content}</div>`;
-  }).join('');
-  return `<div class="_term-boot">${html}</div>`;
-}
-
-/** Engineering stats dashboard for the about slide (bottom-right). */
-function _buildAboutHTML() {
-  return `<div class="_about-wrap">
-    <div class="_about-stats-row">
-      <div class="_ab-stat"><div class="_ab-val">6+</div><div class="_ab-lbl">YEARS EXP</div></div>
-      <div class="_ab-stat"><div class="_ab-val">3</div><div class="_ab-lbl">COMPANIES</div></div>
-      <div class="_ab-stat"><div class="_ab-val">29</div><div class="_ab-lbl">TECHNOLOGIES</div></div>
-      <div class="_ab-stat"><div class="_ab-val">50+</div><div class="_ab-lbl">PROJECTS</div></div>
-    </div>
-    <div class="_ab-divider"></div>
-    <div class="_ab-bio">
-      Training · Running · Electronics · Robots
-    </div>
-  </div>`;
-}
-
-/** Interactive clickable contact links for the CTA slide. */
-function _buildCtaHTML() {
-  return `<div class="_cta-wrap">
-
-    <a class="_cta-link _cta-email" href="mailto:fazlizekiqi1@hotmail.com" style="animation-delay:0.25s">
-      <div class="_cta-service-row">
-        <div class="_cta-icon">✉</div>
-        <div class="_cta-service-info">
-          <div class="_cta-service-name">EMAIL</div>
-          <div class="_cta-service-desc">DIRECT MESSAGE</div>
-        </div>
-      </div>
-      <div class="_cta-value">fazlizekiqi1@hotmail.com</div>
-      <div class="_cta-connect">SEND A MESSAGE <span class="_cta-connect-arrow">→</span></div>
-    </a>
-
-    <a class="_cta-link _cta-linkedin" href="https://linkedin.com/in/fazli-zekiqi" target="_blank" rel="noopener" style="animation-delay:0.45s">
-      <div class="_cta-service-row">
-        <div class="_cta-icon" style="font-weight:900;font-size:14px;letter-spacing:0">in</div>
-        <div class="_cta-service-info">
-          <div class="_cta-service-name">LINKEDIN</div>
-          <div class="_cta-service-desc">PROFESSIONAL NETWORK</div>
-        </div>
-      </div>
-      <div class="_cta-value">fazli-zekiqi</div>
-      <div class="_cta-connect">VIEW PROFILE <span class="_cta-connect-arrow">→</span></div>
-    </a>
-
-    <a class="_cta-link _cta-github" href="https://github.com/fazlizekiqi" target="_blank" rel="noopener" style="animation-delay:0.65s">
-      <div class="_cta-service-row">
-        <div class="_cta-icon" style="font-size:18px">⌥</div>
-        <div class="_cta-service-info">
-          <div class="_cta-service-name">GITHUB</div>
-          <div class="_cta-service-desc">OPEN SOURCE · CODE</div>
-        </div>
-      </div>
-      <div class="_cta-value">fazlizekiqi</div>
-      <div class="_cta-connect">EXPLORE REPOS <span class="_cta-connect-arrow">→</span></div>
-    </a>
-
-    <div class="_cta-tagline">// OPEN TO OPPORTUNITIES &amp; COLLABORATIONS</div>
-  </div>`;
-}
+// HTML builders are in templates.js — imported at the top of this file.
 
 export function showCard(title, body, delay = 550, slideName = '', subtitle = '') {
   hideCard();
@@ -1205,7 +1100,7 @@ export function showCard(title, body, delay = 550, slideName = '', subtitle = ''
       if (subtitle) slideSubtitle.textContent = subtitle;
       bodyPanel.style.opacity = '1';
       if (slideName === 'experience') {
-        slideBody.innerHTML = _buildExperienceHTML(body);
+        slideBody.innerHTML = buildExperienceHTML(body);
         slideBody.querySelectorAll('._exp-block').forEach((el, i) => {
           el.style.opacity   = '0';
           el.style.transform = 'translateX(-18px)';
@@ -1218,11 +1113,11 @@ export function showCard(title, body, delay = 550, slideName = '', subtitle = ''
         });
         _startExperienceTimeline();
       } else if (body === '__INTRO_TERMINAL__') {
-        slideBody.innerHTML = _buildIntroHTML();
+        slideBody.innerHTML = buildIntroHTML();
       } else if (body === '__ABOUT_STATS__') {
-        slideBody.innerHTML = _buildAboutHTML();
+        slideBody.innerHTML = buildAboutHTML();
       } else if (body === '__CTA_LINKS__') {
-        slideBody.innerHTML = _buildCtaHTML();
+        slideBody.innerHTML = buildCtaHTML();
       } else {
         _timerB = _typeWrite(slideBody, body, 18);
       }

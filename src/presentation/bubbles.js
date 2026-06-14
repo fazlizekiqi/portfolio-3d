@@ -16,6 +16,7 @@
 import * as THREE from 'three';
 import { scene, camera, renderer } from '../scene.js';
 import { LAYER } from '../layers.js';
+import { isMobile } from '../constants.js';
 import BLUEPRINT_VERT from '../shaders/blueprint.vert.glsl?raw';
 import BLUEPRINT_FRAG from '../shaders/blueprint.frag.glsl?raw';
 
@@ -80,11 +81,10 @@ const GROUP_COLOR = {
 export const skillLayoutParams = { offsetX: 0, offsetY: 0, spread: 1.0 };
 
 // ── Mobile helpers ────────────────────────────────────────────────────────────
-function _isMobile() { return window.innerWidth < 768; }
-function _bubbleScale()  { return _isMobile() ? 0.92 : 1.0; }
-function _fontScale()    { return _isMobile() ? 1.5  : 1.0; }
+function _bubbleScale()  { return isMobile() ? 0.92 : 1.0; }
+function _fontScale()    { return isMobile() ? 1.5  : 1.0; }
 // Mobile cards: smaller scale so 3 columns fit comfortably on 375px-wide screens
-function _cardScale()    { return _isMobile() ? 0.72 : 1.0; }
+function _cardScale()    { return isMobile() ? 0.72 : 1.0; }
 
 /**
  * Compute sphere radius + label plane size for a given label string.
@@ -509,7 +509,7 @@ function _skillPositions(n) {
     const rawW = (halfW - marginX) * spread;
     const W = rawW;
     const rawH = (halfH - marginY) * spread;
-    const H = _isMobile() ? rawH : rawH * 0.60;
+    const H = isMobile() ? rawH : rawH * 0.60;
 
     // Use a seeded pseudo-random scatter so layout is deterministic
     const pts = [];
@@ -550,7 +550,7 @@ function fract(x) { return x - Math.floor(x); }
 
 function _projectPositions() {
 
-    if (_isMobile()) {
+    if (isMobile()) {
         // Evenly spaced around a vertical ellipse in front of the character.
         // x = sin(a)*R_X  (slight side sway)
         // y = center + cos(a)*R_Y  (big vertical arc — Ferris wheel)
@@ -647,7 +647,7 @@ function _spawnProjectCard(item, pos3, seed, imgTex, idx = 0) {
     const n  = PROJECT_ITEMS.length;
 
     let mat;
-    if (_isMobile()) {
+    if (isMobile()) {
         // ── Mobile: plain MeshBasicMaterial — no shader compositing, max clarity ──
         const cardTex = _makeProjectCardMobile(item, imgTex);
         mat = new THREE.MeshBasicMaterial({
@@ -682,7 +682,7 @@ function _spawnProjectCard(item, pos3, seed, imgTex, idx = 0) {
     const geo = new THREE.PlaneGeometry(W, H);
     const mesh = new THREE.Mesh(geo, mat);
     mesh.position.copy(pos3);
-    if (!_isMobile()) {
+    if (!isMobile()) {
         // Desktop: fan cards outward slightly
         mesh.rotation.y = pos3.x * -0.10;
         mesh.rotation.x = (pos3.y - 1.5) * 0.06;
@@ -737,7 +737,7 @@ export function tickBubbles(delta, elapsed) {
     if (!_entries.length) return;
 
     // Advance global orbit angle on mobile
-    if (_isMobile()) _orbitAngle += delta * ORBIT_SPEED;
+    if (isMobile()) _orbitAngle += delta * ORBIT_SPEED;
 
     for (let i = _entries.length - 1; i >= 0; i--) {
         const e   = _entries[i];
@@ -798,7 +798,7 @@ export function tickBubbles(delta, elapsed) {
         }
 
         // ── Mobile project orbit — vertical Ferris wheel ─────────────────────
-        if (e.isProject && _isMobile()) {
+        if (e.isProject && isMobile()) {
             const a = _orbitAngle + e.orbitBaseAngle;
             e.mesh.position.x = Math.sin(a) * ORBIT_R_X;
             e.mesh.position.y = ORBIT_CENTER_Y + Math.cos(a) * ORBIT_R_Y;
