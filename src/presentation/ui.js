@@ -8,10 +8,7 @@ import { audio } from '../audio.js';
 // ── Slide title strip (top) ───────────────────────────────────────────────────
 const card = document.createElement('div');
 card.id = '_slide-card';
-card.style.cssText = `
-  position:fixed;top:0;left:0;right:0;
-  z-index:20;pointer-events:none;
-  opacity:0;transition:opacity 0.6s ease;`;
+card.style.opacity = '0'; // layout lives in the stylesheet
 card.innerHTML = `
   <div id="_sInner">
     <div id="_sTitle"></div>
@@ -25,11 +22,7 @@ const slideSubtitle = card.querySelector('#_sSubtitle');
 // ── Slide body — centered subtitle ───────────────────────────────────────────
 const bodyPanel = document.createElement('div');
 bodyPanel.id = '_slide-body-panel';
-bodyPanel.style.cssText = `
-  position:fixed;bottom:80px;left:0;right:0;
-  z-index:20;pointer-events:none;
-  display:flex;
-  opacity:0;transition:opacity 0.5s ease;`;
+bodyPanel.style.opacity = '0'; // layout lives in the stylesheet
 bodyPanel.innerHTML = `<div id="_sBodyInner"><div id="_sBody"></div></div>`;
 document.body.appendChild(bodyPanel);
 
@@ -49,6 +42,12 @@ const _style = document.createElement('style');
 _style.textContent = `
 /* ─── slide title strip (top) ────────────────────────────────────────────── */
 #_slide-card {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 20;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.6s ease;
   font-family:'Share Tech Mono','Courier New',monospace;
 }
 #_sInner {
@@ -76,6 +75,14 @@ _style.textContent = `
 
 /* ─── slide body — movie subtitle style ──────────────────────────────────── */
 #_slide-body-panel {
+  position: fixed;
+  bottom: 80px;
+  left: 0; right: 0;
+  z-index: 20;
+  pointer-events: none;
+  display: flex;
+  opacity: 0;
+  transition: opacity 0.5s ease;
   font-family:'Share Tech Mono','Courier New',monospace;
   justify-content: center;
 }
@@ -397,7 +404,7 @@ _style.textContent = `
 
 /* ─── mindset — body panel hidden (how-i-work overlay carries the content) ── */
 #_slide-body-panel.slide-mindset {
-  display: none !important;
+  display: none;
 }
 
 /* ─── about slide — stats panel bottom-right ─────────────────────────────── */
@@ -632,14 +639,10 @@ _style.textContent = `
 @media (max-width: 640px) {
   /* CTA mobile — pinned to the bottom, character fills upper ~65% of screen */
   #_slide-body-panel.slide-cta {
-    /* Override the desktop top:56px / bottom:0 */
-    top: unset !important;
-    bottom: 72px !important;
-    /* Let the panel be as tall as its content only */
+    top: auto;
+    bottom: 72px;
     height: auto;
-    /* Horizontal centering */
     justify-content: center;
-    /* No vertical alignment needed — panel height = content height */
     align-items: stretch;
     padding-left: 12px;
     padding-right: 12px;
@@ -1058,6 +1061,7 @@ function _startExperienceTimeline() {
           activeIdx  = idx;
           setActive(idx);
           pulseNode(nodes[idx]);
+          audio.playTimelineNode();
           pauseUntil = ts + PAUSE_MS;
           startTime  = ts + PAUSE_MS - elapsed;
           return;

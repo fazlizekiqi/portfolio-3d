@@ -96,7 +96,7 @@ export const SLIDES = [
         name: 'mindset',
         camPos:    new THREE.Vector3(0, 1.0, 6.2),
         camTarget: new THREE.Vector3(0, 0.9, 0),
-        mobileCamPos:    new THREE.Vector3(0, 2.0, 10.5),
+        mobileCamPos:    new THREE.Vector3(0, 2.0, 11.0),
         mobileCamTarget: new THREE.Vector3(0, 0.6, 0),
         duration: 16000,
         camMoveDuration: 1400,
@@ -113,7 +113,7 @@ export const SLIDES = [
         // ── EXPERIENCE: Cinematic news-anchor side angle ───────────────────────
         name: 'experience',
         anchor: {dist: 4.95, camOffsetX: 1.6, camY: 0.85, targetOffsetX: -0.55, targetY: 1},
-        mobileAnchor: {dist: 7.5, camOffsetX: 0, camY: 1.0, targetOffsetX: 0, targetY: 1.3},
+        mobileAnchor: {dist: 9.5, camOffsetX: -1.5, camY: 0.9, targetOffsetX: 0.4, targetY: 1.0},
         duration: 12000,
         camMoveDuration: 2200,
         easing: 'out',

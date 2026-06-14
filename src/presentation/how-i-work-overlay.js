@@ -299,12 +299,12 @@ _style.textContent = `
 
 /* ── Mobile — single-card crossfade showcase ─────────────────────────────── */
 @media (max-width: 640px) {
-  /* Column layout: card row on top, dot strip below — all anchored to bottom */
+  /* Column layout: card row at top, dot strip below — anchored to top so character is free below */
   #_hiw-wrap {
     flex-direction: column;
-    justify-content: flex-end;
+    justify-content: flex-start;
     align-items: stretch;
-    padding: 0 12px 72px;
+    padding: 58px 12px 0;
     gap: 8px;
   }
 
@@ -387,6 +387,7 @@ const _railFill = _rail.querySelector('#_hiw-rail-fill');
 // ── Dot indicator (mobile) ────────────────────────────────────────────────────
 const _dotsEl = document.createElement('div');
 _dotsEl.id = '_hiw-dots';
+_dotsEl.style.display = 'none'; // hidden until overlay is shown
 _wrap.appendChild(_dotsEl);
 
 const _dotEls = CARDS.map(() => {
@@ -454,6 +455,7 @@ export function showHowIWorkOverlay() {
   _staggerIds.forEach(clearTimeout); _staggerIds = [];
   _cardEls.forEach(el => el.classList.remove('hiw-visible', 'hiw-active'));
   _dotEls.forEach(d => d.classList.remove('hiw-dot-active'));
+  _dotsEl.style.display = ''; // let CSS decide (flex on mobile, none on desktop)
   _cycleStart = null; _activeIdx = -1;
 
   _cardEls.forEach((el, i) => {
@@ -471,6 +473,7 @@ export function hideHowIWorkOverlay() {
     _staggerIds.push(setTimeout(() => el.classList.remove('hiw-visible', 'hiw-active'), i * 80));
   });
   _dotEls.forEach(d => d.classList.remove('hiw-dot-active'));
+  _dotsEl.style.display = 'none';
   _rail.style.opacity = '0';
   _railFill.style.width = '0%';
 }

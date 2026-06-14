@@ -167,7 +167,7 @@ function _applyAnimationForSlide(slide, name) {
   cancelIdleLoop();
 
   if (name === 'experience' && modelGroup) {
-    modelGroup.rotation.y = spawnRotation.y + 0.62;
+    modelGroup.rotation.y = spawnRotation.y + (isMobile() ? -0.62 : 0.62);
   } else if (modelGroup) {
     modelGroup.rotation.copy(spawnRotation);
   }

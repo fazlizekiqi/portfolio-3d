@@ -24,6 +24,7 @@
 
 import * as THREE from 'three';
 import { scene, renderer } from '../scene.js';
+import { audio } from '../audio.js';
 
 // ── Timing ────────────────────────────────────────────────────────────────────
 const T_HEADER_IN     = 0.5;
@@ -647,7 +648,11 @@ export function tickAboutWireframe(delta) {
 
     // DOM rows at body-region milestones
     ROW_BURN_T.forEach((thr, i) => {
-      if (!_rowsDone[i] && sp >= thr) { _rowsDone[i] = true; _rows[i].classList.add('vis'); }
+      if (!_rowsDone[i] && sp >= thr) {
+        _rowsDone[i] = true;
+        _rows[i].classList.add('vis');
+        audio.playScanBeep();
+      }
     });
 
     // Complete
