@@ -1,46 +1,47 @@
 /**
- * how-i-work-overlay.js
+ * how-i-work-overlay.js — "Patent Diagram" treatment of the How I Work slide.
  *
- * Desktop — two cards per side column, character free in the middle.
- * Mobile  — single-card crossfade showcase at the bottom of the screen
- *           with a 4-dot progress indicator. Cards cycle automatically;
- *           the character fills the upper ~65% of the viewport.
+ * The character standing centre-stage becomes the SUBJECT of an engineering
+ * blueprint. Four engineering-principle callout blocks sit in the corners with
+ * leader lines + reference crosshairs pointing AT the character, titles
+ * typewriting in. A blueprint-grid backdrop (blueprint-backdrop.js, a WebGL
+ * pass) fades in behind the character. A drawing-sheet cartouche reads
+ * "FIG. 01 — THE ENGINEER · SHEET 1 OF 1".
+ *
+ * Desktop — 4 corner callouts, leader lines converge on the character.
+ * Mobile  — callouts stack top/bottom, leader lines hidden, character framed
+ *           in the central band.
+ *
+ * Public API (unchanged):
+ *   showHowIWorkOverlay()
+ *   hideHowIWorkOverlay()
  */
 
-const _base = import.meta.env.BASE_URL;
+import { audio } from '../audio.js';
+import { showBlueprintBackdrop, hideBlueprintBackdrop } from './blueprint-backdrop.js';
 
+// ── Principle data ──────────────────────────────────────────────────────────
+// pos = which corner the callout lives in; ref = patent-style reference letter.
 const CARDS = [
-  {
-    num: '01',
-    title: 'Design First',
-    caption: 'Scalability & Reliability',
-    tags: ['API CONTRACTS', 'FAIL FAST', 'SCALE BY DEFAULT'],
-    img: `${_base}how-i-work/1.png`,
-  },
-  {
-    num: '02',
-    title: 'Clean Code',
-    caption: 'Maintainable Architecture',
-    tags: ['SOLID', 'DRY', 'READABLE'],
-    img: `${_base}how-i-work/2.png`,
-  },
-  {
-    num: '03',
-    title: 'Observe',
-    caption: 'Observability & Monitoring',
-    tags: ['METRICS', 'TRACING', 'ALERTING'],
-    img: `${_base}how-i-work/3.png`,
-  },
-  {
-    num: '04',
-    title: 'Collaborate',
-    caption: 'Teams & Stakeholders',
-    tags: ['ASYNC-FIRST', 'FEEDBACK LOOPS', 'SHARED OWNERSHIP'],
-    img: `${_base}how-i-work/4.png`,
-  },
+  { idx: '01', ref: 'A', pos: 'tl', title: 'Design First',
+    caption: 'Scalable, reliable systems — by design, not by accident.',
+    tags: ['API CONTRACTS', 'FAIL FAST', 'SCALE BY DEFAULT'] },
+  { idx: '02', ref: 'B', pos: 'tr', title: 'Clean Code',
+    caption: 'Maintainable architecture that outlives the sprint.',
+    tags: ['SOLID', 'DRY', 'READABLE'] },
+  { idx: '03', ref: 'C', pos: 'bl', title: 'Observe',
+    caption: 'Measure everything, alert on what actually matters.',
+    tags: ['METRICS', 'TRACING', 'ALERTING'] },
+  { idx: '04', ref: 'D', pos: 'br', title: 'Collaborate',
+    caption: 'Async-first, feedback loops, shared ownership.',
+    tags: ['ASYNC-FIRST', 'FEEDBACK LOOPS', 'SHARED OWNERSHIP'] },
 ];
 
-// ── Styles ────────────────────────────────────────────────────────────────────
+const FONT       = `'Share Tech Mono','Courier New',monospace`;
+const CYCLE_MS   = 2600;
+const STAGGER_MS = 170;
+
+// ── Styles ──────────────────────────────────────────────────────────────────
 const _style = document.createElement('style');
 _style.textContent = `
 #_hiw-wrap {
@@ -48,220 +49,207 @@ _style.textContent = `
   inset: 0;
   z-index: 15;
   pointer-events: none;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 64px 28px 84px;
-  box-sizing: border-box;
+  font-family: ${FONT};
 }
-#_hiw-row {
-  display: grid;
-  width: 100%;
-  max-width: 1480px;
-  grid-template-columns: clamp(170px, 18vw, 235px) 1fr clamp(170px, 18vw, 235px);
-  grid-template-rows: auto auto;
-  row-gap: 18px;
-  align-items: center;
-}
-._hiw-card:nth-child(1) { grid-column: 1; grid-row: 1; }
-._hiw-card:nth-child(2) { grid-column: 1; grid-row: 2; }
-._hiw-card:nth-child(3) { grid-column: 3; grid-row: 1; }
-._hiw-card:nth-child(4) { grid-column: 3; grid-row: 2; }
 
-._hiw-card {
-  background: rgba(2,8,24,0.92);
-  border: 1px solid rgba(0,150,200,0.18);
-  border-radius: 6px;
-  overflow: hidden;
-  position: relative;
+/* ── Leader-line SVG layer ─────────────────────────────────────────────────── */
+#_hiw-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+._hiw-leader {
+  fill: none;
+  stroke: rgba(0,180,235,0.40);
+  stroke-width: 1.2;
+  transition: stroke 0.4s ease, stroke-width 0.4s ease;
+}
+._hiw-leader.hiw-lead-active {
+  stroke: rgba(0,235,255,0.95);
+  stroke-width: 1.8;
+  filter: drop-shadow(0 0 4px rgba(0,220,255,0.7));
+}
+._hiw-mark circle {
+  fill: none;
+  stroke: rgba(0,200,240,0.55);
+  stroke-width: 1.2;
+  transition: stroke 0.4s ease;
+}
+._hiw-mark line {
+  stroke: rgba(0,200,240,0.55);
+  stroke-width: 1;
+  transition: stroke 0.4s ease;
+}
+._hiw-mark text {
+  fill: rgba(0,220,255,0.75);
+  font-family: ${FONT};
+  font-size: 11px;
+  letter-spacing: .08em;
+}
+._hiw-mark.hiw-mark-active circle,
+._hiw-mark.hiw-mark-active line { stroke: #00eaff; }
+._hiw-mark.hiw-mark-active text { fill: #7df3ff; }
+._hiw-mark { opacity: 0; transition: opacity 0.4s ease; }
+._hiw-mark.hiw-mark-vis { opacity: 1; }
+
+/* ── Callout blocks ─────────────────────────────────────────────────────────── */
+._hiw-blk {
+  position: absolute;
+  width: clamp(196px, 19vw, 252px);
+  background: rgba(2,9,24,0.86);
+  border: 1px solid rgba(0,150,200,0.30);
+  border-radius: 4px;
+  padding: 11px 13px 12px;
+  box-sizing: border-box;
+  backdrop-filter: blur(7px);
   opacity: 0;
   transition:
-    opacity 0.55s ease,
-    transform 0.55s cubic-bezier(0.22,0.61,0.36,1),
+    opacity 0.5s ease,
+    transform 0.5s cubic-bezier(0.22,0.61,0.36,1),
     border-color 0.35s ease,
     box-shadow 0.35s ease;
 }
-/* left column slides in from the left, right column from the right */
-._hiw-card:nth-child(-n+2) { transform: translateX(-44px); }
-._hiw-card:nth-child(n+3)  { transform: translateX(44px); }
-._hiw-card.hiw-visible {
-  opacity: 1;
-  transform: translateX(0);
-}
-._hiw-card.hiw-active {
-  border-color: rgba(0,220,255,0.70);
+._hiw-blk-tl { top: 92px;    left: 3%;  transform: translate(-30px,-14px) scale(0.94); }
+._hiw-blk-tr { top: 92px;    right: 3%; transform: translate( 30px,-14px) scale(0.94); }
+._hiw-blk-bl { bottom: 70px; left: 3%;  transform: translate(-30px, 14px) scale(0.94); }
+._hiw-blk-br { bottom: 70px; right: 3%; transform: translate( 30px, 14px) scale(0.94); }
+._hiw-blk.hiw-visible { opacity: 1; transform: translate(0,0) scale(1); }
+._hiw-blk.hiw-active {
+  border-color: rgba(0,225,255,0.75);
   box-shadow:
-    0 0 0 1px rgba(0,0,0,0.4),
-    0 8px 28px rgba(0,0,0,0.6),
-    0 0 22px rgba(0,200,255,0.35),
-    0 0 6px rgba(0,220,255,0.20),
+    0 8px 26px rgba(0,0,0,0.55),
+    0 0 22px rgba(0,200,255,0.30),
     inset 0 1px 0 rgba(0,220,255,0.12);
 }
 
-/* ── Corner brackets ─────────────────────────────────────────────────────── */
-._hiw-c {
+/* corner brackets */
+._hiw-cb {
   position: absolute;
-  width: 10px;
-  height: 10px;
+  width: 9px; height: 9px;
   pointer-events: none;
-  z-index: 3;
 }
-._hiw-c-tl {
-  top: 5px; left: 5px;
-  border-top: 1.5px solid rgba(0,200,255,0.45);
-  border-left: 1.5px solid rgba(0,200,255,0.45);
-  transition: border-color 0.35s ease;
-}
-._hiw-c-tr {
-  top: 5px; right: 5px;
-  border-top: 1.5px solid rgba(0,200,255,0.45);
-  border-right: 1.5px solid rgba(0,200,255,0.45);
-  transition: border-color 0.35s ease;
-}
-._hiw-card.hiw-active ._hiw-c-tl,
-._hiw-card.hiw-active ._hiw-c-tr {
-  border-color: rgba(0,240,255,0.90);
-}
+._hiw-cb-tl { top: 4px; left: 4px;
+  border-top: 1.5px solid rgba(0,210,255,0.55);
+  border-left: 1.5px solid rgba(0,210,255,0.55); }
+._hiw-cb-br { bottom: 4px; right: 4px;
+  border-bottom: 1.5px solid rgba(0,210,255,0.55);
+  border-right: 1.5px solid rgba(0,210,255,0.55); }
 
-/* ── Number badge ────────────────────────────────────────────────────────── */
-._hiw-num {
-  position: absolute;
-  top: 8px; left: 10px;
-  font-size: 9px;
-  letter-spacing: .16em;
-  color: rgba(0,180,255,0.40);
-  font-family: 'Share Tech Mono','Courier New',monospace;
-  z-index: 2;
-  transition: color 0.35s ease;
-}
-._hiw-card.hiw-active ._hiw-num { color: rgba(0,220,255,0.85); }
-
-/* ── Pulse indicator ─────────────────────────────────────────────────────── */
-._hiw-pulse {
-  position: absolute;
-  top: 8px; right: 10px;
+._hiw-blk-hd {
   display: flex;
   align-items: center;
-  gap: 5px;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  z-index: 3;
+  gap: 8px;
+  margin-bottom: 6px;
 }
-._hiw-card.hiw-active ._hiw-pulse { opacity: 1; }
-._hiw-pulse-dot {
-  width: 5px; height: 5px;
+._hiw-blk-idx {
+  font-size: 9px;
+  letter-spacing: .12em;
+  color: rgba(0,200,255,0.85);
+  border: 1px solid rgba(0,180,230,0.45);
   border-radius: 50%;
-  background: #00ff99;
-  animation: _hiw-pulse-anim 1.2s ease-in-out infinite;
-  display: inline-block;
+  width: 18px; height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
-@keyframes _hiw-pulse-anim {
-  0%,100% { opacity: 1; transform: scale(1); }
-  50%      { opacity: 0.4; transform: scale(0.7); }
-}
-._hiw-pulse-label {
+._hiw-blk-ref {
   font-size: 8px;
-  letter-spacing: .18em;
-  color: #00ff99;
-  font-family: 'Share Tech Mono','Courier New',monospace;
+  letter-spacing: .20em;
+  color: rgba(0,170,210,0.55);
+  flex: 1;
 }
-
-/* ── Image ───────────────────────────────────────────────────────────────── */
-._hiw-img-wrap {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  overflow: hidden;
-  position: relative;
+._hiw-blk-dim {
+  font-size: 7.5px;
+  letter-spacing: .10em;
+  color: rgba(120,180,210,0.40);
 }
-._hiw-img-wrap img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-  filter: brightness(0.60) saturate(0.75);
-  transition: filter 0.4s ease;
-}
-._hiw-card.hiw-active ._hiw-img-wrap img {
-  filter: brightness(1.0) saturate(1.15);
-}
-
-/* ── Scan line ───────────────────────────────────────────────────────────── */
-._hiw-scan {
-  position: absolute;
-  left: 0; right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, rgba(0,220,255,0.65), transparent);
-  top: 0;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  pointer-events: none;
-}
-._hiw-card.hiw-active ._hiw-scan {
-  opacity: 1;
-  animation: _hiw-scan-move 2.0s linear infinite;
-}
-@keyframes _hiw-scan-move {
-  0%   { top: 0%; }
-  100% { top: 100%; }
-}
-
-/* ── Footer ──────────────────────────────────────────────────────────────── */
-._hiw-footer {
-  padding: 10px 12px 12px;
-}
-._hiw-title {
-  font-family: 'Share Tech Mono','Courier New',monospace;
-  font-size: 12px;
+._hiw-blk-title {
+  font-size: 13px;
   font-weight: 700;
-  letter-spacing: .14em;
-  color: #c8eaff;
-  margin: 0;
+  letter-spacing: .10em;
+  color: #cfeeff;
+  min-height: 15px;
   transition: color 0.3s ease, text-shadow 0.3s ease;
 }
-._hiw-card.hiw-active ._hiw-title {
-  color: #00e5ff;
-  text-shadow: 0 0 14px rgba(0,230,255,0.75), 0 0 4px rgba(0,220,255,0.50);
+._hiw-blk.hiw-active ._hiw-blk-title {
+  color: #00e9ff;
+  text-shadow: 0 0 14px rgba(0,230,255,0.7);
 }
-._hiw-rule {
+._hiw-blk-tw-cursor { color: #00e5ff; animation: _hiw-blink 1s step-end infinite; }
+@keyframes _hiw-blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+._hiw-blk-rule {
   height: 1px;
-  background: linear-gradient(90deg, rgba(0,180,255,0.30), transparent);
-  margin: 6px 0;
-  border: none;
+  background: linear-gradient(90deg, rgba(0,180,255,0.40), transparent);
+  margin: 6px 0 7px;
 }
-._hiw-caption {
-  font-family: 'Share Tech Mono','Courier New',monospace;
+._hiw-blk-cap {
   font-size: 9px;
-  letter-spacing: .09em;
-  color: rgba(0,170,220,0.55);
-  margin: 0;
-  line-height: 1.4;
-  transition: color 0.3s ease;
+  letter-spacing: .04em;
+  line-height: 1.55;
+  color: rgba(150,205,225,0.70);
+  margin-bottom: 8px;
 }
-._hiw-card.hiw-active ._hiw-caption { color: rgba(0,220,255,0.80); }
-._hiw-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 7px;
-}
-._hiw-tag {
-  font-family: 'Share Tech Mono','Courier New',monospace;
-  font-size: 7.5px;
-  letter-spacing: .12em;
-  color: rgba(0,170,220,0.45);
-  background: rgba(0,100,180,0.12);
-  border: 1px solid rgba(0,150,200,0.20);
+._hiw-blk-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+._hiw-blk-tag {
+  font-size: 7px;
+  letter-spacing: .11em;
+  color: rgba(0,175,220,0.55);
+  background: rgba(0,90,160,0.14);
+  border: 1px solid rgba(0,150,200,0.22);
   border-radius: 2px;
   padding: 2px 5px;
   transition: color 0.3s ease, background 0.3s ease, border-color 0.3s ease;
 }
-._hiw-card.hiw-active ._hiw-tag {
-  color: rgba(0,220,255,0.80);
-  background: rgba(0,120,200,0.20);
-  border-color: rgba(0,200,255,0.40);
+._hiw-blk.hiw-active ._hiw-blk-tag {
+  color: rgba(0,225,255,0.85);
+  background: rgba(0,120,200,0.22);
+  border-color: rgba(0,200,255,0.42);
 }
 
-/* ── Progress rail (desktop) ─────────────────────────────────────────────── */
+/* ── Title-block cartouche (bottom-centre) ─────────────────────────────────── */
+#_hiw-cartouche {
+  position: absolute;
+  left: 50%;
+  bottom: 60px;
+  transform: translateX(-50%) translateY(10px);
+  display: flex;
+  align-items: stretch;
+  border: 1px solid rgba(0,150,200,0.35);
+  border-radius: 3px;
+  background: rgba(2,9,24,0.80);
+  backdrop-filter: blur(7px);
+  opacity: 0;
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+#_hiw-cartouche.hiw-visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+._hiw-cart-cell {
+  padding: 7px 14px;
+  border-right: 1px solid rgba(0,150,200,0.20);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+}
+._hiw-cart-cell:last-child { border-right: none; }
+._hiw-cart-k {
+  font-size: 6.5px;
+  letter-spacing: .18em;
+  color: rgba(120,180,210,0.45);
+}
+._hiw-cart-v {
+  font-size: 10px;
+  letter-spacing: .10em;
+  color: #9fe6ff;
+}
+._hiw-cart-v.hiw-cart-hero {
+  color: #00e9ff;
+  text-shadow: 0 0 12px rgba(0,230,255,0.55);
+}
+
+/* ── Progress rail ──────────────────────────────────────────────────────────── */
 #_hiw-rail {
   position: fixed;
   bottom: 0; left: 0; right: 0;
@@ -273,170 +261,220 @@ _style.textContent = `
   transition: opacity 0.5s;
 }
 #_hiw-rail-fill {
-  height: 100%;
-  width: 0%;
-  background: linear-gradient(90deg, #005577, #00ccff);
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, #004f6e, #00ccff);
 }
 
-/* ── Dot indicator (mobile only) ─────────────────────────────────────────── */
-#_hiw-dots {
-  display: none;
-}
-._hiw-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: rgba(0,150,200,0.22);
-  border: 1px solid rgba(0,180,220,0.18);
-  transition: background 0.35s ease, box-shadow 0.35s ease, transform 0.35s ease;
-}
-._hiw-dot.hiw-dot-active {
-  background: #00ccff;
-  border-color: rgba(0,220,255,0.55);
-  box-shadow: 0 0 8px rgba(0,200,255,0.70);
-  transform: scale(1.3);
-}
-
-/* ── Mobile — single-card crossfade showcase ─────────────────────────────── */
+/* ── Mobile ─────────────────────────────────────────────────────────────────── */
 @media (max-width: 640px) {
-  /* Column layout: card row at top, dot strip below — anchored to top so character is free below */
-  #_hiw-wrap {
-    flex-direction: column;
-    justify-content: flex-start;
-    align-items: stretch;
-    padding: 58px 12px 0;
-    gap: 8px;
+  #_hiw-svg { display: none; }                 /* no converging lines over the body */
+  ._hiw-blk {
+    width: 43vw;
+    padding: 8px 9px 9px;
+    backdrop-filter: blur(5px);
   }
-
-  /* Fixed-height card container; all 4 cards stack here and crossfade */
-  #_hiw-row {
-    display: block;
-    position: relative;
-    width: 100%;
-    height: 26vh;
-    min-height: 170px;
-    max-height: 215px;
-  }
-
-  /* Stack all cards at the same position */
-  ._hiw-card {
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    border-radius: 5px;
-  }
-
-  /* Override desktop slide-in transforms — start faintly raised */
-  ._hiw-card:nth-child(-n+2),
-  ._hiw-card:nth-child(n+3) { transform: translateY(8px); }
-
-  /* Visible but NOT active = invisible (we crossfade between them) */
-  ._hiw-card.hiw-visible              { opacity: 0; transform: translateY(0); }
-  ._hiw-card.hiw-visible.hiw-active   { opacity: 1; }
-
-  /* Image fills everything above the footer */
-  ._hiw-img-wrap {
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    bottom: 68px;          /* reserve space for footer */
-    aspect-ratio: unset;
-    height: unset;
-  }
-
-  /* Footer is pinned to the bottom of the card */
-  ._hiw-footer {
-    position: absolute;
-    bottom: 0; left: 0; right: 0;
-    padding: 8px 14px 10px;
-    background: rgba(2,8,24,0.85);
-    backdrop-filter: blur(4px);
-  }
-
-  ._hiw-title   { font-size: 12px; letter-spacing: .12em; }
-  ._hiw-rule    { margin: 4px 0; }
-  ._hiw-caption { font-size: 8.5px; }
-  ._hiw-tags    { gap: 4px; margin-top: 4px; }
-  ._hiw-tag     { font-size: 7px; }
-
-  /* Show dot indicator, hide progress rail */
-  #_hiw-dots {
-    display: flex;
-    justify-content: center;
-    gap: 8px;
-    padding: 0;
-    flex-shrink: 0;
-  }
+  ._hiw-blk-tl { top: 60px;    left: 7px;  transform: translateY(-12px) scale(0.94); }
+  ._hiw-blk-tr { top: 60px;    right: 7px; transform: translateY(-12px) scale(0.94); }
+  ._hiw-blk-bl { bottom: 58px; left: 7px;  top: auto; transform: translateY(12px) scale(0.94); }
+  ._hiw-blk-br { bottom: 58px; right: 7px; top: auto; transform: translateY(12px) scale(0.94); }
+  ._hiw-blk.hiw-visible { transform: translateY(0) scale(1); }
+  ._hiw-blk-title { font-size: 11px; }
+  ._hiw-blk-cap   { font-size: 8px; margin-bottom: 6px; }
+  ._hiw-blk-tag   { font-size: 6.5px; padding: 1px 4px; }
+  ._hiw-blk-ref, ._hiw-blk-dim { display: none; }
+  #_hiw-cartouche { bottom: 22px; }
+  ._hiw-cart-cell { padding: 5px 9px; }
+  ._hiw-cart-v { font-size: 8.5px; }
   #_hiw-rail { display: none; }
 }
 `;
 document.head.appendChild(_style);
 
-// ── DOM ───────────────────────────────────────────────────────────────────────
+// ── DOM ─────────────────────────────────────────────────────────────────────
 const _wrap = document.createElement('div');
 _wrap.id = '_hiw-wrap';
-const _row = document.createElement('div');
-_row.id = '_hiw-row';
-_wrap.appendChild(_row);
+_wrap.style.display = 'none';
+
+// Leader-line SVG layer
+const SVGNS = 'http://www.w3.org/2000/svg';
+const _svg  = document.createElementNS(SVGNS, 'svg');
+_svg.id = '_hiw-svg';
+_svg.setAttribute('preserveAspectRatio', 'none');
+// arrowhead marker
+_svg.innerHTML = `
+  <defs>
+    <marker id="_hiw-arrow" markerWidth="7" markerHeight="7" refX="5.5" refY="3"
+            orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L6,3 L0,6" fill="none" stroke="rgba(0,220,255,0.85)" stroke-width="1"/>
+    </marker>
+  </defs>`;
+_wrap.appendChild(_svg);
+
+// Leader paths + reference marks (one per card)
+const _pathEls = [];
+const _markEls = [];
+CARDS.forEach((c) => {
+  const path = document.createElementNS(SVGNS, 'path');
+  path.setAttribute('class', '_hiw-leader');
+  path.setAttribute('marker-end', 'url(#_hiw-arrow)');
+  _svg.appendChild(path);
+  _pathEls.push(path);
+
+  const g = document.createElementNS(SVGNS, 'g');
+  g.setAttribute('class', '_hiw-mark');
+  g.innerHTML = `
+    <circle r="8"></circle>
+    <line x1="-12" y1="0" x2="-4" y2="0"></line>
+    <line x1="4"  y1="0" x2="12" y2="0"></line>
+    <line x1="0" y1="-12" x2="0" y2="-4"></line>
+    <line x1="0" y1="4"  x2="0" y2="12"></line>
+    <text x="11" y="-9">${c.ref}</text>`;
+  _svg.appendChild(g);
+  _markEls.push(g);
+});
+
+// Callout blocks
+const _blockEls = CARDS.map((c) => {
+  const el = document.createElement('div');
+  el.className = `_hiw-blk _hiw-blk-${c.pos}`;
+  const tags = c.tags.map(t => `<span class="_hiw-blk-tag">${t}</span>`).join('');
+  el.innerHTML = `
+    <span class="_hiw-cb _hiw-cb-tl"></span>
+    <span class="_hiw-cb _hiw-cb-br"></span>
+    <div class="_hiw-blk-hd">
+      <span class="_hiw-blk-idx">${c.idx}</span>
+      <span class="_hiw-blk-ref">REF ${c.ref}</span>
+      <span class="_hiw-blk-dim">1:1</span>
+    </div>
+    <div class="_hiw-blk-title"></div>
+    <div class="_hiw-blk-rule"></div>
+    <div class="_hiw-blk-cap">${c.caption}</div>
+    <div class="_hiw-blk-tags">${tags}</div>`;
+  _wrap.appendChild(el);
+  return el;
+});
+const _titleEls = _blockEls.map(b => b.querySelector('._hiw-blk-title'));
+
+// Cartouche (drawing-sheet title block)
+const _cartouche = document.createElement('div');
+_cartouche.id = '_hiw-cartouche';
+_cartouche.innerHTML = `
+  <div class="_hiw-cart-cell">
+    <span class="_hiw-cart-k">DRAWING</span>
+    <span class="_hiw-cart-v hiw-cart-hero">FIG. 01 — THE ENGINEER</span>
+  </div>
+  <div class="_hiw-cart-cell">
+    <span class="_hiw-cart-k">SHEET</span>
+    <span class="_hiw-cart-v">1 OF 1</span>
+  </div>
+  <div class="_hiw-cart-cell">
+    <span class="_hiw-cart-k">SCALE</span>
+    <span class="_hiw-cart-v">1:1</span>
+  </div>
+  <div class="_hiw-cart-cell">
+    <span class="_hiw-cart-k">REV</span>
+    <span class="_hiw-cart-v">2.4</span>
+  </div>`;
+_wrap.appendChild(_cartouche);
+
 document.body.appendChild(_wrap);
 
 const _rail = document.createElement('div');
 _rail.id = '_hiw-rail';
-_rail.innerHTML = `<div id="_hiw-rail-fill"></div>`;
+_rail.innerHTML = '<div id="_hiw-rail-fill"></div>';
 document.body.appendChild(_rail);
 const _railFill = _rail.querySelector('#_hiw-rail-fill');
 
-// ── Dot indicator (mobile) ────────────────────────────────────────────────────
-const _dotsEl = document.createElement('div');
-_dotsEl.id = '_hiw-dots';
-_dotsEl.style.display = 'none'; // hidden until overlay is shown
-_wrap.appendChild(_dotsEl);
-
-const _dotEls = CARDS.map(() => {
-  const d = document.createElement('span');
-  d.className = '_hiw-dot';
-  _dotsEl.appendChild(d);
-  return d;
-});
-
-// ── Cards ─────────────────────────────────────────────────────────────────────
-const _cardEls = CARDS.map(c => {
-  const el = document.createElement('div');
-  el.className = '_hiw-card';
-  const tagsHtml = c.tags.map(t => `<span class="_hiw-tag">${t}</span>`).join('');
-  el.innerHTML = `
-    <div class="_hiw-c _hiw-c-tl"></div>
-    <div class="_hiw-c _hiw-c-tr"></div>
-    <div class="_hiw-num">${c.num}</div>
-    <div class="_hiw-pulse">
-      <span class="_hiw-pulse-dot"></span>
-      <span class="_hiw-pulse-label">ONLINE</span>
-    </div>
-    <div class="_hiw-img-wrap">
-      <img src="${c.img}" alt="${c.title}" loading="lazy" />
-      <div class="_hiw-scan"></div>
-    </div>
-    <div class="_hiw-footer">
-      <div class="_hiw-title">${c.title.toUpperCase()}</div>
-      <div class="_hiw-rule"></div>
-      <div class="_hiw-caption">${c.caption}</div>
-      <div class="_hiw-tags">${tagsHtml}</div>
-    </div>`;
-  _row.appendChild(el);
-  return el;
-});
-
-// ── Animation ─────────────────────────────────────────────────────────────────
-const CYCLE_MS   = 2400;
-const STAGGER_MS = 150;
-
+// ── Animation state ─────────────────────────────────────────────────────────
 let _rafId      = null;
 let _staggerIds = [];
+let _typeIds    = [];
 let _activeIdx  = -1;
 let _cycleStart = null;
+let _showing    = false;
 
+// ── Leader-line geometry ──────────────────────────────────────────────────────
+function _blockAnchor(pos, r) {
+  switch (pos) {
+    case 'tl': return { x: r.right - 6, y: r.bottom - 4 };
+    case 'tr': return { x: r.left + 6,  y: r.bottom - 4 };
+    case 'bl': return { x: r.right - 6, y: r.top + 4 };
+    case 'br': return { x: r.left + 6,  y: r.top + 4 };
+  }
+}
+
+/** Lay out the SVG, the 4 reference crosshairs around the character, and the
+ *  leader paths. When `drawn` is false the paths start fully dashed-out so they
+ *  can animate in; when true they stay drawn (used on resize while active). */
+function _layoutLeaders(drawn) {
+  const w = window.innerWidth, h = window.innerHeight;
+  _svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+
+  const cx = w / 2, cy = h * 0.46;
+  const dx = Math.min(w * 0.075, 92);
+  const dy = Math.min(h * 0.135, 150);
+  const targets = {
+    tl: { x: cx - dx, y: cy - dy }, tr: { x: cx + dx, y: cy - dy },
+    bl: { x: cx - dx, y: cy + dy }, br: { x: cx + dx, y: cy + dy },
+  };
+
+  // Measure the blocks at their RESTING position. Their hidden state carries a
+  // translate/scale transform that getBoundingClientRect would otherwise include,
+  // so neutralise it for the measurement and restore it before the next paint.
+  _blockEls.forEach(el => { el.style.transform = 'none'; });
+  void _wrap.offsetWidth; // force reflow so the measurement sees transform:none
+
+  CARDS.forEach((c, i) => {
+    const a = _blockAnchor(c.pos, _blockEls[i].getBoundingClientRect());
+    const t = targets[c.pos];
+    // Stop the arrow a touch short of the crosshair circle.
+    const ang = Math.atan2(t.y - a.y, t.x - a.x);
+    const ex  = t.x - Math.cos(ang) * 13;
+    const ey  = t.y - Math.sin(ang) * 13;
+
+    const path = _pathEls[i];
+    path.setAttribute('d', `M${a.x},${a.y} L${ex},${ey}`);
+    const len = path.getTotalLength();
+    path.style.transition    = 'none';
+    path.style.strokeDasharray  = `${len}`;
+    path.style.strokeDashoffset = drawn ? '0' : `${len}`;
+
+    _markEls[i].setAttribute('transform', `translate(${t.x},${t.y})`);
+  });
+
+  // Restore the class-driven transform (hidden offset, or none when visible).
+  _blockEls.forEach(el => { el.style.transform = ''; });
+}
+
+function _drawLeadersIn() {
+  _pathEls.forEach((path, i) => {
+    _staggerIds.push(setTimeout(() => {
+      path.style.transition    = 'stroke-dashoffset 0.9s ease, stroke 0.4s ease';
+      path.style.strokeDashoffset = '0';
+      _markEls[i].classList.add('hiw-mark-vis');
+    }, 120 + i * 150));
+  });
+}
+
+// ── Typewriter ────────────────────────────────────────────────────────────────
+function _type(el, text, speed = 34) {
+  el.textContent = '';
+  let i = 0;
+  const id = setInterval(() => {
+    el.textContent = text.slice(0, ++i);
+    if (i % 2 === 0) audio.playTypewriterClick?.();
+    if (i >= text.length) clearInterval(id);
+  }, speed);
+  _typeIds.push(id);
+}
+
+// ── Active-callout cycling ────────────────────────────────────────────────────
 function _setActive(idx) {
-  _cardEls.forEach((el, i) => el.classList.toggle('hiw-active', i === idx));
-  _dotEls.forEach((d,  i) => d.classList.toggle('hiw-dot-active', i === idx));
+  _blockEls.forEach((el, i) => el.classList.toggle('hiw-active', i === idx));
+  _pathEls.forEach((p,  i) => p.classList.toggle('hiw-lead-active', i === idx));
+  _markEls.forEach((m,  i) => m.classList.toggle('hiw-mark-active', i === idx));
   _activeIdx = idx;
+  audio.playTimelineNode?.();
 }
 
 function _tick(ts) {
@@ -449,31 +487,72 @@ function _tick(ts) {
   _railFill.style.width = `${((elapsed % total) / total) * 100}%`;
 }
 
+// ── Resize ────────────────────────────────────────────────────────────────────
+function _onResize() {
+  if (_showing) _layoutLeaders(true);
+}
+window.addEventListener('resize', _onResize);
+
 // ── Public API ────────────────────────────────────────────────────────────────
 export function showHowIWorkOverlay() {
-  if (_rafId) { cancelAnimationFrame(_rafId); _rafId = null; }
-  _staggerIds.forEach(clearTimeout); _staggerIds = [];
-  _cardEls.forEach(el => el.classList.remove('hiw-visible', 'hiw-active'));
-  _dotEls.forEach(d => d.classList.remove('hiw-dot-active'));
-  _dotsEl.style.display = ''; // let CSS decide (flex on mobile, none on desktop)
-  _cycleStart = null; _activeIdx = -1;
+  _clearTimers();
+  _showing    = true;
+  _cycleStart = null;
+  _activeIdx  = -1;
 
-  _cardEls.forEach((el, i) => {
-    _staggerIds.push(setTimeout(() => el.classList.add('hiw-visible'), i * STAGGER_MS));
+  _wrap.style.display   = '';
+  _rail.style.opacity   = '0';
+  _railFill.style.width = '0%';
+
+  // Reset visuals
+  _blockEls.forEach(el => el.classList.remove('hiw-visible', 'hiw-active'));
+  _pathEls.forEach(p => p.classList.remove('hiw-lead-active'));
+  _markEls.forEach(m => m.classList.remove('hiw-mark-vis', 'hiw-mark-active'));
+  _titleEls.forEach(t => (t.textContent = ''));
+  _cartouche.classList.remove('hiw-visible');
+
+  showBlueprintBackdrop();
+
+  // Position leader lines now (blocks already have their CSS-fixed positions).
+  _layoutLeaders(false);
+
+  // Stagger the callouts in, typewrite each title as it lands.
+  CARDS.forEach((c, i) => {
+    _staggerIds.push(setTimeout(() => {
+      _blockEls[i].classList.add('hiw-visible');
+      _type(_titleEls[i], c.title);
+    }, 220 + i * STAGGER_MS));
   });
-  _staggerIds.push(setTimeout(() => { _rail.style.opacity = '1'; }, CARDS.length * STAGGER_MS + 250));
-  _staggerIds.push(setTimeout(() => { _rafId = requestAnimationFrame(_tick); }, CARDS.length * STAGGER_MS + 380));
+
+  // Leader lines draw after the blocks are placed.
+  _staggerIds.push(setTimeout(_drawLeadersIn, 260));
+
+  // Cartouche + rail + cycling once everything has settled.
+  _staggerIds.push(setTimeout(() => _cartouche.classList.add('hiw-visible'),
+    260 + CARDS.length * STAGGER_MS));
+  _staggerIds.push(setTimeout(() => { _rail.style.opacity = '1'; }, 1400));
+  _staggerIds.push(setTimeout(() => { _rafId = requestAnimationFrame(_tick); }, 1500));
 }
 
 export function hideHowIWorkOverlay() {
+  _showing = false;
+  _clearTimers();
+
+  _blockEls.forEach(el => el.classList.remove('hiw-visible', 'hiw-active'));
+  _pathEls.forEach(p => p.classList.remove('hiw-lead-active'));
+  _markEls.forEach(m => m.classList.remove('hiw-mark-vis', 'hiw-mark-active'));
+  _cartouche.classList.remove('hiw-visible');
+  _rail.style.opacity   = '0';
+  _railFill.style.width = '0%';
+
+  hideBlueprintBackdrop();
+
+  setTimeout(() => { if (!_showing) _wrap.style.display = 'none'; }, 600);
+}
+
+function _clearTimers() {
   if (_rafId) { cancelAnimationFrame(_rafId); _rafId = null; }
   _staggerIds.forEach(clearTimeout); _staggerIds = [];
+  _typeIds.forEach(clearInterval);   _typeIds = [];
   _cycleStart = null;
-  [..._cardEls].reverse().forEach((el, i) => {
-    _staggerIds.push(setTimeout(() => el.classList.remove('hiw-visible', 'hiw-active'), i * 80));
-  });
-  _dotEls.forEach(d => d.classList.remove('hiw-dot-active'));
-  _dotsEl.style.display = 'none';
-  _rail.style.opacity = '0';
-  _railFill.style.width = '0%';
 }

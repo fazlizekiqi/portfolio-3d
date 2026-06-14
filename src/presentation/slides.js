@@ -88,17 +88,19 @@ export const SLIDES = [
         body: 'Click any card to open the project.',
     },
     {
-        // ── MINDSET: Medium wide + side-column card overlay ───────────────────
-        // NO phase-2 close-up. Desktop: two How-I-Work cards per side column,
-        // character fully visible in the middle. Mobile: compact 2×2 grid at
-        // the bottom — mobile camera frames the character above the grid.
-        // Duration extended so the 4-card stagger animation fully completes.
+        // ── MINDSET: Blueprint "patent diagram" — character is the subject ────
+        // A blueprint-grid backdrop fades in behind the character (WebGL pass in
+        // blueprint-backdrop.js). Four engineering-principle callout blocks sit in
+        // the corners with leader lines pointing AT the character, labels
+        // typewriting in (how-i-work-overlay.js). Camera is pulled back a touch
+        // so the corner callouts have breathing room and the body isn't oversized.
+        // Mobile: callouts stack top/bottom, character framed in the central band.
         name: 'mindset',
-        camPos:    new THREE.Vector3(0, 1.0, 6.2),
-        camTarget: new THREE.Vector3(0, 0.9, 0),
+        camPos:    new THREE.Vector3(0, 1.0, 7.2),
+        camTarget: new THREE.Vector3(0, 0.95, 0),
         mobileCamPos:    new THREE.Vector3(0, 2.0, 11.0),
         mobileCamTarget: new THREE.Vector3(0, 0.6, 0),
-        duration: 16000,
+        duration: 17000,
         camMoveDuration: 1400,
         easing: 'inOut',
         clip: 'idle',
