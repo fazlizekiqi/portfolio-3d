@@ -630,24 +630,41 @@ _style.textContent = `
 }
 
 @media (max-width: 640px) {
-  /* CTA mobile — form pinned to the bottom, character visible above */
+  /* CTA mobile — pinned to the bottom, character fills upper ~65% of screen */
   #_slide-body-panel.slide-cta {
-    top: auto;
-    bottom: 72px;
+    /* Override the desktop top:56px / bottom:0 */
+    top: unset !important;
+    bottom: 72px !important;
+    /* Let the panel be as tall as its content only */
+    height: auto;
+    /* Horizontal centering */
     justify-content: center;
-    align-items: flex-end;
-    padding-left: 0;
-    padding-right: 0;
+    /* No vertical alignment needed — panel height = content height */
+    align-items: stretch;
+    padding-left: 12px;
+    padding-right: 12px;
     pointer-events: auto;
   }
-  #_slide-body-panel.slide-cta #_sBodyInner { padding: 0 12px; width: 100%; max-width: 380px; }
-  ._cta-form-card { width: 100%; }
+  #_slide-body-panel.slide-cta #_sBodyInner {
+    width: 100%;
+    max-width: 400px;
+    padding: 0;
+    text-align: left;
+  }
+  ._cta-wrap        { gap: 8px; }
+  ._cta-form-card   { width: 100%; }
+  ._cta-form-hdr    { padding: 8px 12px; }
   ._cta-form-hdr-addr { display: none; }
-  ._cta-textarea { height: 56px; }
-  ._cta-links-row { gap: 6px; }
-  ._cta-pill { padding: 8px 10px; }
-  ._cta-pill-label { font-size: 8px; letter-spacing: .12em; }
-  ._cta-tagline { display: none; }
+  ._cta-form        { padding: 10px 12px; gap: 6px; }
+  ._cta-field-row   { gap: 6px; }
+  ._cta-input       { padding: 7px 9px; font-size: 8.5px; }
+  ._cta-textarea    { height: 52px; padding: 7px 9px; font-size: 8.5px; }
+  ._cta-form-footer { margin-top: 0; }
+  ._cta-send-btn    { padding: 7px 14px; }
+  ._cta-links-row   { gap: 6px; }
+  ._cta-pill        { padding: 8px 10px; }
+  ._cta-pill-label  { font-size: 8px; letter-spacing: .11em; }
+  ._cta-tagline     { display: none; }
   ._ab-val   { font-size: 22px; }
   ._about-stats-row { gap: 16px; }
   ._term-boot { font-size: 10px; }
