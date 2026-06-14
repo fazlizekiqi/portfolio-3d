@@ -17,6 +17,8 @@ export function initGuestbook(container) {
   const sendBtn   = container.querySelector('#_cta-send-btn');
   if (!form || !sendBtn) return;
 
+  const sendLabel = sendBtn.innerHTML; // preserve the styled "$ contact --send"
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
 
@@ -25,13 +27,13 @@ export function initGuestbook(container) {
     const msgVal   = (form.querySelector('#_cta-msg')?.value     ?? '').trim();
 
     if (!emailVal || !msgVal) {
-      _setStatus(statusEl, '✕ PLEASE FILL IN REQUIRED FIELDS', 'err');
+      _setStatus(statusEl, '✗ missing required fields · exit 1', 'err');
       return;
     }
 
     sendBtn.disabled    = true;
-    sendBtn.textContent = 'SENDING...';
-    _setStatus(statusEl, '', '');
+    sendBtn.textContent = '…running';
+    _setStatus(statusEl, '> sending...', '');
 
     const keysConfigured = CFG.EMAILJS_PUBLIC_KEY && CFG.EMAILJS_SERVICE_ID && CFG.EMAILJS_TEMPLATE_ID;
 
@@ -55,7 +57,7 @@ export function initGuestbook(container) {
 
       if (!res.ok) throw new Error('server');
 
-      _setStatus(statusEl, '✓ MESSAGE SENT — THANK YOU!', 'ok');
+      _setStatus(statusEl, '✓ message sent · exit 0', 'ok');
       form.reset();
       trackEvent('contact_form_submit', nameVal ? 'named' : 'anonymous');
 
@@ -67,13 +69,13 @@ export function initGuestbook(container) {
           `Name: ${nameVal || 'Anonymous'}\nEmail: ${emailVal}\n\n${msgVal}`
         );
         window.open(`mailto:fazlizekiqi1@hotmail.com?subject=${subject}&body=${body}`, '_blank');
-        _setStatus(statusEl, '✉ OPENING MAIL CLIENT...', 'ok');
+        _setStatus(statusEl, '✉ opening mail client...', 'ok');
       } else {
-        _setStatus(statusEl, '✕ SEND FAILED — PLEASE TRY AGAIN', 'err');
+        _setStatus(statusEl, '✗ send failed · exit 1', 'err');
       }
     } finally {
-      sendBtn.disabled    = false;
-      sendBtn.textContent = 'SEND →';
+      sendBtn.disabled  = false;
+      sendBtn.innerHTML = sendLabel;
     }
   });
 }

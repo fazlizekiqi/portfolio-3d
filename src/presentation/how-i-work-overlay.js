@@ -3,10 +3,10 @@
  *
  * The character standing centre-stage becomes the SUBJECT of an engineering
  * blueprint. Four engineering-principle callout blocks sit in the corners with
- * leader lines + reference crosshairs pointing AT the character, titles
- * typewriting in. A blueprint-grid backdrop (blueprint-backdrop.js, a WebGL
- * pass) fades in behind the character. A drawing-sheet cartouche reads
- * "FIG. 01 — THE ENGINEER · SHEET 1 OF 1".
+ * leader lines + reference crosshairs pointing AT the character, each card
+ * carrying its illustration and a title that typewrites in. A drawing-sheet
+ * cartouche reads "FIG. 01 — THE ENGINEER · SHEET 1 OF 1". The scene's normal
+ * blue-world gradient shows behind the character.
  *
  * Desktop — 4 corner callouts, leader lines converge on the character.
  * Mobile  — callouts stack top/bottom, leader lines hidden, character framed
@@ -18,23 +18,28 @@
  */
 
 import { audio } from '../audio.js';
-import { showBlueprintBackdrop, hideBlueprintBackdrop } from './blueprint-backdrop.js';
+
+const _base = import.meta.env.BASE_URL;
 
 // ── Principle data ──────────────────────────────────────────────────────────
 // pos = which corner the callout lives in; ref = patent-style reference letter.
 const CARDS = [
   { idx: '01', ref: 'A', pos: 'tl', title: 'Design First',
     caption: 'Scalable, reliable systems — by design, not by accident.',
-    tags: ['API CONTRACTS', 'FAIL FAST', 'SCALE BY DEFAULT'] },
+    tags: ['API CONTRACTS', 'FAIL FAST', 'SCALE BY DEFAULT'],
+    img: `${_base}how-i-work/1.png` },
   { idx: '02', ref: 'B', pos: 'tr', title: 'Clean Code',
     caption: 'Maintainable architecture that outlives the sprint.',
-    tags: ['SOLID', 'DRY', 'READABLE'] },
+    tags: ['SOLID', 'DRY', 'READABLE'],
+    img: `${_base}how-i-work/2.png` },
   { idx: '03', ref: 'C', pos: 'bl', title: 'Observe',
     caption: 'Measure everything, alert on what actually matters.',
-    tags: ['METRICS', 'TRACING', 'ALERTING'] },
+    tags: ['METRICS', 'TRACING', 'ALERTING'],
+    img: `${_base}how-i-work/3.png` },
   { idx: '04', ref: 'D', pos: 'br', title: 'Collaborate',
     caption: 'Async-first, feedback loops, shared ownership.',
-    tags: ['ASYNC-FIRST', 'FEEDBACK LOOPS', 'SHARED OWNERSHIP'] },
+    tags: ['ASYNC-FIRST', 'FEEDBACK LOOPS', 'SHARED OWNERSHIP'],
+    img: `${_base}how-i-work/4.png` },
 ];
 
 const FONT       = `'Share Tech Mono','Courier New',monospace`;
@@ -166,6 +171,45 @@ _style.textContent = `
   letter-spacing: .10em;
   color: rgba(120,180,210,0.40);
 }
+/* card picture banner */
+._hiw-blk-img {
+  position: relative;
+  height: 56px;
+  margin-bottom: 8px;
+  border-radius: 3px;
+  overflow: hidden;
+  border: 1px solid rgba(0,150,200,0.20);
+}
+._hiw-blk-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  filter: brightness(0.5) saturate(0.7) hue-rotate(-8deg);
+  transition: filter 0.4s ease, transform 0.6s ease;
+}
+._hiw-blk.hiw-active ._hiw-blk-img img {
+  filter: brightness(0.95) saturate(1.1);
+  transform: scale(1.04);
+}
+._hiw-blk-img-scan {
+  position: absolute;
+  left: 0; right: 0;
+  height: 2px;
+  top: 0;
+  background: linear-gradient(90deg, transparent, rgba(0,225,255,0.7), transparent);
+  opacity: 0;
+  pointer-events: none;
+}
+._hiw-blk.hiw-active ._hiw-blk-img-scan {
+  opacity: 1;
+  animation: _hiw-img-scan 2s linear infinite;
+}
+@keyframes _hiw-img-scan {
+  0%   { top: 0%; }
+  100% { top: 100%; }
+}
+
 ._hiw-blk-title {
   font-size: 13px;
   font-weight: 700;
@@ -278,6 +322,7 @@ _style.textContent = `
   ._hiw-blk-bl { bottom: 58px; left: 7px;  top: auto; transform: translateY(12px) scale(0.94); }
   ._hiw-blk-br { bottom: 58px; right: 7px; top: auto; transform: translateY(12px) scale(0.94); }
   ._hiw-blk.hiw-visible { transform: translateY(0) scale(1); }
+  ._hiw-blk-img   { height: 42px; margin-bottom: 6px; }
   ._hiw-blk-title { font-size: 11px; }
   ._hiw-blk-cap   { font-size: 8px; margin-bottom: 6px; }
   ._hiw-blk-tag   { font-size: 6.5px; padding: 1px 4px; }
@@ -345,6 +390,10 @@ const _blockEls = CARDS.map((c) => {
       <span class="_hiw-blk-idx">${c.idx}</span>
       <span class="_hiw-blk-ref">REF ${c.ref}</span>
       <span class="_hiw-blk-dim">1:1</span>
+    </div>
+    <div class="_hiw-blk-img">
+      <img src="${c.img}" alt="" loading="lazy" />
+      <span class="_hiw-blk-img-scan"></span>
     </div>
     <div class="_hiw-blk-title"></div>
     <div class="_hiw-blk-rule"></div>
@@ -511,8 +560,6 @@ export function showHowIWorkOverlay() {
   _titleEls.forEach(t => (t.textContent = ''));
   _cartouche.classList.remove('hiw-visible');
 
-  showBlueprintBackdrop();
-
   // Position leader lines now (blocks already have their CSS-fixed positions).
   _layoutLeaders(false);
 
@@ -544,8 +591,6 @@ export function hideHowIWorkOverlay() {
   _cartouche.classList.remove('hiw-visible');
   _rail.style.opacity   = '0';
   _railFill.style.width = '0%';
-
-  hideBlueprintBackdrop();
 
   setTimeout(() => { if (!_showing) _wrap.style.display = 'none'; }, 600);
 }

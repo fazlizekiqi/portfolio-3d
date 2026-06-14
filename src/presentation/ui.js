@@ -438,163 +438,164 @@ _style.textContent = `
   padding: 0;
 }
 
-/* ─── CTA connect cards ───────────────────────────────────────────────────── */
+/* ─── CTA — terminal / CLI session ────────────────────────────────────────── */
 ._cta-wrap {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
-/* ─── CTA form card ─────────────────────────────────────────────────────── */
-._cta-form-card {
-  width: 340px;
-  border: 1px solid rgba(0,150,200,0.28);
-  border-radius: 4px;
+
+/* terminal window */
+._cli {
+  width: 360px;
+  border: 1px solid rgba(0,150,200,0.30);
+  border-radius: 6px;
   overflow: hidden;
   font-family: 'Share Tech Mono', 'Courier New', monospace;
-  position: relative;
-  background-color: rgba(0,6,22,0.96);
-  background-image:
-    linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
-  background-size: 20px 20px;
+  background: rgba(0,5,16,0.96);
+  box-shadow: 0 14px 40px rgba(0,0,0,0.55), 0 0 0 1px rgba(0,40,70,0.4);
+  opacity: 0;
+  animation: _cta-in 0.55s ease forwards;
 }
-._cta-form-hdr {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
-  border-bottom: 1px solid rgba(0,150,200,0.18);
-  background: rgba(0,20,45,0.70);
-}
-._cta-form-hdr-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #00ccff;
-  box-shadow: 0 0 6px rgba(0,200,255,0.75);
-  flex-shrink: 0;
-  animation: _cta-dot-pulse 1.8s ease-in-out infinite;
-}
-@keyframes _cta-dot-pulse {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.35; }
-}
-._cta-form-hdr-label {
-  font-size: 9px;
-  letter-spacing: .18em;
-  color: rgba(0,200,255,0.72);
-  flex: 1;
-}
-._cta-form-hdr-addr {
-  font-size: 8px;
-  letter-spacing: .06em;
-  color: rgba(150,200,230,0.32);
-}
-._cta-form {
-  padding: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-._cta-field-row {
-  display: flex;
-  gap: 8px;
-}
-._cta-input,
-._cta-textarea {
-  width: 100%;
-  background: rgba(0,10,30,0.70);
-  border: 1px solid rgba(0,150,200,0.22);
-  border-radius: 3px;
-  color: #c8eaf5;
-  font-family: 'Share Tech Mono', 'Courier New', monospace;
-  font-size: 9px;
-  letter-spacing: .10em;
-  padding: 8px 10px;
-  outline: none;
-  resize: none;
-  transition: border-color .15s, background .15s;
-  box-sizing: border-box;
-}
-._cta-input:focus,
-._cta-textarea:focus {
-  border-color: rgba(0,200,255,0.55);
-  background: rgba(0,15,40,0.88);
-}
-._cta-input::placeholder,
-._cta-textarea::placeholder {
-  color: rgba(0,180,220,0.28);
-}
-._cta-textarea { line-height: 1.65; }
-._cta-form-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: 2px;
-}
-._cta-status {
-  font-size: 8px;
-  letter-spacing: .12em;
-  color: rgba(150,200,230,0.45);
-  flex: 1;
-  min-height: 14px;
-}
-._cta-status-ok  { color: #00ff99; }
-._cta-status-err { color: #ff6666; }
-._cta-send-btn {
-  background: rgba(0,10,30,0.80);
-  border: 1px solid rgba(0,150,200,0.42);
-  border-radius: 3px;
-  color: #2299bb;
-  font-family: 'Share Tech Mono', 'Courier New', monospace;
-  font-size: 9px;
-  letter-spacing: .18em;
-  padding: 8px 16px;
-  cursor: pointer;
-  transition: color .15s, border-color .15s, background .15s;
-  white-space: nowrap;
-}
-._cta-send-btn:hover {
-  color: #55eeff;
-  border-color: rgba(0,200,255,0.72);
-  background: rgba(0,20,50,0.95);
-}
-._cta-send-btn:disabled { opacity: .42; cursor: default; }
 
-/* ─── CTA social pills ─────────────────────────────────────────────────── */
-._cta-links-row {
-  display: flex;
-  gap: 8px;
-}
-._cta-pill {
+/* title bar with traffic-light dots */
+._cli-bar {
   display: flex;
   align-items: center;
   gap: 7px;
-  padding: 9px 14px;
+  padding: 8px 12px;
+  background: rgba(0,18,38,0.95);
+  border-bottom: 1px solid rgba(0,150,200,0.18);
+}
+._cli-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+._cli-dot-r { background: #ff5f56; }
+._cli-dot-y { background: #ffbd2e; }
+._cli-dot-g { background: #27c93f; }
+._cli-bar-title {
+  flex: 1;
+  text-align: center;
+  font-size: 9px;
+  letter-spacing: .10em;
+  color: rgba(150,200,230,0.60);
+}
+._cli-bar-status {
+  font-size: 8px;
+  letter-spacing: .10em;
+  color: #00ff99;
+}
+
+/* body */
+._cli-body {
+  padding: 12px 14px 14px;
+  font-size: 11px;
+  letter-spacing: .04em;
+  line-height: 1.7;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.014) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.014) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+._cli-line { color: #9fe6ff; }
+._cli-prompt { color: #00e5ff; font-weight: 700; }
+._cli-comment { color: rgba(120,180,210,0.40); font-size: 9px; margin-bottom: 6px; }
+
+._cli-form { display: flex; flex-direction: column; gap: 7px; margin-top: 6px; }
+._cli-field {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+._cli-field-msg { align-items: flex-start; }
+._cli-q {
+  flex-shrink: 0;
+  width: 74px;
+  font-size: 10px;
+  letter-spacing: .06em;
+  color: rgba(0,190,235,0.70);
+}
+._cli-q em { color: #ff6666; font-style: normal; }
+._cli-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(0,150,200,0.25);
+  color: #d6f3ff;
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  font-size: 10px;
+  letter-spacing: .04em;
+  padding: 3px 2px;
+  outline: none;
+  resize: none;
+  caret-color: #00e5ff;
+  transition: border-color .15s, background .15s;
+}
+._cli-textarea { line-height: 1.55; min-height: 46px; }
+._cli-input:focus { border-bottom-color: rgba(0,210,255,0.75); background: rgba(0,20,45,0.35); }
+._cli-input::placeholder { color: rgba(0,180,220,0.22); }
+
+._cli-exec {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+._cli-run {
+  background: rgba(0,15,38,0.85);
+  border: 1px solid rgba(0,180,230,0.45);
+  border-radius: 3px;
+  color: #9fe6ff;
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  font-size: 10px;
+  letter-spacing: .06em;
+  padding: 6px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color .15s, border-color .15s, background .15s, box-shadow .15s;
+}
+._cli-run:hover {
+  color: #d9faff;
+  border-color: rgba(0,220,255,0.80);
+  background: rgba(0,28,58,0.95);
+  box-shadow: 0 0 16px rgba(0,180,255,0.30);
+}
+._cli-run:disabled { opacity: .45; cursor: default; }
+._cli-run ._cli-prompt { margin-right: 3px; }
+
+._cta-status {
+  font-size: 9px;
+  letter-spacing: .06em;
+  color: rgba(150,200,230,0.50);
+  min-height: 13px;
+}
+._cta-status-ok  { color: #00ff99; }
+._cta-status-err { color: #ff6666; }
+
+/* ─── CTA links as shell commands ────────────────────────────────────────── */
+._cli-links {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+._cli-cmd {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   text-decoration: none;
   font-family: 'Share Tech Mono', 'Courier New', monospace;
-  background: rgba(0,6,22,0.88);
+  font-size: 10px;
+  letter-spacing: .05em;
+  color: #8fd4ef;
+  padding: 4px 8px;
+  border: 1px solid transparent;
   border-radius: 3px;
-  transition: transform .18s, box-shadow .18s, border-color .18s;
-  flex: 1;
-  justify-content: center;
+  width: fit-content;
+  transition: color .15s, border-color .15s, background .15s, transform .12s;
 }
-._cta-pill:hover { transform: translateY(-2px); }
-._cta-p-linkedin { border: 1px solid rgba(50,180,255,0.32); }
-._cta-p-linkedin:hover { box-shadow: 0 4px 16px rgba(50,180,255,0.18); border-color: rgba(50,180,255,0.60); }
-._cta-p-github   { border: 1px solid rgba(180,130,255,0.32); }
-._cta-p-github:hover   { box-shadow: 0 4px 16px rgba(180,130,255,0.18); border-color: rgba(180,130,255,0.60); }
-._cta-p-cv       { border: 1px solid rgba(255,210,0,0.32); }
-._cta-p-cv:hover       { box-shadow: 0 4px 16px rgba(255,210,0,0.18); border-color: rgba(255,210,0,0.60); }
-._cta-pill-icon  { font-size: 13px; flex-shrink: 0; }
-._cta-p-linkedin ._cta-pill-icon { color: #4db8ff; }
-._cta-p-github   ._cta-pill-icon { color: #cc99ff; }
-._cta-p-cv       ._cta-pill-icon { color: #ffd000; }
-._cta-pill-label { font-size: 9px; letter-spacing: .16em; }
-._cta-p-linkedin ._cta-pill-label { color: #4db8ff; }
-._cta-p-github   ._cta-pill-label { color: #cc99ff; }
-._cta-p-cv       ._cta-pill-label { color: #ffd000; }
+._cli-cmd:hover { transform: translateX(3px); background: rgba(0,20,45,0.55); }
+._cli-p-linkedin:hover { color: #4db8ff; border-color: rgba(50,180,255,0.45); }
+._cli-p-github:hover   { color: #cc99ff; border-color: rgba(180,130,255,0.45); }
+._cli-p-cv:hover       { color: #ffd000; border-color: rgba(255,210,0,0.45); }
 
 /* ─── Skip intro button ────────────────────────────────────────────────────── */
 #_skip-btn {
@@ -655,18 +656,15 @@ _style.textContent = `
     text-align: left;
   }
   ._cta-wrap        { gap: 8px; }
-  ._cta-form-card   { width: 100%; }
-  ._cta-form-hdr    { padding: 8px 12px; }
-  ._cta-form-hdr-addr { display: none; }
-  ._cta-form        { padding: 10px 12px; gap: 6px; }
-  ._cta-field-row   { gap: 6px; }
-  ._cta-input       { padding: 7px 9px; font-size: 8.5px; }
-  ._cta-textarea    { height: 52px; padding: 7px 9px; font-size: 8.5px; }
-  ._cta-form-footer { margin-top: 0; }
-  ._cta-send-btn    { padding: 7px 14px; }
-  ._cta-links-row   { gap: 6px; }
-  ._cta-pill        { padding: 8px 10px; }
-  ._cta-pill-label  { font-size: 8px; letter-spacing: .11em; }
+  ._cli             { width: 100%; }
+  ._cli-bar         { padding: 7px 10px; }
+  ._cli-bar-title   { font-size: 8px; }
+  ._cli-body        { padding: 10px 12px 12px; font-size: 10px; }
+  ._cli-q           { width: 64px; font-size: 9px; }
+  ._cli-input       { font-size: 9.5px; }
+  ._cli-textarea    { min-height: 42px; }
+  ._cli-run         { padding: 6px 11px; font-size: 9.5px; }
+  ._cli-cmd         { font-size: 9.5px; }
   ._cta-tagline     { display: none; }
   ._ab-val   { font-size: 22px; }
   ._about-stats-row { gap: 16px; }

@@ -5,7 +5,6 @@ import { tickExplode, getExplodeGroup, introScene } from './character/explode.js
 import { tickPlayer } from './character/player.js';
 import { tickPresentation, initCameraState, goToSlide, startPresentation } from './presentation/presentation.js';
 import { initBlueWorld, tickBlueWorld, tickLightsForWorld } from './world/blueworld.js';
-import { tickBlueprintBackdrop } from './presentation/blueprint-backdrop.js';
 import { tickWhiteWorld, setWhiteWorldCharacterRef, showWaypointButtons, hideWaypointButtons, loadEnvironment } from './world/whiteworld.js';
 import { isTornadoCameraActive } from './world/tornado-travel.js';
 import { tickTransition, isWhiteWorld, isTransitioning, getProgress } from './transition.js';
@@ -176,9 +175,6 @@ function _startApp() {
       renderer.clearDepth();
     } else {
       tickBlueWorld(renderer, delta, elapsed);
-      // Blueprint grid backdrop for the How I Work slide — renders over the
-      // gradient but behind the character. No-op when not active.
-      tickBlueprintBackdrop(renderer, elapsed);
     }
 
     // 2. White world tick

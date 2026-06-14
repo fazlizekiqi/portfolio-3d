@@ -89,11 +89,11 @@ export const SLIDES = [
     },
     {
         // ── MINDSET: Blueprint "patent diagram" — character is the subject ────
-        // A blueprint-grid backdrop fades in behind the character (WebGL pass in
-        // blueprint-backdrop.js). Four engineering-principle callout blocks sit in
-        // the corners with leader lines pointing AT the character, labels
-        // typewriting in (how-i-work-overlay.js). Camera is pulled back a touch
-        // so the corner callouts have breathing room and the body isn't oversized.
+        // Four engineering-principle callout blocks (each with its illustration)
+        // sit in the corners with leader lines pointing AT the character, labels
+        // typewriting in (how-i-work-overlay.js). The normal blue-world gradient
+        // shows behind. Camera is pulled back a touch so the corner callouts have
+        // breathing room and the body isn't oversized.
         // Mobile: callouts stack top/bottom, character framed in the central band.
         name: 'mindset',
         camPos:    new THREE.Vector3(0, 1.0, 7.2),
@@ -115,7 +115,7 @@ export const SLIDES = [
         // ── EXPERIENCE: Cinematic news-anchor side angle ───────────────────────
         name: 'experience',
         anchor: {dist: 4.95, camOffsetX: 1.6, camY: 0.85, targetOffsetX: -0.55, targetY: 1},
-        mobileAnchor: {dist: 9.5, camOffsetX: -1.5, camY: 0.9, targetOffsetX: 0.4, targetY: 1.0},
+        mobileAnchor: {dist: 9.5, camOffsetX: 0.4, camY: 0.9, targetOffsetX: -0.9, targetY: 1.0},
         duration: 12000,
         camMoveDuration: 2200,
         easing: 'out',

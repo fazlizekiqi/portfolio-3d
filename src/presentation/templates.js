@@ -118,45 +118,50 @@ export function buildAboutHTML() {
 export function buildCtaHTML() {
   return `<div class="_cta-wrap">
 
-    <!-- ── Inline contact form ─────────────────────────────────────────── -->
-    <div class="_cta-form-card" style="animation:_cta-in 0.55s ease forwards;opacity:0">
-      <div class="_cta-form-hdr">
-        <span class="_cta-form-hdr-dot"></span>
-        <span class="_cta-form-hdr-label">SEND ME A MESSAGE</span>
-        <span class="_cta-form-hdr-addr">fazlizekiqi1@hotmail.com</span>
+    <!-- ── Terminal contact session ──────────────────────────────────────── -->
+    <div class="_cli">
+      <div class="_cli-bar">
+        <span class="_cli-dot _cli-dot-r"></span>
+        <span class="_cli-dot _cli-dot-y"></span>
+        <span class="_cli-dot _cli-dot-g"></span>
+        <span class="_cli-bar-title">fazli@portfolio: ~/contact</span>
+        <span class="_cli-bar-status">● connected</span>
       </div>
-      <form class="_cta-form" id="_cta-form" novalidate>
-        <div class="_cta-field-row">
-          <input  type="text"  class="_cta-input" id="_cta-name"  placeholder="YOUR NAME"    maxlength="60"  autocomplete="name" />
-          <input  type="email" class="_cta-input" id="_cta-replyto" placeholder="YOUR EMAIL *" maxlength="100" autocomplete="email" required />
-        </div>
-        <textarea class="_cta-textarea" id="_cta-msg" placeholder="YOUR MESSAGE *" maxlength="1000" rows="4" required></textarea>
-        <div class="_cta-form-footer">
-          <span class="_cta-status" id="_cta-status"></span>
-          <button type="submit" class="_cta-send-btn" id="_cta-send-btn">SEND →</button>
-        </div>
-      </form>
+      <div class="_cli-body">
+        <div class="_cli-line"><span class="_cli-prompt">$</span> contact --init</div>
+        <div class="_cli-comment"># fields marked * are required</div>
+        <form class="_cli-form" id="_cta-form" novalidate>
+          <label class="_cli-field">
+            <span class="_cli-q">name?</span>
+            <input type="text" class="_cli-input" id="_cta-name" placeholder="_" maxlength="60" autocomplete="name" />
+          </label>
+          <label class="_cli-field">
+            <span class="_cli-q">email? <em>*</em></span>
+            <input type="email" class="_cli-input" id="_cta-replyto" placeholder="_" maxlength="100" autocomplete="email" required />
+          </label>
+          <label class="_cli-field _cli-field-msg">
+            <span class="_cli-q">message? <em>*</em></span>
+            <textarea class="_cli-input _cli-textarea" id="_cta-msg" placeholder="_" maxlength="1000" rows="3" required></textarea>
+          </label>
+          <div class="_cli-exec">
+            <button type="submit" class="_cli-run" id="_cta-send-btn"><span class="_cli-prompt">$</span>contact --send</button>
+            <span class="_cta-status" id="_cta-status"></span>
+          </div>
+        </form>
+      </div>
     </div>
 
-    <!-- ── Social / external links row ───────────────────────────────────── -->
-    <div class="_cta-links-row">
-      <a class="_cta-pill _cta-p-linkedin" href="https://linkedin.com/in/fazli-zekiqi" target="_blank" rel="noopener"
-         style="animation:_cta-in 0.45s ease 0.35s forwards;opacity:0">
-        <span class="_cta-pill-icon" style="font-weight:900;font-size:13px;letter-spacing:0">in</span>
-        <span class="_cta-pill-label">LINKEDIN</span>
+    <!-- ── Links as shell commands ───────────────────────────────────────── -->
+    <div class="_cli-links">
+      <a class="_cli-cmd _cli-p-linkedin" href="https://linkedin.com/in/fazli-zekiqi" target="_blank" rel="noopener">
+        <span class="_cli-prompt">$</span> open linkedin
       </a>
-      <a class="_cta-pill _cta-p-github" href="https://github.com/fazlizekiqi" target="_blank" rel="noopener"
-         style="animation:_cta-in 0.45s ease 0.50s forwards;opacity:0">
-        <span class="_cta-pill-icon" style="font-size:16px">⌥</span>
-        <span class="_cta-pill-label">GITHUB</span>
+      <a class="_cli-cmd _cli-p-github" href="https://github.com/fazlizekiqi" target="_blank" rel="noopener">
+        <span class="_cli-prompt">$</span> open github
       </a>
-      <a class="_cta-pill _cta-p-cv" href="${_base}/cv.pdf" download="Fazli_Zekiqi_CV.pdf"
-         style="animation:_cta-in 0.45s ease 0.65s forwards;opacity:0">
-        <span class="_cta-pill-icon">↓</span>
-        <span class="_cta-pill-label">RÉSUMÉ</span>
+      <a class="_cli-cmd _cli-p-cv" href="${_base}/cv.pdf" download="Fazli_Zekiqi_CV.pdf">
+        <span class="_cli-prompt">$</span> cat resume.pdf
       </a>
     </div>
-
-    <div class="_cta-tagline">// OPEN TO OPPORTUNITIES &amp; COLLABORATIONS</div>
   </div>`;
 }
