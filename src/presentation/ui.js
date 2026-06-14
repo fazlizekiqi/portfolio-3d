@@ -437,131 +437,157 @@ _style.textContent = `
   flex-direction: column;
   gap: 10px;
 }
-._cta-link {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  width: 270px;
-  padding: 14px 16px 12px;
-  text-decoration: none;
-  font-family: 'Share Tech Mono', 'Courier New', monospace;
-  background: rgba(0,6,22,0.96);
+/* ─── CTA form card ─────────────────────────────────────────────────────── */
+._cta-form-card {
+  width: 340px;
+  border: 1px solid rgba(0,150,200,0.28);
   border-radius: 4px;
   overflow: hidden;
-  opacity: 0;
-  animation: _cta-in 0.5s ease forwards;
-  transition: transform .18s, box-shadow .18s;
-  cursor: pointer;
-}
-/* Blueprint grid texture */
-._cta-link::before {
-  content: '';
-  position: absolute;
-  inset: 0;
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  position: relative;
+  background-color: rgba(0,6,22,0.96);
   background-image:
-    linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
-  background-size: 18px 18px;
-  pointer-events: none;
+    linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
+  background-size: 20px 20px;
 }
-._cta-link:hover  { transform: translateY(-3px); }
-._cta-link:active { transform: translateY(0); }
-
-/* ── per-service accent borders & glows ── */
-._cta-email   { border: 1px solid rgba(0,255,160,0.35);  }
-._cta-linkedin { border: 1px solid rgba(50,180,255,0.35); }
-._cta-github  { border: 1px solid rgba(180,130,255,0.35); }
-._cta-email:hover   { box-shadow: 0 4px 24px rgba(0,255,160,0.18),  0 0 0 1px rgba(0,255,160,0.25); }
-._cta-linkedin:hover { box-shadow: 0 4px 24px rgba(50,180,255,0.18), 0 0 0 1px rgba(50,180,255,0.25); }
-._cta-github:hover  { box-shadow: 0 4px 24px rgba(180,130,255,0.18),0 0 0 1px rgba(180,130,255,0.25); }
-
-/* ── top accent bar ── */
-._cta-link::after {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 2px;
-}
-._cta-email::after   { background: linear-gradient(90deg, transparent, rgba(0,255,160,0.70),  transparent); }
-._cta-linkedin::after { background: linear-gradient(90deg, transparent, rgba(50,180,255,0.70), transparent); }
-._cta-github::after  { background: linear-gradient(90deg, transparent, rgba(180,130,255,0.70),transparent); }
-
-/* ── icon + name row ── */
-._cta-service-row {
+._cta-form-hdr {
   display: flex;
   align-items: center;
-  gap: 11px;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(0,150,200,0.18);
+  background: rgba(0,20,45,0.70);
 }
-._cta-icon {
-  width: 34px; height: 34px;
-  border-radius: 6px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 16px;
+._cta-form-hdr-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #00ccff;
+  box-shadow: 0 0 6px rgba(0,200,255,0.75);
   flex-shrink: 0;
-  transition: filter .2s;
+  animation: _cta-dot-pulse 1.8s ease-in-out infinite;
 }
-._cta-email   ._cta-icon { background: rgba(0,255,160,0.10); color: #00ff99; border: 1px solid rgba(0,255,160,0.30); }
-._cta-linkedin ._cta-icon { background: rgba(50,180,255,0.10); color: #4db8ff; border: 1px solid rgba(50,180,255,0.30); }
-._cta-github  ._cta-icon { background: rgba(180,130,255,0.10); color: #cc99ff; border: 1px solid rgba(180,130,255,0.30); }
-._cta-link:hover ._cta-icon { filter: brightness(1.3); }
-
-._cta-service-info { display: flex; flex-direction: column; gap: 2px; }
-._cta-service-name {
-  font-size: 13px;
-  letter-spacing: .12em;
-  line-height: 1;
+@keyframes _cta-dot-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.35; }
 }
-._cta-email   ._cta-service-name { color: #00ff99; text-shadow: 0 0 12px rgba(0,255,160,0.45); }
-._cta-linkedin ._cta-service-name { color: #4db8ff; text-shadow: 0 0 12px rgba(50,180,255,0.45); }
-._cta-github  ._cta-service-name { color: #cc99ff; text-shadow: 0 0 12px rgba(180,130,255,0.45); }
-
-._cta-service-desc {
+._cta-form-hdr-label {
+  font-size: 9px;
+  letter-spacing: .18em;
+  color: rgba(0,200,255,0.72);
+  flex: 1;
+}
+._cta-form-hdr-addr {
   font-size: 8px;
-  color: rgba(180,210,230,0.40);
-  letter-spacing: .12em;
+  letter-spacing: .06em;
+  color: rgba(150,200,230,0.32);
 }
-
-/* ── contact value ── */
-._cta-value {
-  font-size: 11px;
-  color: #c8e8ff;
-  letter-spacing: .04em;
-  padding-left: 45px;
-  transition: color .18s;
+._cta-form {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
-._cta-link:hover ._cta-value { color: #ffffff; }
-
-/* ── connect button ── */
-._cta-connect {
+._cta-field-row {
+  display: flex;
+  gap: 8px;
+}
+._cta-input,
+._cta-textarea {
+  width: 100%;
+  background: rgba(0,10,30,0.70);
+  border: 1px solid rgba(0,150,200,0.22);
+  border-radius: 3px;
+  color: #c8eaf5;
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  font-size: 9px;
+  letter-spacing: .10em;
+  padding: 8px 10px;
+  outline: none;
+  resize: none;
+  transition: border-color .15s, background .15s;
+  box-sizing: border-box;
+}
+._cta-input:focus,
+._cta-textarea:focus {
+  border-color: rgba(0,200,255,0.55);
+  background: rgba(0,15,40,0.88);
+}
+._cta-input::placeholder,
+._cta-textarea::placeholder {
+  color: rgba(0,180,220,0.28);
+}
+._cta-textarea { line-height: 1.65; }
+._cta-form-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 4px;
-  padding-top: 8px;
-  border-top: 1px solid rgba(255,255,255,0.07);
-  font-size: 9px;
-  letter-spacing: .16em;
-  transition: color .18s, letter-spacing .18s;
+  gap: 8px;
+  margin-top: 2px;
 }
-._cta-email   ._cta-connect { color: rgba(0,255,160,0.50); }
-._cta-linkedin ._cta-connect { color: rgba(50,180,255,0.50); }
-._cta-github  ._cta-connect { color: rgba(180,130,255,0.50); }
-._cta-email:hover   ._cta-connect { color: #00ff99; letter-spacing: .20em; }
-._cta-linkedin:hover ._cta-connect { color: #4db8ff; letter-spacing: .20em; }
-._cta-github:hover  ._cta-connect { color: #cc99ff; letter-spacing: .20em; }
-._cta-connect-arrow { font-size: 13px; transition: transform .18s; }
-._cta-link:hover ._cta-connect-arrow { transform: translateX(4px); }
+._cta-status {
+  font-size: 8px;
+  letter-spacing: .12em;
+  color: rgba(150,200,230,0.45);
+  flex: 1;
+  min-height: 14px;
+}
+._cta-status-ok  { color: #00ff99; }
+._cta-status-err { color: #ff6666; }
+._cta-send-btn {
+  background: rgba(0,10,30,0.80);
+  border: 1px solid rgba(0,150,200,0.42);
+  border-radius: 3px;
+  color: #2299bb;
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  font-size: 9px;
+  letter-spacing: .18em;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: color .15s, border-color .15s, background .15s;
+  white-space: nowrap;
+}
+._cta-send-btn:hover {
+  color: #55eeff;
+  border-color: rgba(0,200,255,0.72);
+  background: rgba(0,20,50,0.95);
+}
+._cta-send-btn:disabled { opacity: .42; cursor: default; }
 
-/* ── CV download card ── */
-._cta-cv { border: 1px solid rgba(255,210,0,0.35); }
-._cta-cv:hover { box-shadow: 0 4px 24px rgba(255,210,0,0.18), 0 0 0 1px rgba(255,210,0,0.25); }
-._cta-cv::after { background: linear-gradient(90deg, transparent, rgba(255,210,0,0.70), transparent); }
-._cta-cv ._cta-icon { background: rgba(255,210,0,0.10); color: #ffd000; border: 1px solid rgba(255,210,0,0.30); }
-._cta-cv ._cta-service-name { color: #ffd000; text-shadow: 0 0 12px rgba(255,210,0,0.45); }
-._cta-cv ._cta-connect { color: rgba(255,210,0,0.50); }
-._cta-cv:hover ._cta-connect { color: #ffd000; letter-spacing: .20em; }
-._cta-cv:hover ._cta-icon { filter: brightness(1.3); }
+/* ─── CTA social pills ─────────────────────────────────────────────────── */
+._cta-links-row {
+  display: flex;
+  gap: 8px;
+}
+._cta-pill {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 14px;
+  text-decoration: none;
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  background: rgba(0,6,22,0.88);
+  border-radius: 3px;
+  transition: transform .18s, box-shadow .18s, border-color .18s;
+  flex: 1;
+  justify-content: center;
+}
+._cta-pill:hover { transform: translateY(-2px); }
+._cta-p-linkedin { border: 1px solid rgba(50,180,255,0.32); }
+._cta-p-linkedin:hover { box-shadow: 0 4px 16px rgba(50,180,255,0.18); border-color: rgba(50,180,255,0.60); }
+._cta-p-github   { border: 1px solid rgba(180,130,255,0.32); }
+._cta-p-github:hover   { box-shadow: 0 4px 16px rgba(180,130,255,0.18); border-color: rgba(180,130,255,0.60); }
+._cta-p-cv       { border: 1px solid rgba(255,210,0,0.32); }
+._cta-p-cv:hover       { box-shadow: 0 4px 16px rgba(255,210,0,0.18); border-color: rgba(255,210,0,0.60); }
+._cta-pill-icon  { font-size: 13px; flex-shrink: 0; }
+._cta-p-linkedin ._cta-pill-icon { color: #4db8ff; }
+._cta-p-github   ._cta-pill-icon { color: #cc99ff; }
+._cta-p-cv       ._cta-pill-icon { color: #ffd000; }
+._cta-pill-label { font-size: 9px; letter-spacing: .16em; }
+._cta-p-linkedin ._cta-pill-label { color: #4db8ff; }
+._cta-p-github   ._cta-pill-label { color: #cc99ff; }
+._cta-p-cv       ._cta-pill-label { color: #ffd000; }
 
 /* ─── Skip intro button ────────────────────────────────────────────────────── */
 #_skip-btn {
@@ -604,44 +630,22 @@ _style.textContent = `
 }
 
 @media (max-width: 640px) {
-  /* CTA mobile — full-width stacked links anchored above the UI bar,
-     generous touch targets (≥ 48px tall) with breathing room between */
+  /* CTA mobile — form above nav bar, full-width */
   #_slide-body-panel.slide-cta {
-    top: auto;
-    bottom: 88px;
-    justify-content: center;
-    align-items: flex-end;
-    padding-left: 0;
-  }
-  /* ── CTA mobile: compact cards stacked above the nav bar ── */
-  #_slide-body-panel.slide-cta {
-    top: auto;
+    top: 56px;
     bottom: 72px;
     justify-content: center;
     align-items: center;
     padding-left: 0;
     padding-right: 0;
+    overflow-y: auto;
   }
-  #_slide-body-panel.slide-cta #_sBodyInner { padding: 0 12px; width: 100%; max-width: 320px; }
-  ._cta-wrap { gap: 7px; width: 100%; }
-  ._cta-link {
-    width: 100%;
-    /* Compact single row on mobile */
-    display: grid;
-    grid-template-columns: 36px 1fr auto;
-    grid-template-rows: auto;
-    align-items: center;
-    gap: 0 10px;
-    padding: 10px 12px;
-    flex-direction: unset;
-  }
-  ._cta-service-row { grid-column: 2; grid-row: 1; margin: 0; }
-  ._cta-icon { width: 28px; height: 28px; font-size: 13px; grid-column: 1; grid-row: 1 / 3; align-self: center; }
-  ._cta-service-name { font-size: 11px; }
-  ._cta-service-desc { display: none; }
-  ._cta-value { grid-column: 2; grid-row: 2; padding-left: 0; font-size: 9px; color: rgba(200,230,255,0.55); margin-bottom: 0; }
-  ._cta-connect { grid-column: 3; grid-row: 1 / 3; border: none; padding: 0; font-size: 11px; margin: 0; }
-  ._cta-connect-arrow { display: block; }
+  #_slide-body-panel.slide-cta #_sBodyInner { padding: 0 12px; width: 100%; max-width: 360px; }
+  ._cta-form-card { width: 100%; }
+  ._cta-form-hdr-addr { display: none; }
+  ._cta-links-row { gap: 6px; }
+  ._cta-pill { padding: 8px 10px; }
+  ._cta-pill-label { font-size: 8px; letter-spacing: .12em; }
   ._cta-tagline { display: none; }
   ._ab-val   { font-size: 22px; }
   ._about-stats-row { gap: 16px; }
@@ -664,66 +668,6 @@ _style.textContent = `
   #_slide-body-panel.slide-about ._about-stats-row { justify-content: center; }
   #_slide-body-panel.slide-about ._ab-bio      { text-align: center; }
 }
-
-/* ─── guestbook form ─────────────────────────────────────────────────────── */
-._guestbook {
-  margin-top: 10px;
-  font-family: 'Share Tech Mono', 'Courier New', monospace;
-}
-._gb-toggle {
-  background: none;
-  border: none;
-  color: rgba(0,180,220,0.45);
-  font-family: inherit;
-  font-size: 9px;
-  letter-spacing: .16em;
-  cursor: pointer;
-  padding: 4px 0;
-  transition: color .15s;
-}
-._gb-toggle:hover { color: #55eeff; }
-._gb-form {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 8px;
-  width: 270px;
-}
-._gb-name,
-._gb-msg {
-  background: rgba(0,6,22,0.90);
-  border: 1px solid rgba(0,150,200,0.30);
-  border-radius: 3px;
-  color: #c8eaf5;
-  font-family: inherit;
-  font-size: 9px;
-  letter-spacing: .10em;
-  padding: 8px 10px;
-  resize: none;
-  outline: none;
-  transition: border-color .15s;
-}
-._gb-name:focus,
-._gb-msg:focus { border-color: rgba(0,200,255,0.65); }
-._gb-msg { line-height: 1.6; }
-._gb-submit {
-  align-self: flex-start;
-  background: rgba(0,6,22,0.90);
-  border: 1px solid rgba(0,150,200,0.40);
-  border-radius: 3px;
-  color: #2299bb;
-  font-family: inherit;
-  font-size: 9px;
-  letter-spacing: .18em;
-  padding: 7px 14px;
-  cursor: pointer;
-  transition: color .15s, border-color .15s;
-}
-._gb-submit:hover  { color: #55eeff; border-color: rgba(0,200,255,0.75); }
-._gb-submit:disabled { opacity: .45; cursor: default; }
-._gb-status { font-size: 8px; letter-spacing: .14em; min-height: 14px; margin-top: 2px; }
-._gb-status-ok  { color: #00ff99; }
-._gb-status-err { color: #ff6666; }
 
 /* ─── audio mute button ───────────────────────────────────────────────────── */
 #_audio-btn {
