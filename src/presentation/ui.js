@@ -630,19 +630,20 @@ _style.textContent = `
 }
 
 @media (max-width: 640px) {
-  /* CTA mobile — form above nav bar, full-width */
+  /* CTA mobile — form pinned to the bottom, character visible above */
   #_slide-body-panel.slide-cta {
-    top: 56px;
+    top: auto;
     bottom: 72px;
     justify-content: center;
-    align-items: center;
+    align-items: flex-end;
     padding-left: 0;
     padding-right: 0;
-    overflow-y: auto;
+    pointer-events: auto;
   }
-  #_slide-body-panel.slide-cta #_sBodyInner { padding: 0 12px; width: 100%; max-width: 360px; }
+  #_slide-body-panel.slide-cta #_sBodyInner { padding: 0 12px; width: 100%; max-width: 380px; }
   ._cta-form-card { width: 100%; }
   ._cta-form-hdr-addr { display: none; }
+  ._cta-textarea { height: 56px; }
   ._cta-links-row { gap: 6px; }
   ._cta-pill { padding: 8px 10px; }
   ._cta-pill-label { font-size: 8px; letter-spacing: .12em; }

@@ -305,11 +305,12 @@ _style.textContent = `
 
 /* ── Mobile ──────────────────────────────────────────────────────────────── */
 @media (max-width: 640px) {
-  #_hiw-wrap { align-items: flex-end; padding: 0 10px 60px; }
+  /* Cards anchored to the bottom — character visible in upper ~70% of screen */
+  #_hiw-wrap { align-items: flex-end; padding: 0 8px 68px; }
   #_hiw-row {
     grid-template-columns: 1fr 1fr;
     grid-template-rows: auto auto;
-    gap: 10px;
+    gap: 6px;
     align-items: end;
     max-width: none;
   }
@@ -317,14 +318,18 @@ _style.textContent = `
   ._hiw-card:nth-child(2) { grid-column: 2; grid-row: 1; }
   ._hiw-card:nth-child(3) { grid-column: 1; grid-row: 2; }
   ._hiw-card:nth-child(4) { grid-column: 2; grid-row: 2; }
-  /* on mobile all cards rise from the bottom */
-  ._hiw-card:nth-child(-n+2), ._hiw-card:nth-child(n+3) { transform: translateY(32px); }
+  ._hiw-card:nth-child(-n+2), ._hiw-card:nth-child(n+3) { transform: translateY(24px); }
   ._hiw-card.hiw-visible { transform: translateY(0); }
-  ._hiw-img-wrap { aspect-ratio: 21 / 9; }
-  ._hiw-title   { font-size: 9px; }
-  ._hiw-caption { font-size: 8px; }
-  ._hiw-footer  { padding: 7px 9px 8px; }
-  ._hiw-tag     { font-size: 6.5px; }
+  /* Hide images + badges to keep cards compact (~65px tall) */
+  ._hiw-img-wrap { display: none; }
+  ._hiw-num      { display: none; }
+  ._hiw-pulse    { display: none; }
+  ._hiw-caption  { display: none; }
+  ._hiw-footer   { padding: 9px 10px 9px; }
+  ._hiw-title    { font-size: 10px; letter-spacing: .10em; }
+  ._hiw-rule     { margin: 4px 0; }
+  ._hiw-tags     { gap: 3px; margin-top: 4px; }
+  ._hiw-tag      { font-size: 6px; padding: 2px 4px; }
 }
 `;
 document.head.appendChild(_style);
