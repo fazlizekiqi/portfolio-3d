@@ -120,7 +120,7 @@ export const SLIDES = [
         camMoveDuration: 2200,
         easing: 'out',
         clip: 'idle',
-        clips: ['idle'],
+        clips: ['idle', 'idle'],
         clipLoop: false,
         drift: {x: 0.028, y: 0.006, xf: 0.09, yf: 0.13, z: 0.055, zf: 0.07},
         title: 'Experience',

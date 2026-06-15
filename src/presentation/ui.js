@@ -1056,14 +1056,12 @@ function _startExperienceTimeline() {
 // ── UI mode helpers ───────────────────────────────────────────────────────────
 export function showIdleUI() {
   backBtn.style.display    = 'none';
-  skipBtn.style.display    = 'none';
   exploreBtn.style.display = 'inline-flex';
   presentBtn.style.display = 'inline-flex';
 }
 
 export function showPresentingUI() {
   backBtn.style.display    = 'none';
-  skipBtn.style.display    = 'inline-block';
   exploreBtn.style.display = 'inline-flex';
   presentBtn.style.display = 'inline-flex';
   _setPresentExit();
@@ -1071,7 +1069,6 @@ export function showPresentingUI() {
 }
 
 export function showExploreUI() {
-  skipBtn.style.display    = 'none';
   presentBtn.style.display = 'none';
   exploreBtn.style.display = 'none';
   prevBtn.style.display    = 'none';
@@ -1080,7 +1077,6 @@ export function showExploreUI() {
 }
 
 export function showWhiteWorldUI() {
-  skipBtn.style.display    = 'none';
   presentBtn.style.display = 'none';
   exploreBtn.style.display = 'none';
   prevBtn.style.display    = 'none';
