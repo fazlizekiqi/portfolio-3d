@@ -24,12 +24,12 @@ import { audio } from '../audio.js';
 import { SLIDES, slideByName, indexOf, isLastSlide } from './slides.js';
 import { showSkillBubbles, showProjectBubbles, hideBubbles } from './bubbles.js';
 import {
-  startCameraMove, glideHome, tickCamera,
+  startCameraMove, glideHome, tickCamera, startOrbitSweep,
   camLookTarget, currentCamLook,
   resetSlideElapsed,
 } from './camera.js';
 import {
-  progressWrap, nextBtn, prevBtn, presentBtn, exploreBtn, backBtn, skipBtn,
+  progressWrap, nextBtn, prevBtn, presentBtn, exploreBtn, backBtn,
   showIdleUI, showPresentingUI, showExploreUI, showWhiteWorldUI, showBackBtn,
   resetPresentBtn, setProgressFill, hideCard, showCard,
 } from './ui.js';
@@ -149,6 +149,16 @@ function _applyCameraForSlide(slide, name) {
     camPos    = (isMobile() && slide.mobileCamPos)    ? slide.mobileCamPos    : slide.camPos;
     camTarget = (isMobile() && slide.mobileCamTarget) ? slide.mobileCamTarget : slide.camTarget;
   }
+  // Skills: 360° orbit sweep before settling
+  if (name === 'skills') {
+    const target = new THREE.Vector3(camTarget.x, camTarget.y, camTarget.z);
+    startOrbitSweep(target, 1400, () => {
+      _camMoveDuration = 1200;
+      startCameraMove(camPos, camTarget);
+    });
+    return;
+  }
+
   startCameraMove(camPos, camTarget);
 
   // Optional phase-2 camera sweep (e.g. experience: side → front after character turn)
@@ -167,7 +177,7 @@ function _applyAnimationForSlide(slide, name) {
   cancelIdleLoop();
 
   if (name === 'experience' && modelGroup) {
-    modelGroup.rotation.y = spawnRotation.y + (isMobile() ? -0.62 : 0.62);
+    modelGroup.rotation.y = spawnRotation.y + 0.62;
   } else if (modelGroup) {
     modelGroup.rotation.copy(spawnRotation);
   }
@@ -382,14 +392,6 @@ exploreBtn.addEventListener('click', () => {
     controls.enabled = false;
   }
   goToSlide('myworld');
-});
-
-skipBtn.addEventListener('click', () => {
-  if (_active) {
-    audio.playButtonClick();
-    trackSlide('skip');
-    goToSlide('myworld');
-  }
 });
 
 // ── Per-frame tick ────────────────────────────────────────────────────────────

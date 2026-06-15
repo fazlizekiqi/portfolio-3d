@@ -149,16 +149,10 @@ export const SLIDES = [
         body: '__ABOUT_STATS__',
     },
     {
-        // ── CTA: Stable eye-level, clickable contact links ────────────────────
-        // No orbit — user needs a stable scene to actually CLICK the links.
-        // Desktop phase-2 settles with the camera shifted LEFT so the character
-        // lands right-of-centre and the link panel owns the left third.
-        // Mobile keeps the character centred but high in the frame, links below.
+        // ── CTA: Upper-body close-up, character centred, buttons above head ──
         name: 'cta',
-        camPos:    new THREE.Vector3(0, 2.2, 8.0),
-        camTarget: new THREE.Vector3(0, 0.7, 0),
-        camPos2:    new THREE.Vector3(-1.15, 1.5, 7.0),
-        camTarget2: new THREE.Vector3(-1.15, 0.9, 0),
+        camPos:    new THREE.Vector3(0, 2.0, 7.5),
+        camTarget: new THREE.Vector3(0, 1.2, 0),
         mobileCamPos:    new THREE.Vector3(0, 1.8, 11.5),
         mobileCamTarget: new THREE.Vector3(0, 0.6, 0),
         mobileCamPos2:    new THREE.Vector3(0, 1.6, 10.0),

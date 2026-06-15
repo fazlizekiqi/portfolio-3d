@@ -422,18 +422,18 @@ _style.textContent = `
 #_slide-body-panel.slide-about ._about-stats-row { justify-content: flex-end; }
 #_slide-body-panel.slide-about ._ab-bio { text-align: right; }
 
-/* ─── CTA — desktop: link panel pinned to the LEFT third, vertically
-       centred, character right-of-centre (camera shifts on phase-2) ──────── */
+/* ─── CTA — desktop: panel centred top, character centred, buttons above head */
 #_slide-body-panel.slide-cta {
   pointer-events: auto;
   justify-content: flex-start;
   align-items: center;
-  padding-left: 6%;
+  padding-left: 0;
   top: 56px;
-  bottom: 0;
+  bottom: auto;
+  height: auto;
 }
 #_slide-body-panel.slide-cta #_sBodyInner {
-  text-align: left;
+  text-align: center;
   width: auto;
   padding: 0;
 }
@@ -448,8 +448,10 @@ _style.textContent = `
 
 ._cta-actions {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
 }
 
 ._cta-btn {
@@ -598,31 +600,6 @@ _style.textContent = `
 ._cta-status-ok  { color: #00e5a0; }
 ._cta-status-err { color: #ff6666; }
 
-/* ─── Skip intro button ────────────────────────────────────────────────────── */
-#_skip-btn {
-  position: fixed;
-  top: 16px;
-  right: 20px;
-  z-index: 25;
-  display: none;
-  padding: 6px 14px;
-  background: rgba(2,8,18,0.75);
-  border: 1px solid rgba(0,150,200,0.35);
-  border-radius: 3px;
-  color: rgba(0,180,220,0.65);
-  font-family: 'Share Tech Mono', 'Courier New', monospace;
-  font-size: 9px;
-  letter-spacing: .18em;
-  cursor: pointer;
-  backdrop-filter: blur(8px);
-  transition: color .15s, border-color .15s, background .15s;
-}
-#_skip-btn:hover {
-  color: #55eeff;
-  border-color: rgba(0,200,255,0.65);
-  background: rgba(0,20,45,0.90);
-}
-
 ._cta-tagline {
   margin-top: 4px;
   font-family: 'Share Tech Mono', 'Courier New', monospace;
@@ -665,7 +642,8 @@ _style.textContent = `
   ._cta-send-btn    { font-size: 9.5px; padding: 6px 14px; }
   ._cta-tagline     { display: none; }
   ._ab-val   { font-size: 22px; }
-  ._about-stats-row { gap: 16px; }
+  ._about-stats-row { gap: 16px; margin-bottom: 6px; }
+  ._ab-divider { margin: 4px auto 8px; }
   ._term-boot { font-size: 10px; }
   #_slide-body-panel.slide-intro { padding-left: 3%; }
   #_slide-body-panel.slide-skills,
@@ -690,7 +668,7 @@ _style.textContent = `
 #_audio-btn {
   position: fixed;
   top: 16px;
-  left: 20px;
+  right: 20px;
   z-index: 25;
   padding: 6px 10px;
   background: rgba(2,8,18,0.70);
@@ -906,13 +884,7 @@ export const nextBtn = _mkLb('→', '_lb-arrow');
 nextBtn.style.display = 'none';
 _bar.appendChild(nextBtn);
 
-// ── Skip intro button (top-right corner) ─────────────────────────────────────
-export const skipBtn = document.createElement('button');
-skipBtn.id = '_skip-btn';
-skipBtn.textContent = 'SKIP →';
-document.body.appendChild(skipBtn);
-
-// ── Audio mute toggle (top-left corner) ──────────────────────────────────────
+// ── Audio mute toggle (top-right corner) ─────────────────────────────────────
 const _audioBtn = document.createElement('button');
 _audioBtn.id = '_audio-btn';
 _audioBtn.title = 'Toggle sound';

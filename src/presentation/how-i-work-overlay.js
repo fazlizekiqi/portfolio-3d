@@ -253,46 +253,6 @@ _style.textContent = `
   border-color: rgba(0,200,255,0.42);
 }
 
-/* ── Title-block cartouche (bottom-centre) ─────────────────────────────────── */
-#_hiw-cartouche {
-  position: absolute;
-  left: 50%;
-  bottom: 60px;
-  transform: translateX(-50%) translateY(10px);
-  display: flex;
-  align-items: stretch;
-  border: 1px solid rgba(0,150,200,0.35);
-  border-radius: 3px;
-  background: rgba(2,9,24,0.80);
-  backdrop-filter: blur(7px);
-  opacity: 0;
-  transition: opacity 0.6s ease, transform 0.6s ease;
-}
-#_hiw-cartouche.hiw-visible { opacity: 1; transform: translateX(-50%) translateY(0); }
-._hiw-cart-cell {
-  padding: 7px 14px;
-  border-right: 1px solid rgba(0,150,200,0.20);
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 2px;
-}
-._hiw-cart-cell:last-child { border-right: none; }
-._hiw-cart-k {
-  font-size: 6.5px;
-  letter-spacing: .18em;
-  color: rgba(120,180,210,0.45);
-}
-._hiw-cart-v {
-  font-size: 10px;
-  letter-spacing: .10em;
-  color: #9fe6ff;
-}
-._hiw-cart-v.hiw-cart-hero {
-  color: #00e9ff;
-  text-shadow: 0 0 12px rgba(0,230,255,0.55);
-}
-
 /* ── Progress rail ──────────────────────────────────────────────────────────── */
 #_hiw-rail {
   position: fixed;
@@ -314,7 +274,8 @@ _style.textContent = `
   #_hiw-svg { display: none; }                 /* no converging lines over the body */
   ._hiw-blk {
     width: 43vw;
-    padding: 8px 9px 9px;
+    padding: 5px 8px;
+    gap: 4px;
     backdrop-filter: blur(5px);
   }
   ._hiw-blk-tl { top: 60px;    left: 7px;  transform: translateY(-12px) scale(0.94); }
@@ -322,14 +283,13 @@ _style.textContent = `
   ._hiw-blk-bl { bottom: 58px; left: 7px;  top: auto; transform: translateY(12px) scale(0.94); }
   ._hiw-blk-br { bottom: 58px; right: 7px; top: auto; transform: translateY(12px) scale(0.94); }
   ._hiw-blk.hiw-visible { transform: translateY(0) scale(1); }
-  ._hiw-blk-img   { height: 42px; margin-bottom: 6px; }
-  ._hiw-blk-title { font-size: 11px; }
-  ._hiw-blk-cap   { font-size: 8px; margin-bottom: 6px; }
-  ._hiw-blk-tag   { font-size: 6.5px; padding: 1px 4px; }
+  ._hiw-blk-img   { display: none; }
+  ._hiw-blk-cap   { display: none; }
+  ._hiw-blk-tags  { display: none; }
+  ._hiw-blk-rule  { display: none; }
+  ._hiw-blk-title { font-size: 10px; letter-spacing: .08em; }
+  ._hiw-blk-hd    { margin-bottom: 0; }
   ._hiw-blk-ref, ._hiw-blk-dim { display: none; }
-  #_hiw-cartouche { bottom: 22px; }
-  ._hiw-cart-cell { padding: 5px 9px; }
-  ._hiw-cart-v { font-size: 8.5px; }
   #_hiw-rail { display: none; }
 }
 `;
@@ -403,28 +363,6 @@ const _blockEls = CARDS.map((c) => {
   return el;
 });
 const _titleEls = _blockEls.map(b => b.querySelector('._hiw-blk-title'));
-
-// Cartouche (drawing-sheet title block)
-const _cartouche = document.createElement('div');
-_cartouche.id = '_hiw-cartouche';
-_cartouche.innerHTML = `
-  <div class="_hiw-cart-cell">
-    <span class="_hiw-cart-k">DRAWING</span>
-    <span class="_hiw-cart-v hiw-cart-hero">FIG. 01 — THE ENGINEER</span>
-  </div>
-  <div class="_hiw-cart-cell">
-    <span class="_hiw-cart-k">SHEET</span>
-    <span class="_hiw-cart-v">1 OF 1</span>
-  </div>
-  <div class="_hiw-cart-cell">
-    <span class="_hiw-cart-k">SCALE</span>
-    <span class="_hiw-cart-v">1:1</span>
-  </div>
-  <div class="_hiw-cart-cell">
-    <span class="_hiw-cart-k">REV</span>
-    <span class="_hiw-cart-v">2.4</span>
-  </div>`;
-_wrap.appendChild(_cartouche);
 
 document.body.appendChild(_wrap);
 
@@ -558,7 +496,6 @@ export function showHowIWorkOverlay() {
   _pathEls.forEach(p => p.classList.remove('hiw-lead-active'));
   _markEls.forEach(m => m.classList.remove('hiw-mark-vis', 'hiw-mark-active'));
   _titleEls.forEach(t => (t.textContent = ''));
-  _cartouche.classList.remove('hiw-visible');
 
   // Position leader lines now (blocks already have their CSS-fixed positions).
   _layoutLeaders(false);
@@ -574,9 +511,7 @@ export function showHowIWorkOverlay() {
   // Leader lines draw after the blocks are placed.
   _staggerIds.push(setTimeout(_drawLeadersIn, 260));
 
-  // Cartouche + rail + cycling once everything has settled.
-  _staggerIds.push(setTimeout(() => _cartouche.classList.add('hiw-visible'),
-    260 + CARDS.length * STAGGER_MS));
+  // Rail + cycling once everything has settled.
   _staggerIds.push(setTimeout(() => { _rail.style.opacity = '1'; }, 1400));
   _staggerIds.push(setTimeout(() => { _rafId = requestAnimationFrame(_tick); }, 1500));
 }
@@ -588,7 +523,6 @@ export function hideHowIWorkOverlay() {
   _blockEls.forEach(el => el.classList.remove('hiw-visible', 'hiw-active'));
   _pathEls.forEach(p => p.classList.remove('hiw-lead-active'));
   _markEls.forEach(m => m.classList.remove('hiw-mark-vis', 'hiw-mark-active'));
-  _cartouche.classList.remove('hiw-visible');
   _rail.style.opacity   = '0';
   _railFill.style.width = '0%';
 

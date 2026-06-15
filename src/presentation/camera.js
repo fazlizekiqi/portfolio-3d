@@ -37,11 +37,36 @@ let _orbitRadius = 0;
 let _orbitHeight = 0;
 let _orbitActive = false;
 
+// Pre-settle orbit sweep (360° spin before camera moves to final position)
+let _orbitSweep = null;
+
 export function resetSlideElapsed() {
   slideElapsed = 0;
   settledTime  = 0;
   _orbitActive = false;
   _orbitAngle  = 0;
+  _orbitSweep  = null;
+}
+
+/**
+ * Spin the camera 360° around `target` at current radius/height,
+ * then call `onDone` when the sweep completes.
+ * @param {THREE.Vector3} target
+ * @param {number} duration  ms for the full 360°
+ * @param {Function} onDone  called once on completion
+ */
+export function startOrbitSweep(target, duration, onDone) {
+  const dx = camera.position.x - target.x;
+  const dz = camera.position.z - target.z;
+  _orbitSweep = {
+    target,
+    radius:     Math.sqrt(dx * dx + dz * dz),
+    height:     camera.position.y,
+    duration,
+    elapsed:    0,
+    startAngle: Math.atan2(dx, dz),
+    onDone,
+  };
 }
 
 // ── Initialise from current camera state ─────────────────────────────────────
@@ -86,6 +111,24 @@ export function glideHome() {
  * @returns {{ rawT: number, done: boolean }}
  */
 export function tickCamera(delta, elapsed, activeSlide, slideIndex, totalDur, frozen) {
+  // ── Pre-settle orbit sweep (skills 360° intro) ───────────────────────────
+  if (_orbitSweep) {
+    _orbitSweep.elapsed += delta * 1000;
+    const t     = Math.min(_orbitSweep.elapsed / _orbitSweep.duration, 1.0);
+    const eased = t < 0.5 ? 2*t*t : -1 + (4 - 2*t)*t; // ease in-out quad
+    const angle = _orbitSweep.startAngle + eased * Math.PI * 2;
+    if (!frozen) {
+      camera.position.set(
+        _orbitSweep.target.x + _orbitSweep.radius * Math.sin(angle),
+        _orbitSweep.height,
+        _orbitSweep.target.z + _orbitSweep.radius * Math.cos(angle)
+      );
+      camera.lookAt(_orbitSweep.target.x, _orbitSweep.target.y, _orbitSweep.target.z);
+    }
+    if (t >= 1.0) { const cb = _orbitSweep.onDone; _orbitSweep = null; cb?.(); }
+    return { rawT: 0, done: false };
+  }
+
   slideElapsed += delta * 1000;
   const rawT   = Math.min(slideElapsed / totalDur, 1.0);
   const easeFn = activeSlide ? (EASE[activeSlide.easing] ?? EASE.inOut) : EASE.out;
