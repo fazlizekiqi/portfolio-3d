@@ -8,10 +8,7 @@ import { audio } from '../audio.js';
 // ── Slide title strip (top) ───────────────────────────────────────────────────
 const card = document.createElement('div');
 card.id = '_slide-card';
-card.style.cssText = `
-  position:fixed;top:0;left:0;right:0;
-  z-index:20;pointer-events:none;
-  opacity:0;transition:opacity 0.6s ease;`;
+card.style.opacity = '0'; // layout lives in the stylesheet
 card.innerHTML = `
   <div id="_sInner">
     <div id="_sTitle"></div>
@@ -25,11 +22,7 @@ const slideSubtitle = card.querySelector('#_sSubtitle');
 // ── Slide body — centered subtitle ───────────────────────────────────────────
 const bodyPanel = document.createElement('div');
 bodyPanel.id = '_slide-body-panel';
-bodyPanel.style.cssText = `
-  position:fixed;bottom:80px;left:0;right:0;
-  z-index:20;pointer-events:none;
-  display:flex;
-  opacity:0;transition:opacity 0.5s ease;`;
+bodyPanel.style.opacity = '0'; // layout lives in the stylesheet
 bodyPanel.innerHTML = `<div id="_sBodyInner"><div id="_sBody"></div></div>`;
 document.body.appendChild(bodyPanel);
 
@@ -49,6 +42,12 @@ const _style = document.createElement('style');
 _style.textContent = `
 /* ─── slide title strip (top) ────────────────────────────────────────────── */
 #_slide-card {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 20;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.6s ease;
   font-family:'Share Tech Mono','Courier New',monospace;
 }
 #_sInner {
@@ -76,6 +75,14 @@ _style.textContent = `
 
 /* ─── slide body — movie subtitle style ──────────────────────────────────── */
 #_slide-body-panel {
+  position: fixed;
+  bottom: 80px;
+  left: 0; right: 0;
+  z-index: 20;
+  pointer-events: none;
+  display: flex;
+  opacity: 0;
+  transition: opacity 0.5s ease;
   font-family:'Share Tech Mono','Courier New',monospace;
   justify-content: center;
 }
@@ -397,7 +404,7 @@ _style.textContent = `
 
 /* ─── mindset — body panel hidden (how-i-work overlay carries the content) ── */
 #_slide-body-panel.slide-mindset {
-  display: none !important;
+  display: none;
 }
 
 /* ─── about slide — stats panel bottom-right ─────────────────────────────── */
@@ -431,137 +438,165 @@ _style.textContent = `
   padding: 0;
 }
 
-/* ─── CTA connect cards ───────────────────────────────────────────────────── */
+/* ─── CTA — blueprint action buttons + message drawer ─────────────────────── */
 ._cta-wrap {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
+  animation: _cta-in 0.5s ease forwards;
 }
-._cta-link {
-  position: relative;
+
+._cta-actions {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  width: 270px;
-  padding: 14px 16px 12px;
-  text-decoration: none;
-  font-family: 'Share Tech Mono', 'Courier New', monospace;
-  background: rgba(0,6,22,0.96);
-  border-radius: 4px;
-  overflow: hidden;
-  opacity: 0;
-  animation: _cta-in 0.5s ease forwards;
-  transition: transform .18s, box-shadow .18s;
-  cursor: pointer;
 }
-/* Blueprint grid texture */
-._cta-link::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
-  background-size: 18px 18px;
-  pointer-events: none;
-}
-._cta-link:hover  { transform: translateY(-3px); }
-._cta-link:active { transform: translateY(0); }
 
-/* ── per-service accent borders & glows ── */
-._cta-email   { border: 1px solid rgba(0,255,160,0.35);  }
-._cta-linkedin { border: 1px solid rgba(50,180,255,0.35); }
-._cta-github  { border: 1px solid rgba(180,130,255,0.35); }
-._cta-email:hover   { box-shadow: 0 4px 24px rgba(0,255,160,0.18),  0 0 0 1px rgba(0,255,160,0.25); }
-._cta-linkedin:hover { box-shadow: 0 4px 24px rgba(50,180,255,0.18), 0 0 0 1px rgba(50,180,255,0.25); }
-._cta-github:hover  { box-shadow: 0 4px 24px rgba(180,130,255,0.18),0 0 0 1px rgba(180,130,255,0.25); }
-
-/* ── top accent bar ── */
-._cta-link::after {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 2px;
-}
-._cta-email::after   { background: linear-gradient(90deg, transparent, rgba(0,255,160,0.70),  transparent); }
-._cta-linkedin::after { background: linear-gradient(90deg, transparent, rgba(50,180,255,0.70), transparent); }
-._cta-github::after  { background: linear-gradient(90deg, transparent, rgba(180,130,255,0.70),transparent); }
-
-/* ── icon + name row ── */
-._cta-service-row {
-  display: flex;
+._cta-btn {
+  position: relative;
+  display: inline-flex;
   align-items: center;
-  gap: 11px;
-}
-._cta-icon {
-  width: 34px; height: 34px;
-  border-radius: 6px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 16px;
-  flex-shrink: 0;
-  transition: filter .2s;
-}
-._cta-email   ._cta-icon { background: rgba(0,255,160,0.10); color: #00ff99; border: 1px solid rgba(0,255,160,0.30); }
-._cta-linkedin ._cta-icon { background: rgba(50,180,255,0.10); color: #4db8ff; border: 1px solid rgba(50,180,255,0.30); }
-._cta-github  ._cta-icon { background: rgba(180,130,255,0.10); color: #cc99ff; border: 1px solid rgba(180,130,255,0.30); }
-._cta-link:hover ._cta-icon { filter: brightness(1.3); }
-
-._cta-service-info { display: flex; flex-direction: column; gap: 2px; }
-._cta-service-name {
-  font-size: 13px;
-  letter-spacing: .12em;
-  line-height: 1;
-}
-._cta-email   ._cta-service-name { color: #00ff99; text-shadow: 0 0 12px rgba(0,255,160,0.45); }
-._cta-linkedin ._cta-service-name { color: #4db8ff; text-shadow: 0 0 12px rgba(50,180,255,0.45); }
-._cta-github  ._cta-service-name { color: #cc99ff; text-shadow: 0 0 12px rgba(180,130,255,0.45); }
-
-._cta-service-desc {
-  font-size: 8px;
-  color: rgba(180,210,230,0.40);
-  letter-spacing: .12em;
-}
-
-/* ── contact value ── */
-._cta-value {
+  gap: 10px;
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
   font-size: 11px;
-  color: #c8e8ff;
-  letter-spacing: .04em;
-  padding-left: 45px;
+  letter-spacing: .14em;
+  color: rgba(170,220,255,0.72);
+  background: rgba(0,8,22,0.55);
+  border: 1px solid rgba(0,190,230,0.38);
+  padding: 10px 20px;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color .18s, border-color .18s, background .18s, box-shadow .18s;
+  backdrop-filter: blur(4px);
+}
+._cta-btn::before,
+._cta-btn::after {
+  content: '';
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-color: rgba(0,220,255,0);
+  border-style: solid;
+  transition: border-color .18s;
+}
+._cta-btn::before { top: -1px; left: -1px; border-width: 1px 0 0 1px; }
+._cta-btn::after  { bottom: -1px; right: -1px; border-width: 0 1px 1px 0; }
+._cta-btn:hover {
+  color: #d9f8ff;
+  border-color: rgba(0,220,255,0.72);
+  background: rgba(0,20,48,0.78);
+  box-shadow: 0 0 18px rgba(0,180,255,0.18);
+}
+._cta-btn:hover::before,
+._cta-btn:hover::after { border-color: rgba(0,220,255,0.80); }
+
+._cta-btn-icon {
+  font-size: 10px;
+  color: rgba(0,210,255,0.65);
   transition: color .18s;
 }
-._cta-link:hover ._cta-value { color: #ffffff; }
+._cta-btn:hover ._cta-btn-icon { color: #00e5ff; }
 
-/* ── connect button ── */
-._cta-connect {
+._cta-btn-linkedin:hover { border-color: rgba(50,180,255,0.72); box-shadow: 0 0 18px rgba(30,150,255,0.18); }
+._cta-btn-github:hover   { border-color: rgba(160,120,255,0.72); box-shadow: 0 0 18px rgba(140,90,255,0.18); }
+._cta-btn-cv:hover       { border-color: rgba(255,210,0,0.65);   box-shadow: 0 0 18px rgba(230,190,0,0.18); }
+._cta-btn-msg:hover      { border-color: rgba(0,230,180,0.72);   box-shadow: 0 0 18px rgba(0,200,160,0.18); }
+
+._cta-btn-msg--active {
+  color: #d9f8ff;
+  background: rgba(0,190,230,0.12);
+  border-color: rgba(0,210,255,0.65);
+}
+._cta-btn-msg--active ._cta-btn-icon { color: #00e5ff; }
+
+/* ─── Message form drawer ────────────────────────────────────────────────── */
+._cta-drawer {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height .38s cubic-bezier(0.4, 0, 0.2, 1);
+}
+._cta-drawer--open { max-height: 260px; }
+
+._cta-drawer-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 0 4px;
+  border-top: 1px solid rgba(0,180,220,0.20);
+}
+
+._cta-field {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+._cta-field-msg { align-items: flex-start; }
+
+._cta-lbl {
+  flex-shrink: 0;
+  width: 80px;
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  font-size: 9px;
+  letter-spacing: .12em;
+  color: rgba(0,190,235,0.60);
+}
+._cta-lbl em { color: rgba(255,100,100,0.80); font-style: normal; }
+
+._cta-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(0,150,200,0.28);
+  color: #cceeff;
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  font-size: 10px;
+  letter-spacing: .04em;
+  padding: 3px 2px;
+  outline: none;
+  resize: none;
+  caret-color: #00e5ff;
+  transition: border-color .15s;
+}
+._cta-textarea { line-height: 1.55; min-height: 48px; }
+._cta-input:focus { border-bottom-color: rgba(0,210,255,0.75); }
+._cta-input::placeholder { color: rgba(0,160,200,0.28); }
+
+._cta-submit-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 12px;
   margin-top: 4px;
-  padding-top: 8px;
-  border-top: 1px solid rgba(255,255,255,0.07);
-  font-size: 9px;
-  letter-spacing: .16em;
-  transition: color .18s, letter-spacing .18s;
 }
-._cta-email   ._cta-connect { color: rgba(0,255,160,0.50); }
-._cta-linkedin ._cta-connect { color: rgba(50,180,255,0.50); }
-._cta-github  ._cta-connect { color: rgba(180,130,255,0.50); }
-._cta-email:hover   ._cta-connect { color: #00ff99; letter-spacing: .20em; }
-._cta-linkedin:hover ._cta-connect { color: #4db8ff; letter-spacing: .20em; }
-._cta-github:hover  ._cta-connect { color: #cc99ff; letter-spacing: .20em; }
-._cta-connect-arrow { font-size: 13px; transition: transform .18s; }
-._cta-link:hover ._cta-connect-arrow { transform: translateX(4px); }
 
-/* ── CV download card ── */
-._cta-cv { border: 1px solid rgba(255,210,0,0.35); }
-._cta-cv:hover { box-shadow: 0 4px 24px rgba(255,210,0,0.18), 0 0 0 1px rgba(255,210,0,0.25); }
-._cta-cv::after { background: linear-gradient(90deg, transparent, rgba(255,210,0,0.70), transparent); }
-._cta-cv ._cta-icon { background: rgba(255,210,0,0.10); color: #ffd000; border: 1px solid rgba(255,210,0,0.30); }
-._cta-cv ._cta-service-name { color: #ffd000; text-shadow: 0 0 12px rgba(255,210,0,0.45); }
-._cta-cv ._cta-connect { color: rgba(255,210,0,0.50); }
-._cta-cv:hover ._cta-connect { color: #ffd000; letter-spacing: .20em; }
-._cta-cv:hover ._cta-icon { filter: brightness(1.3); }
+._cta-send-btn {
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  font-size: 10px;
+  letter-spacing: .14em;
+  color: rgba(0,210,255,0.80);
+  background: rgba(0,12,30,0.70);
+  border: 1px solid rgba(0,190,230,0.45);
+  padding: 7px 18px;
+  cursor: pointer;
+  transition: color .15s, border-color .15s, background .15s, box-shadow .15s;
+}
+._cta-send-btn:hover {
+  color: #d9f8ff;
+  border-color: rgba(0,220,255,0.80);
+  background: rgba(0,24,55,0.90);
+  box-shadow: 0 0 14px rgba(0,180,255,0.25);
+}
+._cta-send-btn:disabled { opacity: .45; cursor: default; }
+
+._cta-status {
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  font-size: 9px;
+  letter-spacing: .08em;
+  color: rgba(150,200,230,0.50);
+  min-height: 13px;
+}
+._cta-status-ok  { color: #00e5a0; }
+._cta-status-err { color: #ff6666; }
 
 /* ─── Skip intro button ────────────────────────────────────────────────────── */
 #_skip-btn {
@@ -604,45 +639,31 @@ _style.textContent = `
 }
 
 @media (max-width: 640px) {
-  /* CTA mobile — full-width stacked links anchored above the UI bar,
-     generous touch targets (≥ 48px tall) with breathing room between */
-  #_slide-body-panel.slide-cta {
-    top: auto;
-    bottom: 88px;
-    justify-content: center;
-    align-items: flex-end;
-    padding-left: 0;
-  }
-  /* ── CTA mobile: compact cards stacked above the nav bar ── */
+  /* CTA mobile — pinned to the bottom, character fills upper ~65% of screen */
   #_slide-body-panel.slide-cta {
     top: auto;
     bottom: 72px;
+    height: auto;
     justify-content: center;
-    align-items: center;
-    padding-left: 0;
-    padding-right: 0;
+    align-items: stretch;
+    padding-left: 12px;
+    padding-right: 12px;
+    pointer-events: auto;
   }
-  #_slide-body-panel.slide-cta #_sBodyInner { padding: 0 12px; width: 100%; max-width: 320px; }
-  ._cta-wrap { gap: 7px; width: 100%; }
-  ._cta-link {
+  #_slide-body-panel.slide-cta #_sBodyInner {
     width: 100%;
-    /* Compact single row on mobile */
-    display: grid;
-    grid-template-columns: 36px 1fr auto;
-    grid-template-rows: auto;
-    align-items: center;
-    gap: 0 10px;
-    padding: 10px 12px;
-    flex-direction: unset;
+    max-width: 400px;
+    padding: 0;
+    text-align: left;
   }
-  ._cta-service-row { grid-column: 2; grid-row: 1; margin: 0; }
-  ._cta-icon { width: 28px; height: 28px; font-size: 13px; grid-column: 1; grid-row: 1 / 3; align-self: center; }
-  ._cta-service-name { font-size: 11px; }
-  ._cta-service-desc { display: none; }
-  ._cta-value { grid-column: 2; grid-row: 2; padding-left: 0; font-size: 9px; color: rgba(200,230,255,0.55); margin-bottom: 0; }
-  ._cta-connect { grid-column: 3; grid-row: 1 / 3; border: none; padding: 0; font-size: 11px; margin: 0; }
-  ._cta-connect-arrow { display: block; }
-  ._cta-tagline { display: none; }
+  ._cta-actions     { flex-direction: row; flex-wrap: wrap; gap: 5px; }
+  ._cta-btn         { flex: 1 1 calc(50% - 3px); min-width: 120px; padding: 9px 12px; font-size: 10px; letter-spacing: .10em; }
+  ._cta-drawer--open { max-height: 220px; }
+  ._cta-lbl         { width: 66px; font-size: 8.5px; }
+  ._cta-input       { font-size: 9.5px; }
+  ._cta-textarea    { min-height: 40px; }
+  ._cta-send-btn    { font-size: 9.5px; padding: 6px 14px; }
+  ._cta-tagline     { display: none; }
   ._ab-val   { font-size: 22px; }
   ._about-stats-row { gap: 16px; }
   ._term-boot { font-size: 10px; }
@@ -664,66 +685,6 @@ _style.textContent = `
   #_slide-body-panel.slide-about ._about-stats-row { justify-content: center; }
   #_slide-body-panel.slide-about ._ab-bio      { text-align: center; }
 }
-
-/* ─── guestbook form ─────────────────────────────────────────────────────── */
-._guestbook {
-  margin-top: 10px;
-  font-family: 'Share Tech Mono', 'Courier New', monospace;
-}
-._gb-toggle {
-  background: none;
-  border: none;
-  color: rgba(0,180,220,0.45);
-  font-family: inherit;
-  font-size: 9px;
-  letter-spacing: .16em;
-  cursor: pointer;
-  padding: 4px 0;
-  transition: color .15s;
-}
-._gb-toggle:hover { color: #55eeff; }
-._gb-form {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 8px;
-  width: 270px;
-}
-._gb-name,
-._gb-msg {
-  background: rgba(0,6,22,0.90);
-  border: 1px solid rgba(0,150,200,0.30);
-  border-radius: 3px;
-  color: #c8eaf5;
-  font-family: inherit;
-  font-size: 9px;
-  letter-spacing: .10em;
-  padding: 8px 10px;
-  resize: none;
-  outline: none;
-  transition: border-color .15s;
-}
-._gb-name:focus,
-._gb-msg:focus { border-color: rgba(0,200,255,0.65); }
-._gb-msg { line-height: 1.6; }
-._gb-submit {
-  align-self: flex-start;
-  background: rgba(0,6,22,0.90);
-  border: 1px solid rgba(0,150,200,0.40);
-  border-radius: 3px;
-  color: #2299bb;
-  font-family: inherit;
-  font-size: 9px;
-  letter-spacing: .18em;
-  padding: 7px 14px;
-  cursor: pointer;
-  transition: color .15s, border-color .15s;
-}
-._gb-submit:hover  { color: #55eeff; border-color: rgba(0,200,255,0.75); }
-._gb-submit:disabled { opacity: .45; cursor: default; }
-._gb-status { font-size: 8px; letter-spacing: .14em; min-height: 14px; margin-top: 2px; }
-._gb-status-ok  { color: #00ff99; }
-._gb-status-err { color: #ff6666; }
 
 /* ─── audio mute button ───────────────────────────────────────────────────── */
 #_audio-btn {
@@ -1096,6 +1057,7 @@ function _startExperienceTimeline() {
           activeIdx  = idx;
           setActive(idx);
           pulseNode(nodes[idx]);
+          audio.playTimelineNode();
           pauseUntil = ts + PAUSE_MS;
           startTime  = ts + PAUSE_MS - elapsed;
           return;

@@ -1,81 +1,99 @@
 /**
- * guestbook.js — Visitor message form for the CTA slide.
+ * guestbook.js — Handles the inline contact form on the CTA slide.
  *
- * Usage: call initGuestbook(containerEl) after injecting the CTA HTML.
- *
- * Submissions go to the Formspree endpoint in CFG.FORMSPREE_ENDPOINT.
- * Sign up at formspree.io (free), create a form, then set:
- *   CFG.FORMSPREE_ENDPOINT = 'https://formspree.io/f/YOUR_FORM_ID'
+ * Submits via EmailJS REST API directly from the browser — no backend needed.
+ * Configure CFG.EMAILJS_PUBLIC_KEY / SERVICE_ID / TEMPLATE_ID in config.js.
+ * Falls back to a mailto: link when the keys are not set.
  */
 
 import { CFG } from '../config.js';
 import { trackEvent } from '../analytics.js';
 
-export function initGuestbook(container) {
-  const toggleBtn = container.querySelector('#_gb-toggle');
-  const form      = container.querySelector('#_gb-form');
-  const status    = container.querySelector('#_gb-status');
-  if (!toggleBtn || !form) return;
+const EMAILJS_URL = 'https://api.emailjs.com/api/v1.0/email/send';
 
-  // Expand / collapse the form
-  toggleBtn.addEventListener('click', () => {
-    const open = form.style.display !== 'none';
-    form.style.display  = open ? 'none' : 'block';
-    toggleBtn.textContent = open ? '+ LEAVE A MESSAGE' : '− LEAVE A MESSAGE';
-    if (!open) form.querySelector('textarea')?.focus();
-  });
+export function initGuestbook(container) {
+  const form      = container.querySelector('#_cta-form');
+  const statusEl  = container.querySelector('#_cta-status');
+  const sendBtn   = container.querySelector('#_cta-send-btn');
+  if (!form || !sendBtn) return;
+
+  // Blueprint drawer toggle
+  const toggleBtn = container.querySelector('#_cta-msg-toggle');
+  const drawer    = container.querySelector('#_cta-drawer');
+  if (toggleBtn && drawer) {
+    toggleBtn.addEventListener('click', () => {
+      const open = drawer.classList.toggle('_cta-drawer--open');
+      toggleBtn.classList.toggle('_cta-btn-msg--active', open);
+    });
+  }
+
+  const sendLabel = sendBtn.textContent;
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const nameVal = form.querySelector('._gb-name')?.value.trim() ?? '';
-    const msgVal  = form.querySelector('._gb-msg')?.value.trim()  ?? '';
-    if (!msgVal) return;
 
-    const submitBtn = form.querySelector('._gb-submit');
-    submitBtn.disabled   = true;
-    submitBtn.textContent = 'SENDING...';
-    status.textContent   = '';
-    status.className     = '_gb-status';
+    const nameVal  = (form.querySelector('#_cta-name')?.value    ?? '').trim();
+    const emailVal = (form.querySelector('#_cta-replyto')?.value ?? '').trim();
+    const msgVal   = (form.querySelector('#_cta-msg')?.value     ?? '').trim();
+
+    if (!emailVal || !msgVal) {
+      _setStatus(statusEl, '✗ missing required fields · exit 1', 'err');
+      return;
+    }
+
+    sendBtn.disabled    = true;
+    sendBtn.textContent = 'SENDING...';
+    _setStatus(statusEl, '', '');
+
+    const keysConfigured = CFG.EMAILJS_PUBLIC_KEY && CFG.EMAILJS_SERVICE_ID && CFG.EMAILJS_TEMPLATE_ID;
 
     try {
-      if (!CFG.FORMSPREE_ENDPOINT) throw new Error('no-endpoint');
+      if (!keysConfigured) throw new Error('no-keys');
 
-      const res = await fetch(CFG.FORMSPREE_ENDPOINT, {
+      const res = await fetch(EMAILJS_URL, {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name:     nameVal || 'Anonymous',
-          message:  msgVal,
-          _subject: 'Portfolio visitor message',
+          service_id:   CFG.EMAILJS_SERVICE_ID,
+          template_id:  CFG.EMAILJS_TEMPLATE_ID,
+          user_id:      CFG.EMAILJS_PUBLIC_KEY,
+          template_params: {
+            from_name: nameVal || 'Anonymous',
+            reply_to:  emailVal,
+            message:   msgVal,
+          },
         }),
       });
 
       if (!res.ok) throw new Error('server');
 
-      status.textContent = '✓ MESSAGE SENT — THANKS!';
-      status.classList.add('_gb-status-ok');
+      _setStatus(statusEl, '✓ sent', 'ok');
       form.reset();
-      trackEvent('guestbook_submit', nameVal ? 'named' : 'anonymous');
+      trackEvent('contact_form_submit', nameVal ? 'named' : 'anonymous');
 
     } catch (err) {
-      if (err.message === 'no-endpoint') {
-        // Fallback: open mailto with pre-filled body
-        const body = encodeURIComponent(
-          `Name: ${nameVal || 'Anonymous'}\n\n${msgVal}`
+      if (err.message === 'no-keys') {
+        // Fallback: pre-fill native mail client
+        const subject = encodeURIComponent('Portfolio Contact');
+        const body    = encodeURIComponent(
+          `Name: ${nameVal || 'Anonymous'}\nEmail: ${emailVal}\n\n${msgVal}`
         );
-        window.open(
-          `mailto:fazlizekiqi1@hotmail.com?subject=Portfolio+Message&body=${body}`,
-          '_blank'
-        );
-        status.textContent = '✉ OPENING YOUR MAIL CLIENT...';
-        status.classList.add('_gb-status-ok');
+        window.open(`mailto:fazlizekiqi1@hotmail.com?subject=${subject}&body=${body}`, '_blank');
+        _setStatus(statusEl, '✉ opening mail client', 'ok');
       } else {
-        status.textContent = '✕ FAILED — PLEASE TRY AGAIN';
-        status.classList.add('_gb-status-err');
+        _setStatus(statusEl, '✗ failed', 'err');
       }
     } finally {
-      submitBtn.disabled   = false;
-      submitBtn.textContent = 'SEND MESSAGE →';
+      sendBtn.disabled     = false;
+      sendBtn.textContent  = sendLabel;
     }
   });
+}
+
+function _setStatus(el, text, type) {
+  if (!el) return;
+  el.textContent = text;
+  el.className   = '_cta-status'
+    + (type === 'ok'  ? ' _cta-status-ok'  : '')
+    + (type === 'err' ? ' _cta-status-err' : '');
 }
