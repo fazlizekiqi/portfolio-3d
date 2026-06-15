@@ -183,15 +183,6 @@ _style.textContent = `
 ._exp-block.exp-active {
   transform: translateX(2px) scale(1.020);
 }
-@keyframes _exp-pulse {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.85; }
-}
-@keyframes _exp-pulse {
-  0%, 100% { box-shadow: 0 0 22px rgba(0, 180, 255, 0.28); }
-  50%       { box-shadow: 0 0 36px rgba(0, 210, 255, 0.48); }
-}
-
 ._exp-logo {
   width: 50px;
   height: 50px;
@@ -943,6 +934,12 @@ function _typeWrite(el, text, speed, cb) {
 // ── Experience timeline dot animation ─────────────────────────────────────────
 let _expRafId = null;
 
+// ── Experience timeline timing constants ──────────────────────────────────────
+const EXP_TIMELINE_DELAY_MS = 950;  // wait for stagger animations + layout before measuring
+const TRAVEL_MS             = 3200;
+const PAUSE_MS              = 750;
+const PULSE_MS              = 380;
+
 function _stopExperienceTimeline() {
   if (_expRafId) { cancelAnimationFrame(_expRafId); _expRafId = null; }
 }
@@ -994,10 +991,6 @@ function _startExperienceTimeline() {
     const startY = nodeYs[0];
     const endY   = nodeYs[nodeYs.length - 1];
     dot.setAttribute('cy', startY);
-
-    const TRAVEL_MS = 3200;
-    const PAUSE_MS  = 750;
-    const PULSE_MS  = 380;
 
     let startTime  = null;
     let pauseUntil = 0;
@@ -1078,7 +1071,7 @@ function _startExperienceTimeline() {
     // Set first block active immediately
     setActive(0);
     requestAnimationFrame(tick);
-  }, 950);
+  }, EXP_TIMELINE_DELAY_MS);
 }
 
 // ── UI mode helpers ───────────────────────────────────────────────────────────
@@ -1176,14 +1169,14 @@ export function showCard(title, body, delay = 550, slideName = '', subtitle = ''
           }, 160 + i * 230);
         });
         _startExperienceTimeline();
-      } else if (body === '__INTRO_TERMINAL__') {
+      } else if (slideName === 'intro') {
         slideBody.innerHTML = buildIntroHTML();
-      } else if (body === '__ABOUT_STATS__') {
+      } else if (slideName === 'about') {
         slideBody.innerHTML = buildAboutHTML();
-      } else if (body === '__CTA_LINKS__') {
+      } else if (slideName === 'cta') {
         slideBody.innerHTML = buildCtaHTML();
         initGuestbook(slideBody);
-      } else {
+      } else if (body) {
         _timerB = _typeWrite(slideBody, body, 18);
       }
     });

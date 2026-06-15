@@ -150,7 +150,7 @@ _style.textContent = `
   background: linear-gradient(90deg, #005577, #00ccff);
 }
 
-@media (max-width: 640px) {
+@media (max-width: 767px) {
   #_hiw-wrap { align-items: flex-end; padding: 0 10px 60px; }
   #_hiw-row {
     grid-template-columns: 1fr 1fr;

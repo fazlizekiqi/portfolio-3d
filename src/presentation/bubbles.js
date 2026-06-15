@@ -638,7 +638,6 @@ function _spawnSphere(item, pos3, seed) {
         rising: true, riseTime: 0,
         riseDelay: 0.2 + Math.abs(Math.sin(seed * 47.3 + 1.7)) * 2.2,
         labelMat,
-        rimMat: null,
         popping: false, popTime: 0,
     });
 }
@@ -760,7 +759,6 @@ export function tickBubbles(delta, elapsed) {
                 if (mat.isShaderMaterial) mat.uniforms.uOpacity.value = op * 0.88;
                 else mat.opacity = op;
                 if (e.labelMat) e.labelMat.opacity = op * 0.95;
-                if (e.rimMat)   e.rimMat.opacity   = op * 0.90;
             } else {
                 const item    = e.item;
                 const basePos = e.basePos.clone();
@@ -782,7 +780,6 @@ export function tickBubbles(delta, elapsed) {
             if (mat.isShaderMaterial && mat.uniforms) mat.uniforms.uOpacity.value = ease * targetOp;
             else mat.opacity = ease * targetOp;
             if (e.labelMat) e.labelMat.opacity = ease * 0.95;
-            if (e.rimMat)   e.rimMat.opacity   = ease * 0.90;
 
             if (!e.isProject) {
                 e.mesh.position.x = e.basePos.x;
@@ -867,7 +864,6 @@ function _destroyEntry(e, idx) {
         m.dispose();
     }
     if (e.labelMat) { if (e.labelMat.map) e.labelMat.map.dispose(); e.labelMat.dispose(); }
-    if (e.rimMat)   { e.rimMat.dispose(); }
     if (idx !== undefined) _entries.splice(idx, 1);
 }
 
