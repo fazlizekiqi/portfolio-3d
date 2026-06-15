@@ -149,18 +149,25 @@ function _applyCameraForSlide(slide, name) {
     camPos    = (isMobile() && slide.mobileCamPos)    ? slide.mobileCamPos    : slide.camPos;
     camTarget = (isMobile() && slide.mobileCamTarget) ? slide.mobileCamTarget : slide.camTarget;
   }
-  // Skills: fast 360° sweep, then a slower cinematic spiral into the framing
+  // Skills: single fast 360° sweep then settle
   if (name === 'skills') {
+    const target = new THREE.Vector3(camTarget.x, camTarget.y, camTarget.z);
+    startOrbitSweep(target, 1300, () => {
+      _camMoveDuration = 1200;
+      startCameraMove(camPos, camTarget);
+    });
+    return;
+  }
+
+  // Projects: full orbit from current position (passes through behind at ~180°)
+  // then snaps to the hardcoded card frustum position.
+  if (name === 'projects') {
     const target      = new THREE.Vector3(camTarget.x, camTarget.y, camTarget.z);
     const finalRadius = Math.hypot(camPos.x - camTarget.x, camPos.z - camTarget.z);
-    startOrbitSweep(target, 1300, () => {
-      // Second sweep: slower full turn that eases the orbit toward the final
-      // radius/height, then a short move cleans up the azimuth into camPos.
-      startOrbitSweep(target, 3200, () => {
-        _camMoveDuration = 1200;
-        startCameraMove(camPos, camTarget);
-      }, { easing: 'inOut', endRadius: finalRadius, endHeight: camPos.y });
-    });
+    startOrbitSweep(target, 3500, () => {
+      _camMoveDuration = 1000;
+      startCameraMove(camPos, camTarget);
+    }, { easing: 'inOut', endRadius: finalRadius, endHeight: camPos.y });
     return;
   }
 
@@ -195,6 +202,12 @@ function _applyAnimationForSlide(slide, name) {
       cancelIdleLoop();
       playClip(slide.clip, 1.0, 1.2);
     });
+  } else if (name === 'mindset') {
+    hideAboutWireframe();
+    // Play idle-to-walk once, then loop walking for the full slide.
+    playFeaturedClip('idle-to-walk', 0.45, () => {
+      playClip('walking', 1.0, 0.5);
+    });
   } else {
     hideAboutWireframe();
     if (slide.clipLoop) {
@@ -207,8 +220,19 @@ function _applyAnimationForSlide(slide, name) {
   }
 }
 
+// Listener handle so we can remove it if the user navigates away early.
+let _expDoneListener = null;
+
+function _clearExpDoneListener() {
+  if (_expDoneListener) {
+    document.removeEventListener('_exp-timeline-done', _expDoneListener);
+    _expDoneListener = null;
+  }
+}
+
 function _applyUIForSlide(slide, name) {
   hideCard();
+  _clearExpDoneListener();
 
   hideBubbles();
   if (name === 'skills')   showSkillBubbles();
@@ -221,6 +245,12 @@ function _applyUIForSlide(slide, name) {
     }, 1600);
   } else {
     hideHowIWorkOverlay();
+  }
+
+  // Experience: slide advances when the timeline finishes one pass (not on timer).
+  if (name === 'experience') {
+    _expDoneListener = () => { _expDoneListener = null; _goToNextSlide(); };
+    document.addEventListener('_exp-timeline-done', _expDoneListener, { once: true });
   }
 
   const mindsetBody = name === 'mindset' ? '' : slide.body;
@@ -236,6 +266,7 @@ export function goToSlide(name) {
   if (_ctaTimeout)     { clearTimeout(_ctaTimeout);     _ctaTimeout     = null; }
   if (_cam2Timeout)    { clearTimeout(_cam2Timeout);    _cam2Timeout    = null; }
   if (_overlayTimeout) { clearTimeout(_overlayTimeout); _overlayTimeout = null; hideHowIWorkOverlay(); }
+  _clearExpDoneListener();
 
   _frozen = false;
   _currentSlide    = slide;

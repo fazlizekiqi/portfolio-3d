@@ -983,8 +983,8 @@ function _startExperienceTimeline() {
     const endY   = nodeYs[nodeYs.length - 1];
     dot.setAttribute('cy', startY);
 
-    const TRAVEL_MS = 3200;
-    const PAUSE_MS  = 750;
+    const TRAVEL_MS = 4500;
+    const PAUSE_MS  = 2500;
     const PULSE_MS  = 380;
 
     let startTime  = null;
@@ -1053,13 +1053,9 @@ function _startExperienceTimeline() {
       }
 
       if (progress >= 1) {
-        // Reset to top and loop
-        startTime  = null;
-        pauseUntil = ts + 1100;
-        activeIdx  = -1;
-        dot.setAttribute('cy', startY);
-        glowLine.setAttribute('y2', startY);
-        setActive(-1);
+        // One pass complete — leave the last node highlighted and signal done.
+        document.dispatchEvent(new CustomEvent('_exp-timeline-done'));
+        return;  // don't re-queue; timeline ends after one pass
       }
     }
 

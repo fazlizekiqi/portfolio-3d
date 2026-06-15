@@ -102,11 +102,11 @@ _style.textContent = `
 /* ── Callout blocks ─────────────────────────────────────────────────────────── */
 ._hiw-blk {
   position: absolute;
-  width: clamp(196px, 19vw, 252px);
+  width: clamp(200px, 22vw, 420px);
   background: rgba(2,9,24,0.86);
   border: 1px solid rgba(0,150,200,0.30);
   border-radius: 4px;
-  padding: 11px 13px 12px;
+  padding: clamp(11px, 1.1vw, 20px) clamp(13px, 1.3vw, 24px);
   box-sizing: border-box;
   backdrop-filter: blur(7px);
   opacity: 0;
@@ -140,7 +140,7 @@ _style.textContent = `
     margin-top 0.4s ease;
 }
 ._hiw-blk.hiw-expanded ._hiw-blk-body {
-  max-height: 240px;
+  max-height: clamp(240px, 22vw, 400px);
   opacity: 1;
   margin-top: 8px;
 }
@@ -190,7 +190,7 @@ _style.textContent = `
 /* card picture banner */
 ._hiw-blk-img {
   position: relative;
-  height: 56px;
+  height: clamp(56px, 5vw, 90px);
   margin-bottom: 8px;
   border-radius: 3px;
   overflow: hidden;
@@ -227,7 +227,7 @@ _style.textContent = `
 }
 
 ._hiw-blk-title {
-  font-size: 13px;
+  font-size: clamp(13px, 1.1vw, 18px);
   font-weight: 700;
   letter-spacing: .10em;
   color: #cfeeff;
