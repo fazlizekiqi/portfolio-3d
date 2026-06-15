@@ -48,20 +48,35 @@ export function resetSlideElapsed() {
   _orbitSweep  = null;
 }
 
+// Sweep easings (keyed independently of the slide EASE map).
+const _SWEEP_EASE = {
+  quad:  t => t < 0.5 ? 2*t*t : -1 + (4 - 2*t)*t,   // ease in-out quad
+  inOut: EASE.inOut,
+};
+
 /**
- * Spin the camera 360° around `target` at current radius/height,
- * then call `onDone` when the sweep completes.
+ * Spin the camera around `target`, then call `onDone` when the sweep completes.
  * @param {THREE.Vector3} target
- * @param {number} duration  ms for the full 360°
+ * @param {number} duration  ms for the full sweep
  * @param {Function} onDone  called once on completion
+ * @param {object} [opts]
+ * @param {number} [opts.turns=1]    full revolutions to spin
+ * @param {string} [opts.easing='quad']  'quad' | 'inOut'
+ * @param {number} [opts.endRadius]  if set, lerp orbit radius start→end across the sweep
+ * @param {number} [opts.endHeight]  if set, lerp orbit height start→end across the sweep
  */
-export function startOrbitSweep(target, duration, onDone) {
+export function startOrbitSweep(target, duration, onDone, opts = {}) {
   const dx = camera.position.x - target.x;
   const dz = camera.position.z - target.z;
+  const radius = Math.sqrt(dx * dx + dz * dz);
   _orbitSweep = {
     target,
-    radius:     Math.sqrt(dx * dx + dz * dz),
+    radius,
     height:     camera.position.y,
+    endRadius:  opts.endRadius ?? radius,
+    endHeight:  opts.endHeight ?? camera.position.y,
+    turns:      opts.turns ?? 1,
+    ease:       _SWEEP_EASE[opts.easing] ?? _SWEEP_EASE.quad,
     duration,
     elapsed:    0,
     startAngle: Math.atan2(dx, dz),
@@ -113,19 +128,22 @@ export function glideHome() {
 export function tickCamera(delta, elapsed, activeSlide, slideIndex, totalDur, frozen) {
   // ── Pre-settle orbit sweep (skills 360° intro) ───────────────────────────
   if (_orbitSweep) {
-    _orbitSweep.elapsed += delta * 1000;
-    const t     = Math.min(_orbitSweep.elapsed / _orbitSweep.duration, 1.0);
-    const eased = t < 0.5 ? 2*t*t : -1 + (4 - 2*t)*t; // ease in-out quad
-    const angle = _orbitSweep.startAngle + eased * Math.PI * 2;
+    const s     = _orbitSweep;
+    s.elapsed  += delta * 1000;
+    const t     = Math.min(s.elapsed / s.duration, 1.0);
+    const eased = s.ease(t);
+    const angle = s.startAngle + eased * Math.PI * 2 * s.turns;
+    const rad   = s.radius + (s.endRadius - s.radius) * eased;
+    const hgt   = s.height + (s.endHeight - s.height) * eased;
     if (!frozen) {
       camera.position.set(
-        _orbitSweep.target.x + _orbitSweep.radius * Math.sin(angle),
-        _orbitSweep.height,
-        _orbitSweep.target.z + _orbitSweep.radius * Math.cos(angle)
+        s.target.x + rad * Math.sin(angle),
+        hgt,
+        s.target.z + rad * Math.cos(angle)
       );
-      camera.lookAt(_orbitSweep.target.x, _orbitSweep.target.y, _orbitSweep.target.z);
+      camera.lookAt(s.target.x, s.target.y, s.target.z);
     }
-    if (t >= 1.0) { const cb = _orbitSweep.onDone; _orbitSweep = null; cb?.(); }
+    if (t >= 1.0) { const cb = s.onDone; _orbitSweep = null; cb?.(); }
     return { rawT: 0, done: false };
   }
 

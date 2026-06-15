@@ -129,6 +129,22 @@ _style.textContent = `
     inset 0 1px 0 rgba(0,220,255,0.12);
 }
 
+/* Collapsed by default (index + title only); reveals on the active card. */
+._hiw-blk-body {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition:
+    max-height 0.5s cubic-bezier(0.22,0.61,0.36,1),
+    opacity 0.4s ease,
+    margin-top 0.4s ease;
+}
+._hiw-blk.hiw-expanded ._hiw-blk-body {
+  max-height: 240px;
+  opacity: 1;
+  margin-top: 8px;
+}
+
 /* corner brackets */
 ._hiw-cb {
   position: absolute;
@@ -271,11 +287,9 @@ _style.textContent = `
 
 /* ── Mobile ─────────────────────────────────────────────────────────────────── */
 @media (max-width: 640px) {
-  #_hiw-svg { display: none; }                 /* no converging lines over the body */
   ._hiw-blk {
     width: 43vw;
-    padding: 5px 8px;
-    gap: 4px;
+    padding: 6px 8px 7px;
     backdrop-filter: blur(5px);
   }
   ._hiw-blk-tl { top: 60px;    left: 7px;  transform: translateY(-12px) scale(0.94); }
@@ -283,10 +297,10 @@ _style.textContent = `
   ._hiw-blk-bl { bottom: 58px; left: 7px;  top: auto; transform: translateY(12px) scale(0.94); }
   ._hiw-blk-br { bottom: 58px; right: 7px; top: auto; transform: translateY(12px) scale(0.94); }
   ._hiw-blk.hiw-visible { transform: translateY(0) scale(1); }
-  ._hiw-blk-img   { display: none; }
-  ._hiw-blk-cap   { display: none; }
-  ._hiw-blk-tags  { display: none; }
-  ._hiw-blk-rule  { display: none; }
+  ._hiw-blk.hiw-expanded ._hiw-blk-body { max-height: 200px; margin-top: 6px; }
+  ._hiw-blk-img   { height: 42px; margin-bottom: 6px; }
+  ._hiw-blk-cap   { font-size: 8px; margin-bottom: 6px; }
+  ._hiw-blk-tag   { font-size: 6.5px; padding: 1px 4px; }
   ._hiw-blk-title { font-size: 10px; letter-spacing: .08em; }
   ._hiw-blk-hd    { margin-bottom: 0; }
   ._hiw-blk-ref, ._hiw-blk-dim { display: none; }
@@ -351,14 +365,16 @@ const _blockEls = CARDS.map((c) => {
       <span class="_hiw-blk-ref">REF ${c.ref}</span>
       <span class="_hiw-blk-dim">1:1</span>
     </div>
-    <div class="_hiw-blk-img">
-      <img src="${c.img}" alt="" loading="lazy" />
-      <span class="_hiw-blk-img-scan"></span>
-    </div>
     <div class="_hiw-blk-title"></div>
-    <div class="_hiw-blk-rule"></div>
-    <div class="_hiw-blk-cap">${c.caption}</div>
-    <div class="_hiw-blk-tags">${tags}</div>`;
+    <div class="_hiw-blk-body">
+      <div class="_hiw-blk-img">
+        <img src="${c.img}" alt="" loading="lazy" />
+        <span class="_hiw-blk-img-scan"></span>
+      </div>
+      <div class="_hiw-blk-rule"></div>
+      <div class="_hiw-blk-cap">${c.caption}</div>
+      <div class="_hiw-blk-tags">${tags}</div>
+    </div>`;
   _wrap.appendChild(el);
   return el;
 });
@@ -379,6 +395,7 @@ let _typeIds    = [];
 let _activeIdx  = -1;
 let _cycleStart = null;
 let _showing    = false;
+let _stepMs     = CYCLE_MS;   // per-card expand window, set from slide duration
 
 // ── Leader-line geometry ──────────────────────────────────────────────────────
 function _blockAnchor(pos, r) {
@@ -457,21 +474,33 @@ function _type(el, text, speed = 34) {
 
 // ── Active-callout cycling ────────────────────────────────────────────────────
 function _setActive(idx) {
-  _blockEls.forEach((el, i) => el.classList.toggle('hiw-active', i === idx));
+  _blockEls.forEach((el, i) => {
+    el.classList.toggle('hiw-active',   i === idx);
+    el.classList.toggle('hiw-expanded', i === idx);
+  });
   _pathEls.forEach((p,  i) => p.classList.toggle('hiw-lead-active', i === idx));
   _markEls.forEach((m,  i) => m.classList.toggle('hiw-mark-active', i === idx));
   _activeIdx = idx;
-  audio.playTimelineNode?.();
+  if (idx >= 0) audio.playTimelineNode?.();
 }
 
+// One forward pass: each card expands for a `_stepMs` window (collapsing the
+// previous), then the sequence ends with everything collapsed. No looping.
 function _tick(ts) {
-  _rafId = requestAnimationFrame(_tick);
-  if (!_cycleStart) { _cycleStart = ts; return; }
+  if (!_cycleStart) _cycleStart = ts;
   const elapsed = ts - _cycleStart;
-  const total   = CYCLE_MS * CARDS.length;
-  const idx     = Math.floor((elapsed % total) / CYCLE_MS) % CARDS.length;
+  const total   = _stepMs * CARDS.length;
+
+  _railFill.style.width = `${Math.min(elapsed / total, 1) * 100}%`;
+
+  if (elapsed >= total) {
+    _setActive(-1);     // collapse the last card; sequence complete
+    _rafId = null;
+    return;
+  }
+  const idx = Math.min(Math.floor(elapsed / _stepMs), CARDS.length - 1);
   if (idx !== _activeIdx) _setActive(idx);
-  _railFill.style.width = `${((elapsed % total) / total) * 100}%`;
+  _rafId = requestAnimationFrame(_tick);
 }
 
 // ── Resize ────────────────────────────────────────────────────────────────────
@@ -481,18 +510,26 @@ function _onResize() {
 window.addEventListener('resize', _onResize);
 
 // ── Public API ────────────────────────────────────────────────────────────────
-export function showHowIWorkOverlay() {
+// Intro + outro reserved out of the slide window so the last card finishes
+// collapsing just before the slide auto-advances.
+const INTRO_MS = 1500;
+const OUTRO_MS = 800;
+
+export function showHowIWorkOverlay(durationMs = CYCLE_MS * CARDS.length + INTRO_MS + OUTRO_MS) {
   _clearTimers();
   _showing    = true;
   _cycleStart = null;
   _activeIdx  = -1;
 
+  // Fit the 4 expand windows into the slide's remaining time.
+  _stepMs = Math.max(1800, (durationMs - INTRO_MS - OUTRO_MS) / CARDS.length);
+
   _wrap.style.display   = '';
   _rail.style.opacity   = '0';
   _railFill.style.width = '0%';
 
-  // Reset visuals
-  _blockEls.forEach(el => el.classList.remove('hiw-visible', 'hiw-active'));
+  // Reset visuals (all cards collapsed)
+  _blockEls.forEach(el => el.classList.remove('hiw-visible', 'hiw-active', 'hiw-expanded'));
   _pathEls.forEach(p => p.classList.remove('hiw-lead-active'));
   _markEls.forEach(m => m.classList.remove('hiw-mark-vis', 'hiw-mark-active'));
   _titleEls.forEach(t => (t.textContent = ''));
@@ -500,7 +537,7 @@ export function showHowIWorkOverlay() {
   // Position leader lines now (blocks already have their CSS-fixed positions).
   _layoutLeaders(false);
 
-  // Stagger the callouts in, typewrite each title as it lands.
+  // Stagger the collapsed callouts in, typewrite each title as it lands.
   CARDS.forEach((c, i) => {
     _staggerIds.push(setTimeout(() => {
       _blockEls[i].classList.add('hiw-visible');
@@ -511,16 +548,16 @@ export function showHowIWorkOverlay() {
   // Leader lines draw after the blocks are placed.
   _staggerIds.push(setTimeout(_drawLeadersIn, 260));
 
-  // Rail + cycling once everything has settled.
-  _staggerIds.push(setTimeout(() => { _rail.style.opacity = '1'; }, 1400));
-  _staggerIds.push(setTimeout(() => { _rafId = requestAnimationFrame(_tick); }, 1500));
+  // Rail + sequential expand/collapse pass once everything has settled.
+  _staggerIds.push(setTimeout(() => { _rail.style.opacity = '1'; }, INTRO_MS - 100));
+  _staggerIds.push(setTimeout(() => { _rafId = requestAnimationFrame(_tick); }, INTRO_MS));
 }
 
 export function hideHowIWorkOverlay() {
   _showing = false;
   _clearTimers();
 
-  _blockEls.forEach(el => el.classList.remove('hiw-visible', 'hiw-active'));
+  _blockEls.forEach(el => el.classList.remove('hiw-visible', 'hiw-active', 'hiw-expanded'));
   _pathEls.forEach(p => p.classList.remove('hiw-lead-active'));
   _markEls.forEach(m => m.classList.remove('hiw-mark-vis', 'hiw-mark-active'));
   _rail.style.opacity   = '0';

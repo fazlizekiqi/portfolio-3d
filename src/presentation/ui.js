@@ -425,7 +425,7 @@ _style.textContent = `
 /* ─── CTA — desktop: panel centred top, character centred, buttons above head */
 #_slide-body-panel.slide-cta {
   pointer-events: auto;
-  justify-content: flex-start;
+  justify-content: center;
   align-items: center;
   padding-left: 0;
   top: 56px;
@@ -452,6 +452,22 @@ _style.textContent = `
   flex-wrap: wrap;
   justify-content: center;
   gap: 8px;
+}
+
+/* Desktop only: reveal the 4 action buttons one after another above the head. */
+@keyframes _cta-btn-in {
+  from { opacity: 0; transform: translateY(-10px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@media (min-width: 641px) {
+  #_slide-body-panel.slide-cta ._cta-actions ._cta-btn {
+    opacity: 0;
+    animation: _cta-btn-in 0.45s cubic-bezier(0.22,0.61,0.36,1) forwards;
+  }
+  #_slide-body-panel.slide-cta ._cta-actions ._cta-btn:nth-child(1) { animation-delay: 0.35s; }
+  #_slide-body-panel.slide-cta ._cta-actions ._cta-btn:nth-child(2) { animation-delay: 0.55s; }
+  #_slide-body-panel.slide-cta ._cta-actions ._cta-btn:nth-child(3) { animation-delay: 0.75s; }
+  #_slide-body-panel.slide-cta ._cta-actions ._cta-btn:nth-child(4) { animation-delay: 0.95s; }
 }
 
 ._cta-btn {

@@ -98,9 +98,16 @@ export const SLIDES = [
         name: 'mindset',
         camPos:    new THREE.Vector3(0, 1.0, 7.2),
         camTarget: new THREE.Vector3(0, 0.95, 0),
+        // Gentle cinematic push-in while the four cards reveal one by one.
+        // Desktop only — mobile has no mobileCamPos2 so the push-in is skipped
+        // and the wider mobileCamPos framing is kept.
+        camPos2:    new THREE.Vector3(0, 1.05, 6.4),
+        camTarget2: new THREE.Vector3(0, 1.0, 0),
+        cam2Delay:    1600,
+        cam2Duration: 6000,
         mobileCamPos:    new THREE.Vector3(0, 2.0, 11.0),
         mobileCamTarget: new THREE.Vector3(0, 0.6, 0),
-        duration: 17000,
+        duration: 19000,
         camMoveDuration: 1400,
         easing: 'inOut',
         clip: 'idle',
@@ -151,8 +158,8 @@ export const SLIDES = [
     {
         // ── CTA: Upper-body close-up, character centred, buttons above head ──
         name: 'cta',
-        camPos:    new THREE.Vector3(0, 2.0, 7.5),
-        camTarget: new THREE.Vector3(0, 1.2, 0),
+        camPos:    new THREE.Vector3(0, 1.9, 6.6),
+        camTarget: new THREE.Vector3(0, 1.35, 0),
         mobileCamPos:    new THREE.Vector3(0, 1.8, 11.5),
         mobileCamTarget: new THREE.Vector3(0, 0.6, 0),
         mobileCamPos2:    new THREE.Vector3(0, 1.6, 10.0),

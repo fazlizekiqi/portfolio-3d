@@ -149,22 +149,30 @@ function _applyCameraForSlide(slide, name) {
     camPos    = (isMobile() && slide.mobileCamPos)    ? slide.mobileCamPos    : slide.camPos;
     camTarget = (isMobile() && slide.mobileCamTarget) ? slide.mobileCamTarget : slide.camTarget;
   }
-  // Skills: 360° orbit sweep before settling
+  // Skills: fast 360° sweep, then a slower cinematic spiral into the framing
   if (name === 'skills') {
-    const target = new THREE.Vector3(camTarget.x, camTarget.y, camTarget.z);
-    startOrbitSweep(target, 1400, () => {
-      _camMoveDuration = 1200;
-      startCameraMove(camPos, camTarget);
+    const target      = new THREE.Vector3(camTarget.x, camTarget.y, camTarget.z);
+    const finalRadius = Math.hypot(camPos.x - camTarget.x, camPos.z - camTarget.z);
+    startOrbitSweep(target, 1300, () => {
+      // Second sweep: slower full turn that eases the orbit toward the final
+      // radius/height, then a short move cleans up the azimuth into camPos.
+      startOrbitSweep(target, 3200, () => {
+        _camMoveDuration = 1200;
+        startCameraMove(camPos, camTarget);
+      }, { easing: 'inOut', endRadius: finalRadius, endHeight: camPos.y });
     });
     return;
   }
 
   startCameraMove(camPos, camTarget);
 
-  // Optional phase-2 camera sweep (e.g. experience: side → front after character turn)
-  if (slide.camPos2 && slide.cam2Delay) {
-    const camPos2    = (isMobile() && slide.mobileCamPos2)    ? slide.mobileCamPos2    : slide.camPos2;
-    const camTarget2 = (isMobile() && slide.mobileCamTarget2) ? slide.mobileCamTarget2 : slide.camTarget2;
+  // Optional phase-2 camera sweep (e.g. mindset: gentle push-in while cards reveal).
+  // Skip on mobile when the slide defines no mobile-specific phase-2 target, so a
+  // desktop-only push-in never overrides the wider mobile framing.
+  const _onMobile = isMobile();
+  if (slide.camPos2 && slide.cam2Delay && !(_onMobile && !slide.mobileCamPos2)) {
+    const camPos2    = (_onMobile && slide.mobileCamPos2)    ? slide.mobileCamPos2    : slide.camPos2;
+    const camTarget2 = (_onMobile && slide.mobileCamTarget2) ? slide.mobileCamTarget2 : slide.camTarget2;
     _cam2Timeout = setTimeout(() => {
       _cam2Timeout = null;
       _camMoveDuration = slide.cam2Duration ?? 2000;
@@ -209,7 +217,7 @@ function _applyUIForSlide(slide, name) {
   if (name === 'mindset') {
     _overlayTimeout = setTimeout(() => {
       _overlayTimeout = null;
-      showHowIWorkOverlay();
+      showHowIWorkOverlay(slide.duration - 1600);
     }, 1600);
   } else {
     hideHowIWorkOverlay();
