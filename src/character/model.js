@@ -68,7 +68,7 @@ export function playFeaturedClip(name, fadeDuration = 0.45, onFinished = null) {
     mixer.removeEventListener('finished', handler);
     if (_idleLoopToken !== token) return;
     if (onFinished) onFinished();
-    _crossfadeToIdle(token, 0.5);
+    else _crossfadeToIdle(token, 0.5);
   };
   mixer.addEventListener('finished', handler);
 }

@@ -159,18 +159,6 @@ function _applyCameraForSlide(slide, name) {
     return;
   }
 
-  // Projects: full orbit from current position (passes through behind at ~180°)
-  // then snaps to the hardcoded card frustum position.
-  if (name === 'projects') {
-    const target      = new THREE.Vector3(camTarget.x, camTarget.y, camTarget.z);
-    const finalRadius = Math.hypot(camPos.x - camTarget.x, camPos.z - camTarget.z);
-    startOrbitSweep(target, 3500, () => {
-      _camMoveDuration = 1000;
-      startCameraMove(camPos, camTarget);
-    }, { easing: 'inOut', endRadius: finalRadius, endHeight: camPos.y });
-    return;
-  }
-
   startCameraMove(camPos, camTarget);
 
   // Optional phase-2 camera sweep (e.g. mindset: gentle push-in while cards reveal).
