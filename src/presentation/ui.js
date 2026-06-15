@@ -184,10 +184,6 @@ _style.textContent = `
   transform: translateX(2px) scale(1.020);
 }
 @keyframes _exp-pulse {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.85; }
-}
-@keyframes _exp-pulse {
   0%, 100% { box-shadow: 0 0 22px rgba(0, 180, 255, 0.28); }
   50%       { box-shadow: 0 0 36px rgba(0, 210, 255, 0.48); }
 }
@@ -913,6 +909,12 @@ _audioBtn.addEventListener('click', () => {
   _audioBtn.classList.toggle('muted', muted);
 });
 
+// ── Timing constants ──────────────────────────────────────────────────────────
+const EXP_TIMELINE_DELAY_MS = 950;
+const TRAVEL_MS             = 4500;
+const PAUSE_MS              = 2500;
+const PULSE_MS              = 380;
+
 // ── Typewriter ────────────────────────────────────────────────────────────────
 let _timerA = null, _timerB = null;
 
@@ -945,7 +947,7 @@ function _startExperienceTimeline() {
     });
   });
 
-  // Wait for stagger animations + layout to settle before measuring
+  // Wait for stagger animations + layout to settle before measuring DOM positions
   setTimeout(() => {
     const svg       = slideBody.querySelector('#_exp-tl-svg');
     const dot       = slideBody.querySelector('#_exp-tl-dot');
@@ -982,10 +984,6 @@ function _startExperienceTimeline() {
     const startY = nodeYs[0];
     const endY   = nodeYs[nodeYs.length - 1];
     dot.setAttribute('cy', startY);
-
-    const TRAVEL_MS = 4500;
-    const PAUSE_MS  = 2500;
-    const PULSE_MS  = 380;
 
     let startTime  = null;
     let pauseUntil = 0;
@@ -1062,7 +1060,7 @@ function _startExperienceTimeline() {
     // Set first block active immediately
     setActive(0);
     requestAnimationFrame(tick);
-  }, 950);
+  }, EXP_TIMELINE_DELAY_MS);
 }
 
 // ── UI mode helpers ───────────────────────────────────────────────────────────
@@ -1156,11 +1154,11 @@ export function showCard(title, body, delay = 550, slideName = '', subtitle = ''
           }, 160 + i * 230);
         });
         _startExperienceTimeline();
-      } else if (body === '__INTRO_TERMINAL__') {
+      } else if (slideName === 'intro') {
         slideBody.innerHTML = buildIntroHTML();
-      } else if (body === '__ABOUT_STATS__') {
+      } else if (slideName === 'about') {
         slideBody.innerHTML = buildAboutHTML();
-      } else if (body === '__CTA_LINKS__') {
+      } else if (slideName === 'cta') {
         slideBody.innerHTML = buildCtaHTML();
         initGuestbook(slideBody);
       } else {

@@ -268,20 +268,6 @@ const audio = {
     });
   },
 
-  playBubbleSelect() {
-    if (!this._ctx || this._muted) return;
-    const t   = this._ctx.currentTime;
-    const osc  = this._ctx.createOscillator();
-    const gain = this._ctx.createGain();
-    osc.connect(gain); gain.connect(this._master);
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(400, t);
-    osc.frequency.exponentialRampToValueAtTime(900, t + 0.12);
-    gain.gain.setValueAtTime(0.20, t);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
-    osc.start(t); osc.stop(t + 0.20);
-  },
-
   playScanBeep() {
     if (!this._ctx || this._muted) return;
     const t   = this._ctx.currentTime;

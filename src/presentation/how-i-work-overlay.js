@@ -286,7 +286,7 @@ _style.textContent = `
 }
 
 /* ── Mobile ─────────────────────────────────────────────────────────────────── */
-@media (max-width: 640px) {
+@media (max-width: 767px) {
   ._hiw-blk {
     width: 37vw;
     padding: 5px 7px 6px;

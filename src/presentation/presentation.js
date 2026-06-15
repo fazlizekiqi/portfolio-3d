@@ -26,7 +26,7 @@ import { showSkillBubbles, showProjectBubbles, hideBubbles } from './bubbles.js'
 import {
   startCameraMove, glideHome, tickCamera, startOrbitSweep,
   camLookTarget, currentCamLook,
-  resetSlideElapsed,
+  resetCameraMove,
 } from './camera.js';
 import {
   progressWrap, nextBtn, prevBtn, presentBtn, exploreBtn, backBtn,
@@ -39,62 +39,56 @@ import { showAboutWireframe, hideAboutWireframe, tickAboutWireframe } from '../c
 export { initCameraState } from './camera.js';
 export { currentCamLook }  from './camera.js';
 
-/** Compute the news-anchor camera pos/target for the experience slide. */
-function _experienceCam(slide) {
-  const a      = (isMobile() && slide.mobileAnchor) ? slide.mobileAnchor : slide.anchor;
-  const base   = spawnPosition;
-  // New anchor format: camOffsetX, camY, targetOffsetX, targetY
-  // Legacy format: chestHeight, targetOffset (kept for backwards compat)
-  const camY      = a.camY    ?? (base.y + (a.chestHeight ?? 1.1));
-  const targetY   = a.targetY ?? camY;
-  const camX      = a.camOffsetX    != null ? base.x + a.camOffsetX    : base.x;
-  const targetX   = a.targetOffsetX != null ? base.x + a.targetOffsetX : base.x - (a.targetOffset ?? 0);
-  const pos    = new THREE.Vector3(camX,    base.y + camY,    base.z + a.dist);
-  const target = new THREE.Vector3(targetX, base.y + targetY, base.z);
-  return { pos, target };
+// ── Timing constants ──────────────────────────────────────────────────────────
+const MYWORLD_IRIS_DELAY_MS    = 2800;
+const MYWORLD_PLAYER_DELAY_MS  = 3200;
+const CARD_DELAY_MS            = 550;
+const MYWORLD_CARD_DELAY_MS    = 200;
+const MINDSET_OVERLAY_DELAY_MS = 1600;
+
+// ── Camera helpers ────────────────────────────────────────────────────────────
+
+/** Resolve { pos, target } from an anchor descriptor + spawn position. */
+function _anchorCam(a) {
+  const base = spawnPosition;
+  return {
+    pos:    new THREE.Vector3(base.x + a.offsetX,       base.y + a.camY,    base.z + a.dist),
+    target: new THREE.Vector3(base.x + a.targetOffsetX, base.y + a.targetY, base.z),
+  };
 }
 
-/** Camera for the about slide — character right, wireframe ghost left. */
-function _aboutCam(slide) {
-  const a      = (isMobile() && slide.mobileAnchor) ? slide.mobileAnchor : slide.anchor;
-  const base   = spawnPosition;
-  const chestY = base.y + a.chestHeight;
-  const pos    = new THREE.Vector3(base.x + a.camOffsetX, chestY, base.z + a.dist);
-  const target = new THREE.Vector3(base.x + a.targetOffsetX, chestY, base.z);
-  return { pos, target };
+/** Single source of truth for picking camera pos/target from a slide. */
+function _resolveCamera(slide) {
+  const c      = slide.cam;
+  const mobile = isMobile() && c.mobile;
+  if (c.anchor || (mobile && mobile.anchor)) {
+    return _anchorCam(mobile ? mobile.anchor : c.anchor);
+  }
+  return {
+    pos:    mobile ? mobile.pos    : c.pos,
+    target: mobile ? mobile.target : c.target,
+  };
 }
 
 /** Re-applies a slide's camera live — pass the slide object from the GUI. */
 export function applySlideCam(slide) {
   const s = slide || _currentSlide;
   if (!s) return;
-
-  let pos, target;
-
-  if (s.name === 'experience') {
-    ({ pos, target } = _experienceCam(s));
-  } else if (s.name === 'about') {
-    ({ pos, target } = _aboutCam(s));
-  } else {
-    pos    = (isMobile() && s.mobileCamPos)    ? s.mobileCamPos    : s.camPos;
-    target = (isMobile() && s.mobileCamTarget) ? s.mobileCamTarget : s.camTarget;
-  }
-
+  const { pos, target } = _resolveCamera(s);
   _camMoveDuration = 600;
   startCameraMove(pos, target);
 }
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let _active        = false;
-let _paused        = false;
 let _currentSlide  = SLIDES[0];
 let _slideTimer    = 0;
 let _glideDuration = 1400;
 let _frozen        = false;
 let _ctaTimeout    = null;
 let _cam2Timeout   = null;
-let _overlayTimeout = null;   // delayed show of how-i-work overlay
-let _camMoveDuration = 1400; // tracks current camera-move leg duration
+let _overlayTimeout = null;
+let _camMoveDuration = 1400;
 
 // ── CTA slide — just show contact info, no auto-transition ───────────────────
 function _onEnterCta() {
@@ -113,19 +107,18 @@ function _onEnterMyWorld() {
     audio.stopAmbient(1.0);
     goToWhiteWorld();
     _endFromCta();
-  }, 2800);
+  }, MYWORLD_IRIS_DELAY_MS);
 }
 
 // ── After iris opens — player takes control ───────────────────────────────────
 function _endFromCta() {
   _active = false;
-  _paused = false;
 
   hideBubbles();
   hideCard();
 
   _slideTimer = 0;
-  resetSlideElapsed();
+  resetCameraMove();
   controls.maxDistance = 32;
 
   setTimeout(() => {
@@ -133,46 +126,39 @@ function _endFromCta() {
     controls.target.copy(currentCamLook);
     playerTakeControl();
     showWhiteWorldUI();
-  }, 3200);
+  }, MYWORLD_PLAYER_DELAY_MS);
 }
 
 
 // ── goToSlide helpers ─────────────────────────────────────────────────────────
 
 function _applyCameraForSlide(slide, name) {
-  let camPos, camTarget;
-  if (name === 'experience') {
-    ({ pos: camPos, target: camTarget } = _experienceCam(slide));
-  } else if (name === 'about') {
-    ({ pos: camPos, target: camTarget } = _aboutCam(slide));
-  } else {
-    camPos    = (isMobile() && slide.mobileCamPos)    ? slide.mobileCamPos    : slide.camPos;
-    camTarget = (isMobile() && slide.mobileCamTarget) ? slide.mobileCamTarget : slide.camTarget;
-  }
-  // Skills: single fast 360° sweep then settle
+  const { pos, target } = _resolveCamera(slide);
+  const c = slide.cam;
+
   if (name === 'skills') {
-    const target = new THREE.Vector3(camTarget.x, camTarget.y, camTarget.z);
-    startOrbitSweep(target, 1300, () => {
+    startOrbitSweep(target.clone(), 1300, () => {
       _camMoveDuration = 1200;
-      startCameraMove(camPos, camTarget);
+      startCameraMove(pos, target);
     });
     return;
   }
 
-  startCameraMove(camPos, camTarget);
+  startCameraMove(pos, target);
 
-  // Optional phase-2 camera sweep (e.g. mindset: gentle push-in while cards reveal).
-  // Skip on mobile when the slide defines no mobile-specific phase-2 target, so a
-  // desktop-only push-in never overrides the wider mobile framing.
-  const _onMobile = isMobile();
-  if (slide.camPos2 && slide.cam2Delay && !(_onMobile && !slide.mobileCamPos2)) {
-    const camPos2    = (_onMobile && slide.mobileCamPos2)    ? slide.mobileCamPos2    : slide.camPos2;
-    const camTarget2 = (_onMobile && slide.mobileCamTarget2) ? slide.mobileCamTarget2 : slide.camTarget2;
+  // Optional phase-2 camera move (e.g. mindset: gentle push-in while cards reveal).
+  // mobilePhase2 is mobile-only; phase2 is desktop-only (skip on mobile if no mobile override).
+  const onMobile = isMobile();
+  const p2 = onMobile && c.mobilePhase2 ? c.mobilePhase2
+           : !onMobile && c.phase2       ? c.phase2
+           : null;
+
+  if (p2 && !(onMobile && !c.mobilePhase2 && c.phase2)) {
     _cam2Timeout = setTimeout(() => {
-      _cam2Timeout = null;
-      _camMoveDuration = slide.cam2Duration ?? 2000;
-      startCameraMove(camPos2, camTarget2);
-    }, slide.cam2Delay);
+      _cam2Timeout     = null;
+      _camMoveDuration = p2.ms ?? 2000;
+      startCameraMove(p2.pos, p2.target);
+    }, p2.delay ?? 0);
   }
 }
 
@@ -185,27 +171,23 @@ function _applyAnimationForSlide(slide, name) {
     modelGroup.rotation.copy(spawnRotation);
   }
 
+  const { clip, clips, loop } = slide.anim;
+
   if (name === 'about') {
     showAboutWireframe(() => {
       cancelIdleLoop();
-      playClip(slide.clip, 1.0, 1.2);
+      playClip(clip, 1.0, 1.2);
     });
   } else if (name === 'mindset') {
     hideAboutWireframe();
-    // Play the idle→walk transition once (clip is 'ide-to-walk' in the GLB —
-    // note the missing 'l'), then loop walking for the rest of the slide.
     playFeaturedClip('ide-to-walk', 0.45, () => {
       playClip('walking', 1.0, 0.5);
     });
   } else {
     hideAboutWireframe();
-    if (slide.clipLoop) {
-      playClip(slide.clip);
-    } else if (slide.clips?.length > 1) {
-      playClipSequence(slide.clips, slide.clipIdleBetweenMs ?? 2500);
-    } else {
-      playFeaturedClip(slide.clip);
-    }
+    if (loop)               playClip(clip);
+    else if (clips?.length > 1) playClipSequence(clips);
+    else                    playFeaturedClip(clip);
   }
 }
 
@@ -230,8 +212,8 @@ function _applyUIForSlide(slide, name) {
   if (name === 'mindset') {
     _overlayTimeout = setTimeout(() => {
       _overlayTimeout = null;
-      showHowIWorkOverlay(slide.duration - 1600);
-    }, 1600);
+      showHowIWorkOverlay(slide.duration - MINDSET_OVERLAY_DELAY_MS);
+    }, MINDSET_OVERLAY_DELAY_MS);
   } else {
     hideHowIWorkOverlay();
   }
@@ -242,9 +224,9 @@ function _applyUIForSlide(slide, name) {
     document.addEventListener('_exp-timeline-done', _expDoneListener, { once: true });
   }
 
-  const mindsetBody = name === 'mindset' ? '' : slide.body;
-  if (name !== 'myworld') showCard(slide.title, mindsetBody, 550, name, slide.subtitle ?? '');
-  else                    showCard(slide.title, slide.body,  200, name, slide.subtitle ?? '');
+  const bodyText = name === 'mindset' ? '' : slide.body;
+  const delay    = name === 'myworld' ? MYWORLD_CARD_DELAY_MS : CARD_DELAY_MS;
+  showCard(slide.title, bodyText, delay, name, slide.subtitle ?? '');
 }
 
 // ── Flow ──────────────────────────────────────────────────────────────────────
@@ -260,8 +242,8 @@ export function goToSlide(name) {
   _frozen = false;
   _currentSlide    = slide;
   _slideTimer      = slide.duration;
-  _camMoveDuration = slide.camMoveDuration ?? slide.duration;
-  resetSlideElapsed();
+  _camMoveDuration = slide.cam.moveMs ?? slide.duration;
+  resetCameraMove();
 
   nextBtn.style.display = isLastSlide(name) ? 'none' : 'inline-flex';
   if (_active) {
@@ -294,7 +276,6 @@ function _goToPrevSlide() {
 
 function _startPresentation() {
   _active = true;
-  _paused = false;
   controls.enabled = false;
   playerReleaseControl();
   showPresentingUI();
@@ -306,7 +287,6 @@ export function startPresentation() { _startPresentation(); }
 
 function _endPresentation() {
   _active = false;
-  _paused = false;
   if (_ctaTimeout)     { clearTimeout(_ctaTimeout);     _ctaTimeout     = null; }
   if (_cam2Timeout)    { clearTimeout(_cam2Timeout);    _cam2Timeout    = null; }
   if (_overlayTimeout) { clearTimeout(_overlayTimeout); _overlayTimeout = null; }
@@ -323,7 +303,7 @@ function _endPresentation() {
 
   controls.enabled     = false;
   controls.maxDistance = 20;
-  playClip(slideByName['intro'].clip);
+  playClip(slideByName['intro'].anim.clip);
   const dur = _glideHome();
   setTimeout(() => { controls.enabled = true; }, dur + 200);
 }
@@ -331,7 +311,6 @@ function _endPresentation() {
 function _returnHome() {
   _frozen          = true;
   _active          = false;
-  _paused          = false;
   controls.enabled = false;
   playerStop();
   if (_cam2Timeout) { clearTimeout(_cam2Timeout); _cam2Timeout = null; }
@@ -406,14 +385,13 @@ document.addEventListener('proj-card-hover', () => {
 });
 
 // ── Button wiring ─────────────────────────────────────────────────────────────
-nextBtn.addEventListener('click',    () => { audio.resume(); audio.playButtonClick(); if (_active && !_paused) _goToNextSlide(); });
+nextBtn.addEventListener('click',    () => { audio.resume(); audio.playButtonClick(); if (_active) _goToNextSlide(); });
 prevBtn.addEventListener('click',    () => { audio.resume(); audio.playButtonClick(); if (_active) _goToPrevSlide(); });
 backBtn.addEventListener('click',    () => { audio.resume(); audio.playButtonClick(); backBtn.style.display = 'none'; _returnHome(); });
 presentBtn.addEventListener('click', () => { audio.resume(); audio.playButtonClick(); _active ? _endPresentation() : _startPresentation(); });
 
 exploreBtn.addEventListener('click', () => {
   audio.resume(); audio.playButtonClick();
-  _paused = false;
   showExploreUI();
   if (!_active) {
     _active = true;
@@ -431,16 +409,14 @@ export function tickPresentation(delta, elapsed) {
     return false;
   }
 
-  const totalDur = _active ? _camMoveDuration : _glideDuration;
+  const totalDur   = _active ? _camMoveDuration : _glideDuration;
   const slideIndex = _active ? indexOf(_currentSlide.name) : 0;
-  const { done } = tickCamera(delta, elapsed, _active ? _currentSlide : null, slideIndex, totalDur, _frozen);
+  const { done }   = tickCamera(delta, elapsed, _active ? _currentSlide : null, slideIndex, totalDur, _frozen);
 
   if (_active) {
     if (_currentSlide.name === 'about') tickAboutWireframe(delta);
-    if (!_paused) {
-      _slideTimer -= delta * 1000;
-      if (_slideTimer <= 0 && !_frozen) _goToNextSlide();
-    }
+    _slideTimer -= delta * 1000;
+    if (_slideTimer <= 0 && !_frozen) _goToNextSlide();
     setProgressFill(1 - _slideTimer / _currentSlide.duration);
   } else if (!_frozen && done) {
     _slideTimer = 0;
@@ -450,4 +426,3 @@ export function tickPresentation(delta, elapsed) {
 
   return true;
 }
-

@@ -104,123 +104,6 @@ export function destroyPlayer() {
   document.removeEventListener('keyup',   onKeyUp);
 }
 
-// ── DOM — hint label ──────────────────────────────────────────────────────────
-const _hintStyle = document.createElement('style');
-_hintStyle.textContent = `
-#_player-hint {
-  position:fixed;bottom:28px;left:50%;transform:translateX(-50%);
-  z-index:30;
-  display:flex;align-items:flex-end;gap:12px;
-  opacity:0;transition:opacity 0.5s ease;pointer-events:none;
-  font-family:'Share Tech Mono','Courier New',monospace;
-}
-
-/* ── toon key cap — white fill, black ink border, offset shadow ── */
-._hk {
-  display:inline-flex;align-items:center;justify-content:center;
-  width:27px;height:27px;
-  border-radius:4px;
-  background:#ffffff;
-  border:2px solid #111111;
-  box-shadow:2px 2px 0 #111111;
-  color:#111111;font-size:10px;font-weight:600;letter-spacing:0;
-  transition:background 0.07s,box-shadow 0.07s,transform 0.07s,color 0.07s;
-}
-/* pressed = cyan toon fill, shadow collapses (push-down) */
-._hk.pressed {
-  background:#c8f5ff;
-  color:#003344;
-  border-color:#005566;
-  box-shadow:1px 1px 0 #005566;
-  transform:translate(1px,1px);
-}
-
-/* ── wasd / arrow cluster grid ── */
-._hk-cluster {
-  display:grid;
-  grid-template-columns:repeat(3,27px);
-  grid-template-rows:repeat(2,27px);
-  gap:3px;
-}
-._hk-top { grid-column:2; }
-
-/* ── separator ── */
-._hdot {
-  color:rgba(0,0,0,0.20);font-size:8px;
-  align-self:center;
-}
-
-/* ── small label below cluster ── */
-._hlabel {
-  color:rgba(0,0,0,0.30);font-size:8px;letter-spacing:.16em;
-  align-self:flex-end;padding-bottom:2px;white-space:nowrap;
-}
-`;
-document.head.appendChild(_hintStyle);
-
-const hint = document.createElement('div');
-hint.id = '_player-hint';
-hint.innerHTML = `
-  <!-- WASD cluster -->
-  <div class="_hk-cluster">
-    <div class="_hk _hk-top"  data-code="KeyW">W</div>
-    <div class="_hk" data-code="KeyA">A</div>
-    <div class="_hk" data-code="KeyS">S</div>
-    <div class="_hk" data-code="KeyD">D</div>
-  </div>
-
-  <span class="_hdot">·</span>
-
-  <!-- Arrow cluster -->
-  <div class="_hk-cluster">
-    <div class="_hk _hk-top"  data-code="ArrowUp">↑</div>
-    <div class="_hk" data-code="ArrowLeft">←</div>
-    <div class="_hk" data-code="ArrowDown">↓</div>
-    <div class="_hk" data-code="ArrowRight">→</div>
-  </div>
-
-  <span class="_hdot">·</span>
-
-  <!-- Shift key -->
-  <div>
-    <div class="_hk" data-code="ShiftLeft" style="width:52px;font-size:8px;letter-spacing:.12em;">SHIFT</div>
-    <div class="_hlabel" style="text-align:center;margin-top:3px;">RUN</div>
-  </div>
-
-  <span class="_hlabel">TO&nbsp;MOVE</span>
-`;
-document.body.appendChild(hint);
-
-// Live-highlight pressed keys on the widget caps
-const _capMap = {};
-hint.querySelectorAll('[data-code]').forEach(el => {
-  _capMap[el.dataset.code] = el;
-});
-
-function _syncHintKeys() {
-  const jk = getJoystickKeys();
-  const codeMap = {
-    KeyW:       keys['KeyW']       || jk['KeyW'],
-    KeyA:       keys['KeyA']       || jk['KeyA'],
-    KeyS:       keys['KeyS']       || jk['KeyS'],
-    KeyD:       keys['KeyD']       || jk['KeyD'],
-    ArrowUp:    keys['ArrowUp'],
-    ArrowLeft:  keys['ArrowLeft'],
-    ArrowDown:  keys['ArrowDown'],
-    ArrowRight: keys['ArrowRight'],
-    ShiftLeft:  keys['ShiftLeft']  || keys['ShiftRight'] || jk['ShiftLeft'],
-  };
-  for (const [code, el] of Object.entries(_capMap)) {
-    el.classList.toggle('pressed', !!codeMap[code]);
-  }
-}
-
-// WASD/arrow hint hidden for now
-hint.style.display = 'none';
-
-function showHint() { /* hidden */ }
-function hideHint() { /* hidden */ }
-
 // ── Animation helpers ─────────────────────────────────────────────────────────
 
 /** Play a clip immediately if it isn't already playing. */
@@ -269,7 +152,6 @@ export function playerTakeControl() {
   if (modelGroup) facingAngle = modelGroup.rotation.y;
 
   setAnim('idle', 0.3);
-  showHint();
   showJoystick();
   // Do NOT snap — entryTimer drives a smooth lerp in _tickCamera
 }
@@ -281,7 +163,6 @@ export function playerReleaseControl() {
   inTransition = false;
   entryTimer   = 0;
 
-  hideHint();
   hideJoystick();
 
   if (modelGroup) {
@@ -298,7 +179,6 @@ export function playerStop() {
   velocityT    = 0;
   inTransition = false;
   entryTimer   = 0;
-  hideHint();
   hideJoystick();
 }
 
@@ -308,8 +188,6 @@ export function isPlayerActive() { return active; }
 // ── Per-frame tick ────────────────────────────────────────────────────────────
 export function tickPlayer(delta) {
   if (!active) return;
-
-  _syncHintKeys();
 
   const jk = getJoystickKeys();
 
