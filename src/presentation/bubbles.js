@@ -18,7 +18,6 @@ import { scene, camera, renderer } from '../scene.js';
 import { LAYER } from '../layers.js';
 import { isMobile } from '../constants.js';
 import { trackEvent } from '../analytics.js';
-import { audio } from '../audio.js';
 import BLUEPRINT_VERT from '../shaders/blueprint.vert.glsl?raw';
 import BLUEPRINT_FRAG from '../shaders/blueprint.frag.glsl?raw';
 
@@ -926,7 +925,6 @@ function _onUp(event) {
     }
 
     // Trigger burst pop
-    audio.playBubbleSelect();
     entry.popping = true;
     entry.popTime = 0;
 }

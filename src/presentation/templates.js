@@ -111,57 +111,47 @@ export function buildAboutHTML() {
 }
 
 /**
- * Contact slide — inline message form (primary) + social links (secondary).
- * Form submits via EmailJS; no redirects, no mail-client pop-up.
- * Place a cv.pdf in /public/ for the CV download to work.
+ * Contact slide — 4 blueprint annotation buttons + collapsible message form.
+ * EmailJS form IDs are preserved: #_cta-form, #_cta-name, #_cta-replyto,
+ * #_cta-msg, #_cta-send-btn, #_cta-status.
  */
 export function buildCtaHTML() {
   return `<div class="_cta-wrap">
 
-    <!-- ── Terminal contact session ──────────────────────────────────────── -->
-    <div class="_cli">
-      <div class="_cli-bar">
-        <span class="_cli-dot _cli-dot-r"></span>
-        <span class="_cli-dot _cli-dot-y"></span>
-        <span class="_cli-dot _cli-dot-g"></span>
-        <span class="_cli-bar-title">fazli@portfolio: ~/contact</span>
-        <span class="_cli-bar-status">● connected</span>
-      </div>
-      <div class="_cli-body">
-        <div class="_cli-line"><span class="_cli-prompt">$</span> contact --init</div>
-        <div class="_cli-comment"># fields marked * are required</div>
-        <form class="_cli-form" id="_cta-form" novalidate>
-          <label class="_cli-field">
-            <span class="_cli-q">name?</span>
-            <input type="text" class="_cli-input" id="_cta-name" placeholder="_" maxlength="60" autocomplete="name" />
-          </label>
-          <label class="_cli-field">
-            <span class="_cli-q">email? <em>*</em></span>
-            <input type="email" class="_cli-input" id="_cta-replyto" placeholder="_" maxlength="100" autocomplete="email" required />
-          </label>
-          <label class="_cli-field _cli-field-msg">
-            <span class="_cli-q">message? <em>*</em></span>
-            <textarea class="_cli-input _cli-textarea" id="_cta-msg" placeholder="_" maxlength="1000" rows="3" required></textarea>
-          </label>
-          <div class="_cli-exec">
-            <button type="submit" class="_cli-run" id="_cta-send-btn"><span class="_cli-prompt">$</span>contact --send</button>
-            <span class="_cta-status" id="_cta-status"></span>
-          </div>
-        </form>
-      </div>
+    <!-- ── 4 blueprint action buttons ───────────────────────────────────── -->
+    <nav class="_cta-actions">
+      <a class="_cta-btn _cta-btn-linkedin" href="https://linkedin.com/in/fazli-zekiqi" target="_blank" rel="noopener">
+        <span class="_cta-btn-icon">▶</span><span class="_cta-btn-label">LINKEDIN</span>
+      </a>
+      <a class="_cta-btn _cta-btn-github" href="https://github.com/fazlizekiqi" target="_blank" rel="noopener">
+        <span class="_cta-btn-icon">▶</span><span class="_cta-btn-label">GITHUB</span>
+      </a>
+      <a class="_cta-btn _cta-btn-cv" href="${_base}/cv.pdf" download="Fazli_Zekiqi_CV.pdf">
+        <span class="_cta-btn-icon">↓</span><span class="_cta-btn-label">RESUME</span>
+      </a>
+      <button type="button" class="_cta-btn _cta-btn-msg" id="_cta-msg-toggle">
+        <span class="_cta-btn-icon">✉</span><span class="_cta-btn-label">MESSAGE ME</span>
+      </button>
+    </nav>
+
+    <!-- ── Collapsible message form drawer ──────────────────────────────── -->
+    <div class="_cta-drawer" id="_cta-drawer">
+      <form class="_cta-drawer-form" id="_cta-form" novalidate>
+        <input type="hidden" id="_cta-name" value="" />
+        <label class="_cta-field">
+          <span class="_cta-lbl">EMAIL <em>*</em></span>
+          <input type="email" class="_cta-input" id="_cta-replyto" placeholder="your@email.com" maxlength="100" autocomplete="email" required />
+        </label>
+        <label class="_cta-field _cta-field-msg">
+          <span class="_cta-lbl">MESSAGE <em>*</em></span>
+          <textarea class="_cta-input _cta-textarea" id="_cta-msg" placeholder="Say something..." maxlength="1000" rows="3" required></textarea>
+        </label>
+        <div class="_cta-submit-row">
+          <button type="submit" class="_cta-send-btn" id="_cta-send-btn">SEND</button>
+          <span class="_cta-status" id="_cta-status"></span>
+        </div>
+      </form>
     </div>
 
-    <!-- ── Links as shell commands ───────────────────────────────────────── -->
-    <div class="_cli-links">
-      <a class="_cli-cmd _cli-p-linkedin" href="https://linkedin.com/in/fazli-zekiqi" target="_blank" rel="noopener">
-        <span class="_cli-prompt">$</span> open linkedin
-      </a>
-      <a class="_cli-cmd _cli-p-github" href="https://github.com/fazlizekiqi" target="_blank" rel="noopener">
-        <span class="_cli-prompt">$</span> open github
-      </a>
-      <a class="_cli-cmd _cli-p-cv" href="${_base}/cv.pdf" download="Fazli_Zekiqi_CV.pdf">
-        <span class="_cli-prompt">$</span> cat resume.pdf
-      </a>
-    </div>
   </div>`;
 }

@@ -438,88 +438,117 @@ _style.textContent = `
   padding: 0;
 }
 
-/* ─── CTA — terminal / CLI session ────────────────────────────────────────── */
+/* ─── CTA — blueprint action buttons + message drawer ─────────────────────── */
 ._cta-wrap {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
+  animation: _cta-in 0.5s ease forwards;
 }
 
-/* terminal window */
-._cli {
-  width: 360px;
-  border: 1px solid rgba(0,150,200,0.30);
-  border-radius: 6px;
-  overflow: hidden;
-  font-family: 'Share Tech Mono', 'Courier New', monospace;
-  background: rgba(0,5,16,0.96);
-  box-shadow: 0 14px 40px rgba(0,0,0,0.55), 0 0 0 1px rgba(0,40,70,0.4);
-  opacity: 0;
-  animation: _cta-in 0.55s ease forwards;
-}
-
-/* title bar with traffic-light dots */
-._cli-bar {
+._cta-actions {
   display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+._cta-btn {
+  position: relative;
+  display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 8px 12px;
-  background: rgba(0,18,38,0.95);
-  border-bottom: 1px solid rgba(0,150,200,0.18);
-}
-._cli-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
-._cli-dot-r { background: #ff5f56; }
-._cli-dot-y { background: #ffbd2e; }
-._cli-dot-g { background: #27c93f; }
-._cli-bar-title {
-  flex: 1;
-  text-align: center;
-  font-size: 9px;
-  letter-spacing: .10em;
-  color: rgba(150,200,230,0.60);
-}
-._cli-bar-status {
-  font-size: 8px;
-  letter-spacing: .10em;
-  color: #00ff99;
-}
-
-/* body */
-._cli-body {
-  padding: 12px 14px 14px;
+  gap: 10px;
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
   font-size: 11px;
-  letter-spacing: .04em;
-  line-height: 1.7;
-  background-image:
-    linear-gradient(rgba(255,255,255,0.014) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.014) 1px, transparent 1px);
-  background-size: 22px 22px;
+  letter-spacing: .14em;
+  color: rgba(170,220,255,0.72);
+  background: rgba(0,8,22,0.55);
+  border: 1px solid rgba(0,190,230,0.38);
+  padding: 10px 20px;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color .18s, border-color .18s, background .18s, box-shadow .18s;
+  backdrop-filter: blur(4px);
 }
-._cli-line { color: #9fe6ff; }
-._cli-prompt { color: #00e5ff; font-weight: 700; }
-._cli-comment { color: rgba(120,180,210,0.40); font-size: 9px; margin-bottom: 6px; }
+._cta-btn::before,
+._cta-btn::after {
+  content: '';
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-color: rgba(0,220,255,0);
+  border-style: solid;
+  transition: border-color .18s;
+}
+._cta-btn::before { top: -1px; left: -1px; border-width: 1px 0 0 1px; }
+._cta-btn::after  { bottom: -1px; right: -1px; border-width: 0 1px 1px 0; }
+._cta-btn:hover {
+  color: #d9f8ff;
+  border-color: rgba(0,220,255,0.72);
+  background: rgba(0,20,48,0.78);
+  box-shadow: 0 0 18px rgba(0,180,255,0.18);
+}
+._cta-btn:hover::before,
+._cta-btn:hover::after { border-color: rgba(0,220,255,0.80); }
 
-._cli-form { display: flex; flex-direction: column; gap: 7px; margin-top: 6px; }
-._cli-field {
+._cta-btn-icon {
+  font-size: 10px;
+  color: rgba(0,210,255,0.65);
+  transition: color .18s;
+}
+._cta-btn:hover ._cta-btn-icon { color: #00e5ff; }
+
+._cta-btn-linkedin:hover { border-color: rgba(50,180,255,0.72); box-shadow: 0 0 18px rgba(30,150,255,0.18); }
+._cta-btn-github:hover   { border-color: rgba(160,120,255,0.72); box-shadow: 0 0 18px rgba(140,90,255,0.18); }
+._cta-btn-cv:hover       { border-color: rgba(255,210,0,0.65);   box-shadow: 0 0 18px rgba(230,190,0,0.18); }
+._cta-btn-msg:hover      { border-color: rgba(0,230,180,0.72);   box-shadow: 0 0 18px rgba(0,200,160,0.18); }
+
+._cta-btn-msg--active {
+  color: #d9f8ff;
+  background: rgba(0,190,230,0.12);
+  border-color: rgba(0,210,255,0.65);
+}
+._cta-btn-msg--active ._cta-btn-icon { color: #00e5ff; }
+
+/* ─── Message form drawer ────────────────────────────────────────────────── */
+._cta-drawer {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height .38s cubic-bezier(0.4, 0, 0.2, 1);
+}
+._cta-drawer--open { max-height: 260px; }
+
+._cta-drawer-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 0 4px;
+  border-top: 1px solid rgba(0,180,220,0.20);
+}
+
+._cta-field {
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  gap: 10px;
 }
-._cli-field-msg { align-items: flex-start; }
-._cli-q {
+._cta-field-msg { align-items: flex-start; }
+
+._cta-lbl {
   flex-shrink: 0;
-  width: 74px;
-  font-size: 10px;
-  letter-spacing: .06em;
-  color: rgba(0,190,235,0.70);
+  width: 80px;
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  font-size: 9px;
+  letter-spacing: .12em;
+  color: rgba(0,190,235,0.60);
 }
-._cli-q em { color: #ff6666; font-style: normal; }
-._cli-input {
+._cta-lbl em { color: rgba(255,100,100,0.80); font-style: normal; }
+
+._cta-input {
   flex: 1;
   background: transparent;
   border: none;
-  border-bottom: 1px solid rgba(0,150,200,0.25);
-  color: #d6f3ff;
+  border-bottom: 1px solid rgba(0,150,200,0.28);
+  color: #cceeff;
   font-family: 'Share Tech Mono', 'Courier New', monospace;
   font-size: 10px;
   letter-spacing: .04em;
@@ -527,75 +556,47 @@ _style.textContent = `
   outline: none;
   resize: none;
   caret-color: #00e5ff;
-  transition: border-color .15s, background .15s;
+  transition: border-color .15s;
 }
-._cli-textarea { line-height: 1.55; min-height: 46px; }
-._cli-input:focus { border-bottom-color: rgba(0,210,255,0.75); background: rgba(0,20,45,0.35); }
-._cli-input::placeholder { color: rgba(0,180,220,0.22); }
+._cta-textarea { line-height: 1.55; min-height: 48px; }
+._cta-input:focus { border-bottom-color: rgba(0,210,255,0.75); }
+._cta-input::placeholder { color: rgba(0,160,200,0.28); }
 
-._cli-exec {
+._cta-submit-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-top: 10px;
-  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 4px;
 }
-._cli-run {
-  background: rgba(0,15,38,0.85);
-  border: 1px solid rgba(0,180,230,0.45);
-  border-radius: 3px;
-  color: #9fe6ff;
+
+._cta-send-btn {
   font-family: 'Share Tech Mono', 'Courier New', monospace;
   font-size: 10px;
-  letter-spacing: .06em;
-  padding: 6px 12px;
+  letter-spacing: .14em;
+  color: rgba(0,210,255,0.80);
+  background: rgba(0,12,30,0.70);
+  border: 1px solid rgba(0,190,230,0.45);
+  padding: 7px 18px;
   cursor: pointer;
-  white-space: nowrap;
   transition: color .15s, border-color .15s, background .15s, box-shadow .15s;
 }
-._cli-run:hover {
-  color: #d9faff;
+._cta-send-btn:hover {
+  color: #d9f8ff;
   border-color: rgba(0,220,255,0.80);
-  background: rgba(0,28,58,0.95);
-  box-shadow: 0 0 16px rgba(0,180,255,0.30);
+  background: rgba(0,24,55,0.90);
+  box-shadow: 0 0 14px rgba(0,180,255,0.25);
 }
-._cli-run:disabled { opacity: .45; cursor: default; }
-._cli-run ._cli-prompt { margin-right: 3px; }
+._cta-send-btn:disabled { opacity: .45; cursor: default; }
 
 ._cta-status {
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
   font-size: 9px;
-  letter-spacing: .06em;
+  letter-spacing: .08em;
   color: rgba(150,200,230,0.50);
   min-height: 13px;
 }
-._cta-status-ok  { color: #00ff99; }
+._cta-status-ok  { color: #00e5a0; }
 ._cta-status-err { color: #ff6666; }
-
-/* ─── CTA links as shell commands ────────────────────────────────────────── */
-._cli-links {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-._cli-cmd {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  text-decoration: none;
-  font-family: 'Share Tech Mono', 'Courier New', monospace;
-  font-size: 10px;
-  letter-spacing: .05em;
-  color: #8fd4ef;
-  padding: 4px 8px;
-  border: 1px solid transparent;
-  border-radius: 3px;
-  width: fit-content;
-  transition: color .15s, border-color .15s, background .15s, transform .12s;
-}
-._cli-cmd:hover { transform: translateX(3px); background: rgba(0,20,45,0.55); }
-._cli-p-linkedin:hover { color: #4db8ff; border-color: rgba(50,180,255,0.45); }
-._cli-p-github:hover   { color: #cc99ff; border-color: rgba(180,130,255,0.45); }
-._cli-p-cv:hover       { color: #ffd000; border-color: rgba(255,210,0,0.45); }
 
 /* ─── Skip intro button ────────────────────────────────────────────────────── */
 #_skip-btn {
@@ -655,16 +656,13 @@ _style.textContent = `
     padding: 0;
     text-align: left;
   }
-  ._cta-wrap        { gap: 8px; }
-  ._cli             { width: 100%; }
-  ._cli-bar         { padding: 7px 10px; }
-  ._cli-bar-title   { font-size: 8px; }
-  ._cli-body        { padding: 10px 12px 12px; font-size: 10px; }
-  ._cli-q           { width: 64px; font-size: 9px; }
-  ._cli-input       { font-size: 9.5px; }
-  ._cli-textarea    { min-height: 42px; }
-  ._cli-run         { padding: 6px 11px; font-size: 9.5px; }
-  ._cli-cmd         { font-size: 9.5px; }
+  ._cta-actions     { flex-direction: row; flex-wrap: wrap; gap: 5px; }
+  ._cta-btn         { flex: 1 1 calc(50% - 3px); min-width: 120px; padding: 9px 12px; font-size: 10px; letter-spacing: .10em; }
+  ._cta-drawer--open { max-height: 220px; }
+  ._cta-lbl         { width: 66px; font-size: 8.5px; }
+  ._cta-input       { font-size: 9.5px; }
+  ._cta-textarea    { min-height: 40px; }
+  ._cta-send-btn    { font-size: 9.5px; padding: 6px 14px; }
   ._cta-tagline     { display: none; }
   ._ab-val   { font-size: 22px; }
   ._about-stats-row { gap: 16px; }

@@ -17,7 +17,17 @@ export function initGuestbook(container) {
   const sendBtn   = container.querySelector('#_cta-send-btn');
   if (!form || !sendBtn) return;
 
-  const sendLabel = sendBtn.innerHTML; // preserve the styled "$ contact --send"
+  // Blueprint drawer toggle
+  const toggleBtn = container.querySelector('#_cta-msg-toggle');
+  const drawer    = container.querySelector('#_cta-drawer');
+  if (toggleBtn && drawer) {
+    toggleBtn.addEventListener('click', () => {
+      const open = drawer.classList.toggle('_cta-drawer--open');
+      toggleBtn.classList.toggle('_cta-btn-msg--active', open);
+    });
+  }
+
+  const sendLabel = sendBtn.textContent;
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -32,8 +42,8 @@ export function initGuestbook(container) {
     }
 
     sendBtn.disabled    = true;
-    sendBtn.textContent = '…running';
-    _setStatus(statusEl, '> sending...', '');
+    sendBtn.textContent = 'SENDING...';
+    _setStatus(statusEl, '', '');
 
     const keysConfigured = CFG.EMAILJS_PUBLIC_KEY && CFG.EMAILJS_SERVICE_ID && CFG.EMAILJS_TEMPLATE_ID;
 
@@ -57,7 +67,7 @@ export function initGuestbook(container) {
 
       if (!res.ok) throw new Error('server');
 
-      _setStatus(statusEl, '✓ message sent · exit 0', 'ok');
+      _setStatus(statusEl, '✓ sent', 'ok');
       form.reset();
       trackEvent('contact_form_submit', nameVal ? 'named' : 'anonymous');
 
@@ -69,13 +79,13 @@ export function initGuestbook(container) {
           `Name: ${nameVal || 'Anonymous'}\nEmail: ${emailVal}\n\n${msgVal}`
         );
         window.open(`mailto:fazlizekiqi1@hotmail.com?subject=${subject}&body=${body}`, '_blank');
-        _setStatus(statusEl, '✉ opening mail client...', 'ok');
+        _setStatus(statusEl, '✉ opening mail client', 'ok');
       } else {
-        _setStatus(statusEl, '✗ send failed · exit 1', 'err');
+        _setStatus(statusEl, '✗ failed', 'err');
       }
     } finally {
-      sendBtn.disabled  = false;
-      sendBtn.innerHTML = sendLabel;
+      sendBtn.disabled     = false;
+      sendBtn.textContent  = sendLabel;
     }
   });
 }
