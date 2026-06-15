@@ -192,8 +192,9 @@ function _applyAnimationForSlide(slide, name) {
     });
   } else if (name === 'mindset') {
     hideAboutWireframe();
-    // Play idle-to-walk once, then loop walking for the full slide.
-    playFeaturedClip('idle-to-walk', 0.45, () => {
+    // Play the idle→walk transition once (clip is 'ide-to-walk' in the GLB —
+    // note the missing 'l'), then loop walking for the rest of the slide.
+    playFeaturedClip('ide-to-walk', 0.45, () => {
       playClip('walking', 1.0, 0.5);
     });
   } else {

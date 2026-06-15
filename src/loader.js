@@ -185,33 +185,11 @@ const _label = OVERLAY.querySelector('#_loader-label');
 const _bar   = OVERLAY.querySelector('#_loader-bar');
 const _pct   = OVERLAY.querySelector('#_loader-pct');
 
-// ── Fake progress (fills to 88% while assets load; real progress overrides) ──
-let _realProgress = 0;
-let _fakeT        = 0;       // seconds since show
-let _fakeRaf      = null;
-const FAKE_FILL_S = 6.0;     // seconds to fill fake bar to 88%
-
-function _fakeTick() {
-  _fakeT += 0.016;
-  const t = Math.min(_fakeT / FAKE_FILL_S, 1.0);
-  // ease-out curve: fast at first, slows toward the cap
-  const fakeP = 0.88 * (1 - Math.pow(1 - t, 2.5));
-  if (fakeP > _realProgress) {
-    const pct = Math.round(fakeP * 100);
-    _bar.style.width  = `${pct}%`;
-    _pct.textContent  = `${pct}%`;
-  }
-  _fakeRaf = requestAnimationFrame(_fakeTick);
-}
-
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export function showLoader() {
   OVERLAY.style.opacity = '1';
   OVERLAY.classList.remove('hiding');
-  _realProgress = 0;
-  _fakeT        = 0;
-  _fakeRaf      = requestAnimationFrame(_fakeTick);
   _loop();
 }
 
@@ -220,7 +198,6 @@ export function showLoader() {
  * @param {string} [label]   short uppercase label, e.g. 'CHARACTER'
  */
 export function updateLoader(progress, label) {
-  _realProgress = progress;
   const pct = Math.round(progress * 100);
   _bar.style.width = `${pct}%`;
   _pct.textContent = `${pct}%`;
@@ -228,7 +205,6 @@ export function updateLoader(progress, label) {
 }
 
 export function hideLoader() {
-  if (_fakeRaf) { cancelAnimationFrame(_fakeRaf); _fakeRaf = null; }
   OVERLAY.classList.add('hiding');
   setTimeout(() => {
     if (_raf) { cancelAnimationFrame(_raf); _raf = null; }

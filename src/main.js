@@ -23,64 +23,43 @@ initBlueWorld();
 // ── Initialise joystick (touch devices) ──────────────────────────────────────
 initJoystick();
 
-// ── Boot: show loader, load both models, then start ──────────────────────────
+// ── Boot: show loader, load character fully, then the environment ────────────
+// Sequential and honest: the character downloads first (bar 0→100% of the
+// CHARACTER phase), then the environment downloads (ENVIRONMENT phase). Real
+// xhr byte progress only — no synthetic/fake fill.
 showLoader();
-updateLoader(0, 'LOADING');
+updateLoader(0, 'CHARACTER');
 
-let _charProg = 0;
-let _envProg  = 0;
-function _updateOverallProgress() {
-  updateLoader(
-    _charProg * CFG.CHAR_LOAD_WEIGHT + _envProg * CFG.ENV_LOAD_WEIGHT,
-    _charProg < 1 ? 'CHARACTER' : 'ENVIRONMENT',
-  );
-}
+let _envDone    = false;
+let _envTimeout = null;
 
-// ── Load environment ──────────────────────────────────────────────────────────
-let _envDone = false;
-loadEnvironment(
-  (p) => { _envProg = p; _updateOverallProgress(); },
-  ()  => {
-    if (_envDone) return;
-    _envDone = true;
-    _envProg = 1;
-    _updateOverallProgress();
-    _tryStart();
-  },
-);
-
-// ── Load character model ──────────────────────────────────────────────────────
-let _charDone = false;
-loadModel(
-  () => {
-    _charProg = 1;
-    _charDone = true;
-    _updateOverallProgress();
-    _tryStart();
-  },
-  (p) => {
-    _charProg = p;
-    _updateOverallProgress();
-  },
-);
-
-// Safety timeout — if env load never fires (edge-case caching) start anyway.
-const _envTimeout = setTimeout(() => {
-  if (!_envDone) {
-    _envDone = true;
-    _tryStart();
-  }
-}, CFG.ENV_TIMEOUT_MS);
-
-function _tryStart() {
-  if (!_charDone || !_envDone) return;
-  clearTimeout(_envTimeout);
+function _finish() {
+  if (_envTimeout) { clearTimeout(_envTimeout); _envTimeout = null; }
   updateLoader(1, 'READY');
   setTimeout(() => {
     hideLoader();
     _startApp();
   }, 400);
 }
+
+// ── Phase 2: environment (starts only after the character is ready) ──────────
+function _loadEnvironmentPhase() {
+  updateLoader(CFG.CHAR_LOAD_WEIGHT, 'ENVIRONMENT');
+  loadEnvironment(
+    (p) => updateLoader(CFG.CHAR_LOAD_WEIGHT + p * CFG.ENV_LOAD_WEIGHT, 'ENVIRONMENT'),
+    ()  => { if (_envDone) return; _envDone = true; _finish(); },
+  );
+  // Safety timeout — if env load never fires (edge-case caching) start anyway.
+  _envTimeout = setTimeout(() => {
+    if (!_envDone) { _envDone = true; _finish(); }
+  }, CFG.ENV_TIMEOUT_MS);
+}
+
+// ── Phase 1: character ────────────────────────────────────────────────────────
+loadModel(
+  () => _loadEnvironmentPhase(),
+  (p) => updateLoader(p * CFG.CHAR_LOAD_WEIGHT, 'CHARACTER'),
+);
 
 // ── Audio: resume context + start ambient on first user gesture ───────────────
 let _audioStarted = false;

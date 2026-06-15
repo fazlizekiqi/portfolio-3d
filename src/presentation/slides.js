@@ -110,7 +110,7 @@ export const SLIDES = [
         duration: 19000,
         camMoveDuration: 1400,
         easing: 'inOut',
-        clip: 'idle-to-walk',
+        clip: 'ide-to-walk',
         drift: {x: 0.010, y: 0.006, xf: 0.24, yf: 0.17},
         title: 'How I Work',
         subtitle: 'Four principles I carry into every project',
