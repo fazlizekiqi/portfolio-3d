@@ -16,8 +16,9 @@ import FRAG from './shaders/transition.frag.glsl?raw';
 // ── Ortho setup ───────────────────────────────────────────────────────────────
 const _orthoScene = new THREE.Scene();
 const _orthoCam   = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+const _dpr = () => Math.min(window.devicePixelRatio, 2);
 const _uniforms   = {
-  uRes:      { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+  uRes:      { value: new THREE.Vector2(window.innerWidth * _dpr(), window.innerHeight * _dpr()) },
   uProgress: { value: 1.0 },
   uTime:     { value: 0.0 },
 };
@@ -29,7 +30,7 @@ _quad.frustumCulled = false;
 _quad.visible       = false;
 _orthoScene.add(_quad);
 
-window.addEventListener('resize', () => _uniforms.uRes.value.set(window.innerWidth, window.innerHeight));
+window.addEventListener('resize', () => _uniforms.uRes.value.set(window.innerWidth * _dpr(), window.innerHeight * _dpr()));
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let _progress     = 1.0;

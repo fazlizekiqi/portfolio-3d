@@ -23,8 +23,9 @@ import FRAG_BG from '../shaders/background.frag.glsl?raw';
 // ── Background shader (ortho fullscreen quad) ─────────────────────────────────
 const _bgScene  = new THREE.Scene();
 const _bgCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+const _dpr = () => Math.min(window.devicePixelRatio, 2);
 const _bgUniforms = {
-  uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+  uResolution: { value: new THREE.Vector2(window.innerWidth * _dpr(), window.innerHeight * _dpr()) },
   uTime:       { value: 0.0 },
 };
 const _bgMat = new THREE.ShaderMaterial({
@@ -41,7 +42,7 @@ _bgGeo.setAttribute('position', new THREE.BufferAttribute(
 _bgScene.add(new THREE.Mesh(_bgGeo, _bgMat));
 
 window.addEventListener('resize', () => {
-  _bgUniforms.uResolution.value.set(window.innerWidth, window.innerHeight);
+  _bgUniforms.uResolution.value.set(window.innerWidth * _dpr(), window.innerHeight * _dpr());
 });
 
 // ── Lighting ──────────────────────────────────────────────────────────────────
