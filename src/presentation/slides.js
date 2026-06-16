@@ -29,6 +29,8 @@
 
 import * as THREE from 'three';
 
+export const YEARS_EXPERIENCE = new Date().getFullYear() - 2020;
+
 export const SLIDES = [
     {
         name: 'intro',
@@ -126,7 +128,7 @@ export const SLIDES = [
         anim: { clip: 'idle', loop: true },
         duration: 30000,
         title:    'Experience',
-        subtitle: '6+ years building production systems at scale',
+        subtitle: `${YEARS_EXPERIENCE}+ years building production systems at scale`,
         body:     'SENIOR SOFTWARE ENGINEER\n· SEB Stockholm\nJava  Kafka  GCP  OpenShift  Angular\n\nSOFTWARE ENGINEER\n· Cepheid AB Stockholm\nJava  Spring Boot  Angular  AWS\n\nSOFTWARE ENGINEER\n· Expleo Stockholm\nJava  React  AWS  MySQL  Agile',
     },
     {
