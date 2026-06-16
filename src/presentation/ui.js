@@ -1,8 +1,8 @@
 /**
  * ui.js — All presentation DOM elements and their visibility helpers.
  */
-import { buildExperienceHTML, buildIntroHTML, buildAboutHTML, buildCtaHTML } from './templates.js';
-import { initGuestbook } from './guestbook.js';
+import { buildExperienceHTML, buildIntroHTML, buildAboutHTML } from './templates.js';
+import { showCtaHud, hideCtaHud } from './cta-hud.js';
 import { audio } from '../audio.js';
 
 // ── Slide title strip (top) ───────────────────────────────────────────────────
@@ -418,241 +418,12 @@ _style.textContent = `
 #_slide-body-panel.slide-about ._about-stats-row { justify-content: flex-end; }
 #_slide-body-panel.slide-about ._ab-bio { text-align: right; }
 
-/* ─── CTA — desktop: panel centred top, character centred, buttons above head */
-#_slide-body-panel.slide-cta {
-  pointer-events: auto;
-  justify-content: center;
-  align-items: center;
-  padding-left: 0;
-  top: 56px;
-  bottom: auto;
-  height: auto;
-}
-#_slide-body-panel.slide-cta #_sBodyInner {
-  text-align: center;
-  width: auto;
-  padding: 0;
-}
-
-/* ─── CTA — blueprint action buttons + message drawer ─────────────────────── */
-._cta-wrap {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  animation: _cta-in 0.5s ease forwards;
-}
-
-._cta-actions {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 8px;
-}
-
-/* Desktop only: reveal the 4 action buttons one after another above the head. */
-@keyframes _cta-btn-in {
-  from { opacity: 0; transform: translateY(-10px) scale(0.96); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
-}
-@media (min-width: 641px) {
-  #_slide-body-panel.slide-cta ._cta-actions ._cta-btn {
-    opacity: 0;
-    animation: _cta-btn-in 0.45s cubic-bezier(0.22,0.61,0.36,1) forwards;
-  }
-  #_slide-body-panel.slide-cta ._cta-actions ._cta-btn:nth-child(1) { animation-delay: 0.35s; }
-  #_slide-body-panel.slide-cta ._cta-actions ._cta-btn:nth-child(2) { animation-delay: 0.55s; }
-  #_slide-body-panel.slide-cta ._cta-actions ._cta-btn:nth-child(3) { animation-delay: 0.75s; }
-  #_slide-body-panel.slide-cta ._cta-actions ._cta-btn:nth-child(4) { animation-delay: 0.95s; }
-}
-
-._cta-btn {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  font-family: 'Share Tech Mono', 'Courier New', monospace;
-  font-size: 11px;
-  letter-spacing: .14em;
-  color: rgba(170,220,255,0.72);
-  background: rgba(0,8,22,0.55);
-  border: 1px solid rgba(0,190,230,0.38);
-  padding: 10px 20px;
-  cursor: pointer;
-  text-decoration: none;
-  white-space: nowrap;
-  transition: color .18s, border-color .18s, background .18s, box-shadow .18s;
-  backdrop-filter: blur(4px);
-}
-._cta-btn::before,
-._cta-btn::after {
-  content: '';
-  position: absolute;
-  width: 6px;
-  height: 6px;
-  border-color: rgba(0,220,255,0);
-  border-style: solid;
-  transition: border-color .18s;
-}
-._cta-btn::before { top: -1px; left: -1px; border-width: 1px 0 0 1px; }
-._cta-btn::after  { bottom: -1px; right: -1px; border-width: 0 1px 1px 0; }
-._cta-btn:hover {
-  color: #d9f8ff;
-  border-color: rgba(0,220,255,0.72);
-  background: rgba(0,20,48,0.78);
-  box-shadow: 0 0 18px rgba(0,180,255,0.18);
-}
-._cta-btn:hover::before,
-._cta-btn:hover::after { border-color: rgba(0,220,255,0.80); }
-
-._cta-btn-icon {
-  font-size: 10px;
-  color: rgba(0,210,255,0.65);
-  transition: color .18s;
-}
-._cta-btn:hover ._cta-btn-icon { color: #00e5ff; }
-
-._cta-btn-linkedin:hover { border-color: rgba(50,180,255,0.72); box-shadow: 0 0 18px rgba(30,150,255,0.18); }
-._cta-btn-github:hover   { border-color: rgba(160,120,255,0.72); box-shadow: 0 0 18px rgba(140,90,255,0.18); }
-._cta-btn-cv:hover       { border-color: rgba(255,210,0,0.65);   box-shadow: 0 0 18px rgba(230,190,0,0.18); }
-._cta-btn-msg:hover      { border-color: rgba(0,230,180,0.72);   box-shadow: 0 0 18px rgba(0,200,160,0.18); }
-
-._cta-btn-msg--active {
-  color: #d9f8ff;
-  background: rgba(0,190,230,0.12);
-  border-color: rgba(0,210,255,0.65);
-}
-._cta-btn-msg--active ._cta-btn-icon { color: #00e5ff; }
-
-/* ─── Message form drawer ────────────────────────────────────────────────── */
-._cta-drawer {
-  max-height: 0;
-  overflow: hidden;
-  transition: max-height .38s cubic-bezier(0.4, 0, 0.2, 1);
-}
-._cta-drawer--open { max-height: 260px; }
-
-._cta-drawer-form {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 12px 0 4px;
-  border-top: 1px solid rgba(0,180,220,0.20);
-}
-
-._cta-field {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-}
-._cta-field-msg { align-items: flex-start; }
-
-._cta-lbl {
-  flex-shrink: 0;
-  width: 80px;
-  font-family: 'Share Tech Mono', 'Courier New', monospace;
-  font-size: 9px;
-  letter-spacing: .12em;
-  color: rgba(0,190,235,0.60);
-}
-._cta-lbl em { color: rgba(255,100,100,0.80); font-style: normal; }
-
-._cta-input {
-  flex: 1;
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid rgba(0,150,200,0.28);
-  color: #cceeff;
-  font-family: 'Share Tech Mono', 'Courier New', monospace;
-  font-size: 10px;
-  letter-spacing: .04em;
-  padding: 3px 2px;
-  outline: none;
-  resize: none;
-  caret-color: #00e5ff;
-  transition: border-color .15s;
-}
-._cta-textarea { line-height: 1.55; min-height: 48px; }
-._cta-input:focus { border-bottom-color: rgba(0,210,255,0.75); }
-._cta-input::placeholder { color: rgba(0,160,200,0.28); }
-
-._cta-submit-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 4px;
-}
-
-._cta-send-btn {
-  font-family: 'Share Tech Mono', 'Courier New', monospace;
-  font-size: 10px;
-  letter-spacing: .14em;
-  color: rgba(0,210,255,0.80);
-  background: rgba(0,12,30,0.70);
-  border: 1px solid rgba(0,190,230,0.45);
-  padding: 7px 18px;
-  cursor: pointer;
-  transition: color .15s, border-color .15s, background .15s, box-shadow .15s;
-}
-._cta-send-btn:hover {
-  color: #d9f8ff;
-  border-color: rgba(0,220,255,0.80);
-  background: rgba(0,24,55,0.90);
-  box-shadow: 0 0 14px rgba(0,180,255,0.25);
-}
-._cta-send-btn:disabled { opacity: .45; cursor: default; }
-
-._cta-status {
-  font-family: 'Share Tech Mono', 'Courier New', monospace;
-  font-size: 9px;
-  letter-spacing: .08em;
-  color: rgba(150,200,230,0.50);
-  min-height: 13px;
-}
-._cta-status-ok  { color: #00e5a0; }
-._cta-status-err { color: #ff6666; }
-
-._cta-tagline {
-  margin-top: 4px;
-  font-family: 'Share Tech Mono', 'Courier New', monospace;
-  font-size: 8px;
-  color: rgba(150,200,230,0.28);
-  letter-spacing: .14em;
-  opacity: 0;
-  animation: _cta-in 0.4s ease forwards;
-  animation-delay: 1.0s;
-}
-@keyframes _cta-in {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
+/* ─── CTA — top title/subtitle restyled for the sci-fi HUD redesign;       */
+/* ─── the body panel itself is unused (content lives in cta-hud.js)       */
+#_slide-body-panel.slide-cta { display: none; }
+#_slide-card.slide-cta #_sTitle { text-transform: uppercase; }
 
 @media (max-width: 640px) {
-  /* CTA mobile — pinned to the bottom, character fills upper ~65% of screen */
-  #_slide-body-panel.slide-cta {
-    top: auto;
-    bottom: 72px;
-    height: auto;
-    justify-content: center;
-    align-items: stretch;
-    padding-left: 12px;
-    padding-right: 12px;
-    pointer-events: auto;
-  }
-  #_slide-body-panel.slide-cta #_sBodyInner {
-    width: 100%;
-    max-width: 400px;
-    padding: 0;
-    text-align: left;
-  }
-  ._cta-actions     { flex-direction: row; flex-wrap: wrap; gap: 5px; }
-  ._cta-btn         { flex: 1 1 calc(50% - 3px); min-width: 120px; padding: 9px 12px; font-size: 10px; letter-spacing: .10em; }
-  ._cta-drawer--open { max-height: 220px; }
-  ._cta-lbl         { width: 66px; font-size: 8.5px; }
-  ._cta-input       { font-size: 9.5px; }
-  ._cta-textarea    { min-height: 40px; }
-  ._cta-send-btn    { font-size: 9.5px; padding: 6px 14px; }
-  ._cta-tagline     { display: none; }
   ._ab-val   { font-size: 22px; }
   ._about-stats-row { gap: 16px; margin-bottom: 6px; }
   ._ab-divider { margin: 4px auto 8px; }
@@ -1111,6 +882,7 @@ export function setProgressFill(fraction) {
 
 export function hideCard() {
   _stopExperienceTimeline();
+  hideCtaHud();
   card.style.opacity           = '0';
   bodyPanel.style.opacity      = '0';
   bodyPanel.style.pointerEvents = 'none';  // restore non-interactive default
@@ -1132,10 +904,7 @@ export function showCard(title, body, delay = 550, slideName = '', subtitle = ''
     card.classList.add(`slide-${slideName}`);
     bodyPanel.classList.add(`slide-${slideName}`);
   }
-  // The bodyPanel has pointer-events:none as an inline style (needed for all
-  // other slides so the 3D scene stays interactive). CTA links must be clickable,
-  // so we override it here via JS — the only way to beat an inline style.
-  bodyPanel.style.pointerEvents = slideName === 'cta' ? 'auto' : 'none';
+  bodyPanel.style.pointerEvents = 'none';
   setTimeout(() => {
     card.style.opacity = '1';
     _timerA = _typeWrite(slideTitle, title, 38, () => {
@@ -1159,8 +928,7 @@ export function showCard(title, body, delay = 550, slideName = '', subtitle = ''
       } else if (slideName === 'about') {
         slideBody.innerHTML = buildAboutHTML();
       } else if (slideName === 'cta') {
-        slideBody.innerHTML = buildCtaHTML();
-        initGuestbook(slideBody);
+        showCtaHud();
       } else {
         _timerB = _typeWrite(slideBody, body, 18);
       }

@@ -147,8 +147,8 @@ export const SLIDES = [
     {
         name: 'cta',
         cam: {
-            pos:    new THREE.Vector3(0, 1.9, 6.6),
-            target: new THREE.Vector3(0, 1.35, 0),
+            pos:    new THREE.Vector3(1.8, 1.9, 6.6),
+            target: new THREE.Vector3(1.1, 1.35, 0),
             mobile: {
                 pos:    new THREE.Vector3(0, 1.8, 11.5),
                 target: new THREE.Vector3(0, 0.6, 0),
