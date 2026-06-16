@@ -292,7 +292,8 @@ _style.textContent = `
 @media (max-width: 767px) {
   #_cta2-resume { top: 12px; right: 12px; font-size: 9px; padding: 6px 12px; }
 
-  /* ── Premium contact-card hub, just under the "Let's Connect" title ── */
+  /* No card chrome on mobile — just the header, subtitle and buttons,
+     floating directly over the scene. */
   #_cta2-panel {
     top: 92px; bottom: auto; left: 50%;
     transform: translateX(-50%) translateY(-16px);
@@ -304,30 +305,17 @@ _style.textContent = `
     align-items: center;
     justify-content: center;
     gap: 8px;
-    padding: 14px 14px 13px;
-    border-radius: 22px;
-    background: rgba(2,9,22,0.78);
-    border: 1px solid rgba(0,200,255,0.34);
-    box-shadow:
-      0 0 34px rgba(0,170,255,0.22),
-      0 16px 48px rgba(0,0,0,0.6),
-      inset 0 0 26px rgba(0,150,255,0.08);
-    backdrop-filter: blur(12px);
-    overflow: hidden;
+    padding: 0;
+    border-radius: 0;
+    background: none;
+    border: none;
+    box-shadow: none;
+    backdrop-filter: none;
+    overflow: visible;
   }
   #_cta2-wrap.cta2-visible #_cta2-panel { transform: translateX(-50%) translateY(0); }
 
-  ._cta2-corner, ._cta2-scanline { display: none; }
-
-  /* faint scan-line sweeping the card for the "control panel" feel */
-  ._cta2-card-scan {
-    display: block;
-    position: absolute;
-    left: 0; right: 0; top: 0; height: 40px;
-    background: linear-gradient(to bottom, transparent, rgba(0,210,255,0.10), transparent);
-    animation: _cta2-scan 5s linear infinite;
-    pointer-events: none;
-  }
+  ._cta2-corner, ._cta2-scanline, ._cta2-card-scan { display: none; }
 
   ._cta2-headline { order: 1; margin-bottom: 0; text-align: center; }
   ._cta2-h1, ._cta2-br, ._cta2-h2, ._cta2-sub, ._cta2-status { display: none; }
