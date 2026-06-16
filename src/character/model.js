@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { scene, camera } from '../scene.js';
+import { scene, camera, renderer } from '../scene.js';
 import { LAYER } from '../layers.js';
 import { aimLights } from '../world/blueworld.js';
 import { initExplode, setOnReassembled, setExplodeCartoon } from './explode.js';
@@ -68,7 +68,7 @@ export function playFeaturedClip(name, fadeDuration = 0.45, onFinished = null) {
     mixer.removeEventListener('finished', handler);
     if (_idleLoopToken !== token) return;
     if (onFinished) onFinished();
-    _crossfadeToIdle(token, 0.5);
+    else _crossfadeToIdle(token, 0.5);
   };
   mixer.addEventListener('finished', handler);
 }
@@ -353,6 +353,17 @@ export function loadModel(onReady, onProgress) {
         mats.forEach(mat => {
           if (mat.map) mat.map.colorSpace = THREE.SRGBColorSpace;
           mat.envMapIntensity = 0.5;
+
+          // Anisotropic filtering + mipmaps for all texture slots
+          const _maxAniso = Math.min(renderer.capabilities.maxAnisotropy, 4);
+          ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'emissiveMap', 'aoMap'].forEach(slot => {
+            const tex = mat[slot];
+            if (!tex) return;
+            tex.anisotropy      = _maxAniso;
+            tex.minFilter       = THREE.LinearMipmapLinearFilter;
+            tex.generateMipmaps = true;
+            tex.needsUpdate     = true;
+          });
 
           // ── Inject cartoon effect via onBeforeCompile ─────────────────────
           const cartoonUniform = { value: 0.0 };

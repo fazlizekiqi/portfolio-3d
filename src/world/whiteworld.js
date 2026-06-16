@@ -30,15 +30,16 @@ import WATER_FRAG      from '../shaders/water.frag.glsl?raw';
 // ─────────────────────────────────────────────────────────────────────────────
 //  Iris-alpha shader uniforms
 // ─────────────────────────────────────────────────────────────────────────────
+const _dpr = () => Math.min(window.devicePixelRatio, 2);
 const _uniforms = {
   uProgress: { value: 1.0 },
   uTime:     { value: 0.0 },
-  uRes:      { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+  uRes:      { value: new THREE.Vector2(window.innerWidth * _dpr(), window.innerHeight * _dpr()) },
 };
 
 function _initResizeListener() {
   window.addEventListener('resize', () => {
-    _uniforms.uRes.value.set(window.innerWidth, window.innerHeight);
+    _uniforms.uRes.value.set(window.innerWidth * _dpr(), window.innerHeight * _dpr());
   });
 }
 _initResizeListener();

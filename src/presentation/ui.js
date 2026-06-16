@@ -183,6 +183,11 @@ _style.textContent = `
 ._exp-block.exp-active {
   transform: translateX(2px) scale(1.020);
 }
+@keyframes _exp-pulse {
+  0%, 100% { box-shadow: 0 0 22px rgba(0, 180, 255, 0.28); }
+  50%       { box-shadow: 0 0 36px rgba(0, 210, 255, 0.48); }
+}
+
 ._exp-logo {
   width: 50px;
   height: 50px;
@@ -413,18 +418,18 @@ _style.textContent = `
 #_slide-body-panel.slide-about ._about-stats-row { justify-content: flex-end; }
 #_slide-body-panel.slide-about ._ab-bio { text-align: right; }
 
-/* ─── CTA — desktop: link panel pinned to the LEFT third, vertically
-       centred, character right-of-centre (camera shifts on phase-2) ──────── */
+/* ─── CTA — desktop: panel centred top, character centred, buttons above head */
 #_slide-body-panel.slide-cta {
   pointer-events: auto;
-  justify-content: flex-start;
+  justify-content: center;
   align-items: center;
-  padding-left: 6%;
+  padding-left: 0;
   top: 56px;
-  bottom: 0;
+  bottom: auto;
+  height: auto;
 }
 #_slide-body-panel.slide-cta #_sBodyInner {
-  text-align: left;
+  text-align: center;
   width: auto;
   padding: 0;
 }
@@ -439,8 +444,26 @@ _style.textContent = `
 
 ._cta-actions {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+/* Desktop only: reveal the 4 action buttons one after another above the head. */
+@keyframes _cta-btn-in {
+  from { opacity: 0; transform: translateY(-10px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@media (min-width: 641px) {
+  #_slide-body-panel.slide-cta ._cta-actions ._cta-btn {
+    opacity: 0;
+    animation: _cta-btn-in 0.45s cubic-bezier(0.22,0.61,0.36,1) forwards;
+  }
+  #_slide-body-panel.slide-cta ._cta-actions ._cta-btn:nth-child(1) { animation-delay: 0.35s; }
+  #_slide-body-panel.slide-cta ._cta-actions ._cta-btn:nth-child(2) { animation-delay: 0.55s; }
+  #_slide-body-panel.slide-cta ._cta-actions ._cta-btn:nth-child(3) { animation-delay: 0.75s; }
+  #_slide-body-panel.slide-cta ._cta-actions ._cta-btn:nth-child(4) { animation-delay: 0.95s; }
 }
 
 ._cta-btn {
@@ -589,31 +612,6 @@ _style.textContent = `
 ._cta-status-ok  { color: #00e5a0; }
 ._cta-status-err { color: #ff6666; }
 
-/* ─── Skip intro button ────────────────────────────────────────────────────── */
-#_skip-btn {
-  position: fixed;
-  top: 16px;
-  right: 20px;
-  z-index: 25;
-  display: none;
-  padding: 6px 14px;
-  background: rgba(2,8,18,0.75);
-  border: 1px solid rgba(0,150,200,0.35);
-  border-radius: 3px;
-  color: rgba(0,180,220,0.65);
-  font-family: 'Share Tech Mono', 'Courier New', monospace;
-  font-size: 9px;
-  letter-spacing: .18em;
-  cursor: pointer;
-  backdrop-filter: blur(8px);
-  transition: color .15s, border-color .15s, background .15s;
-}
-#_skip-btn:hover {
-  color: #55eeff;
-  border-color: rgba(0,200,255,0.65);
-  background: rgba(0,20,45,0.90);
-}
-
 ._cta-tagline {
   margin-top: 4px;
   font-family: 'Share Tech Mono', 'Courier New', monospace;
@@ -656,7 +654,8 @@ _style.textContent = `
   ._cta-send-btn    { font-size: 9.5px; padding: 6px 14px; }
   ._cta-tagline     { display: none; }
   ._ab-val   { font-size: 22px; }
-  ._about-stats-row { gap: 16px; }
+  ._about-stats-row { gap: 16px; margin-bottom: 6px; }
+  ._ab-divider { margin: 4px auto 8px; }
   ._term-boot { font-size: 10px; }
   #_slide-body-panel.slide-intro { padding-left: 3%; }
   #_slide-body-panel.slide-skills,
@@ -681,7 +680,7 @@ _style.textContent = `
 #_audio-btn {
   position: fixed;
   top: 16px;
-  left: 20px;
+  right: 20px;
   z-index: 25;
   padding: 6px 10px;
   background: rgba(2,8,18,0.70);
@@ -897,13 +896,7 @@ export const nextBtn = _mkLb('→', '_lb-arrow');
 nextBtn.style.display = 'none';
 _bar.appendChild(nextBtn);
 
-// ── Skip intro button (top-right corner) ─────────────────────────────────────
-export const skipBtn = document.createElement('button');
-skipBtn.id = '_skip-btn';
-skipBtn.textContent = 'SKIP →';
-document.body.appendChild(skipBtn);
-
-// ── Audio mute toggle (top-left corner) ──────────────────────────────────────
+// ── Audio mute toggle (top-right corner) ─────────────────────────────────────
 const _audioBtn = document.createElement('button');
 _audioBtn.id = '_audio-btn';
 _audioBtn.title = 'Toggle sound';
@@ -915,6 +908,12 @@ _audioBtn.addEventListener('click', () => {
   _audioBtn.textContent = muted ? '♪̸' : '♪';
   _audioBtn.classList.toggle('muted', muted);
 });
+
+// ── Timing constants ──────────────────────────────────────────────────────────
+const EXP_TIMELINE_DELAY_MS = 950;
+const TRAVEL_MS             = 4500;
+const PAUSE_MS              = 2500;
+const PULSE_MS              = 380;
 
 // ── Typewriter ────────────────────────────────────────────────────────────────
 let _timerA = null, _timerB = null;
@@ -934,12 +933,6 @@ function _typeWrite(el, text, speed, cb) {
 // ── Experience timeline dot animation ─────────────────────────────────────────
 let _expRafId = null;
 
-// ── Experience timeline timing constants ──────────────────────────────────────
-const EXP_TIMELINE_DELAY_MS = 950;  // wait for stagger animations + layout before measuring
-const TRAVEL_MS             = 3200;
-const PAUSE_MS              = 750;
-const PULSE_MS              = 380;
-
 function _stopExperienceTimeline() {
   if (_expRafId) { cancelAnimationFrame(_expRafId); _expRafId = null; }
 }
@@ -954,7 +947,7 @@ function _startExperienceTimeline() {
     });
   });
 
-  // Wait for stagger animations + layout to settle before measuring
+  // Wait for stagger animations + layout to settle before measuring DOM positions
   setTimeout(() => {
     const svg       = slideBody.querySelector('#_exp-tl-svg');
     const dot       = slideBody.querySelector('#_exp-tl-dot');
@@ -1058,13 +1051,9 @@ function _startExperienceTimeline() {
       }
 
       if (progress >= 1) {
-        // Reset to top and loop
-        startTime  = null;
-        pauseUntil = ts + 1100;
-        activeIdx  = -1;
-        dot.setAttribute('cy', startY);
-        glowLine.setAttribute('y2', startY);
-        setActive(-1);
+        // One pass complete — leave the last node highlighted and signal done.
+        document.dispatchEvent(new CustomEvent('_exp-timeline-done'));
+        return;  // don't re-queue; timeline ends after one pass
       }
     }
 
@@ -1077,14 +1066,12 @@ function _startExperienceTimeline() {
 // ── UI mode helpers ───────────────────────────────────────────────────────────
 export function showIdleUI() {
   backBtn.style.display    = 'none';
-  skipBtn.style.display    = 'none';
   exploreBtn.style.display = 'inline-flex';
   presentBtn.style.display = 'inline-flex';
 }
 
 export function showPresentingUI() {
   backBtn.style.display    = 'none';
-  skipBtn.style.display    = 'inline-block';
   exploreBtn.style.display = 'inline-flex';
   presentBtn.style.display = 'inline-flex';
   _setPresentExit();
@@ -1092,7 +1079,6 @@ export function showPresentingUI() {
 }
 
 export function showExploreUI() {
-  skipBtn.style.display    = 'none';
   presentBtn.style.display = 'none';
   exploreBtn.style.display = 'none';
   prevBtn.style.display    = 'none';
@@ -1101,7 +1087,6 @@ export function showExploreUI() {
 }
 
 export function showWhiteWorldUI() {
-  skipBtn.style.display    = 'none';
   presentBtn.style.display = 'none';
   exploreBtn.style.display = 'none';
   prevBtn.style.display    = 'none';
@@ -1176,7 +1161,7 @@ export function showCard(title, body, delay = 550, slideName = '', subtitle = ''
       } else if (slideName === 'cta') {
         slideBody.innerHTML = buildCtaHTML();
         initGuestbook(slideBody);
-      } else if (body) {
+      } else {
         _timerB = _typeWrite(slideBody, body, 18);
       }
     });

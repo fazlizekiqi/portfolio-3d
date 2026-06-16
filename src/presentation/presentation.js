@@ -1,23 +1,18 @@
 /**
  * presentation.js — Orchestrator.
  *
- * Wires slides, camera, animations, and UI together.
- * Has no inline DOM math, no inline camera math, no slide data.
+ * Imports slides data, camera helpers, and UI helpers and wires them
+ * together. Has no inline DOM, no inline math, no inline slide data.
  *
  * Public API
  * ──────────
- *   initCameraState()               – call once after model loads
- *   startPresentation()             – begin from slide 0
- *   goToSlide(name)                 – jump to a named slide
- *   applySlideCam(slide)            – re-apply camera live (GUI helper)
- *   tickPresentation(delta, elapsed) – per-frame driver
+ *   initCameraState()       – call once after model loads
+ *   goToSlide(name)         – jump to a named slide
+ *   tickPresentation(delta, elapsed)
  */
 
 import { controls } from '../scene.js';
-import {
-  playClip, playFeaturedClip, playClipSequence, cancelIdleLoop,
-  playRandomIdleAnim, modelGroup, spawnPosition, spawnRotation,
-} from '../character/model.js';
+import { playClip, playFeaturedClip, playClipSequence, cancelIdleLoop, playRandomIdleAnim, modelGroup, spawnPosition, spawnRotation } from '../character/model.js';
 import * as THREE from 'three';
 import { goToWhiteWorld, goToBlueWorld, isWhiteWorld } from '../transition.js';
 import { isPlayerActive, playerTakeControl, playerReleaseControl, playerStop } from '../character/player.js';
@@ -29,12 +24,13 @@ import { audio } from '../audio.js';
 import { SLIDES, slideByName, indexOf, isLastSlide } from './slides.js';
 import { showSkillBubbles, showProjectBubbles, hideBubbles } from './bubbles.js';
 import {
-  startCameraMove, glideHome, tickCamera,
-  camLookTarget, currentCamLook, resetCameraMove,
+  startCameraMove, glideHome, tickCamera, startOrbitSweep,
+  camLookTarget, currentCamLook,
+  resetCameraMove,
 } from './camera.js';
 import {
-  progressWrap, nextBtn, prevBtn, presentBtn, exploreBtn, backBtn, skipBtn,
-  showIdleUI, showPresentingUI, showExploreUI, showWhiteWorldUI,
+  progressWrap, nextBtn, prevBtn, presentBtn, exploreBtn, backBtn,
+  showIdleUI, showPresentingUI, showExploreUI, showWhiteWorldUI, showBackBtn,
   resetPresentBtn, setProgressFill, hideCard, showCard,
 } from './ui.js';
 import { showHowIWorkOverlay, hideHowIWorkOverlay } from './how-i-work-overlay.js';
@@ -44,15 +40,15 @@ export { initCameraState } from './camera.js';
 export { currentCamLook }  from './camera.js';
 
 // ── Timing constants ──────────────────────────────────────────────────────────
-const MYWORLD_IRIS_DELAY_MS    = 2800;   // ms after entering myworld before iris fires
-const MYWORLD_PLAYER_DELAY_MS  = 3200;   // ms after iris before player takes control
-const CARD_DELAY_MS            = 550;    // standard card show delay
-const MYWORLD_CARD_DELAY_MS    = 200;    // card shows sooner on the last slide
-const MINDSET_OVERLAY_DELAY_MS = 1600;   // delay before HIW cards reveal
+const MYWORLD_IRIS_DELAY_MS    = 2800;
+const MYWORLD_PLAYER_DELAY_MS  = 3200;
+const CARD_DELAY_MS            = 550;
+const MYWORLD_CARD_DELAY_MS    = 200;
+const MINDSET_OVERLAY_DELAY_MS = 1600;
 
 // ── Camera helpers ────────────────────────────────────────────────────────────
 
-/** Resolve a camera anchor definition to world-space pos + target. */
+/** Resolve { pos, target } from an anchor descriptor + spawn position. */
 function _anchorCam(a) {
   const base = spawnPosition;
   return {
@@ -61,15 +57,20 @@ function _anchorCam(a) {
   };
 }
 
-/** Pick pos + target for the current device, handling anchor vs explicit coords. */
+/** Single source of truth for picking camera pos/target from a slide. */
 function _resolveCamera(slide) {
-  const c   = slide.cam;
-  const mob = isMobile() && c.mobile;
-  if (c.anchor || (mob && mob.anchor)) return _anchorCam(mob ? mob.anchor : c.anchor);
-  return { pos: mob ? mob.pos : c.pos, target: mob ? mob.target : c.target };
+  const c      = slide.cam;
+  const mobile = isMobile() && c.mobile;
+  if (c.anchor || (mobile && mobile.anchor)) {
+    return _anchorCam(mobile ? mobile.anchor : c.anchor);
+  }
+  return {
+    pos:    mobile ? mobile.pos    : c.pos,
+    target: mobile ? mobile.target : c.target,
+  };
 }
 
-/** Re-apply a slide's camera live — exposed for the GUI debug panel. */
+/** Re-applies a slide's camera live — pass the slide object from the GUI. */
 export function applySlideCam(slide) {
   const s = slide || _currentSlide;
   if (!s) return;
@@ -79,22 +80,22 @@ export function applySlideCam(slide) {
 }
 
 // ── State ─────────────────────────────────────────────────────────────────────
-let _active          = false;
-let _currentSlide    = SLIDES[0];
-let _slideTimer      = 0;
-let _glideDuration   = 1400;
-let _frozen          = false;
-let _ctaTimeout      = null;
-let _cam2Timeout     = null;
-let _overlayTimeout  = null;
+let _active        = false;
+let _currentSlide  = SLIDES[0];
+let _slideTimer    = 0;
+let _glideDuration = 1400;
+let _frozen        = false;
+let _ctaTimeout    = null;
+let _cam2Timeout   = null;
+let _overlayTimeout = null;
 let _camMoveDuration = 1400;
 
-// ── Slide entry side-effects ──────────────────────────────────────────────────
-
+// ── CTA slide — just show contact info, no auto-transition ───────────────────
 function _onEnterCta() {
   _frozen = false;
 }
 
+// ── My World slide — camera sweeps behind character, then iris to white world ──
 function _onEnterMyWorld() {
   showExploreUI();
   _frozen = false;
@@ -109,12 +110,15 @@ function _onEnterMyWorld() {
   }, MYWORLD_IRIS_DELAY_MS);
 }
 
+// ── After iris opens — player takes control ───────────────────────────────────
 function _endFromCta() {
-  _active     = false;
-  _slideTimer = 0;
-  resetCameraMove();
+  _active = false;
+
   hideBubbles();
   hideCard();
+
+  _slideTimer = 0;
+  resetCameraMove();
   controls.maxDistance = 32;
 
   setTimeout(() => {
@@ -125,21 +129,31 @@ function _endFromCta() {
   }, MYWORLD_PLAYER_DELAY_MS);
 }
 
+
 // ── goToSlide helpers ─────────────────────────────────────────────────────────
 
 function _applyCameraForSlide(slide, name) {
   const { pos, target } = _resolveCamera(slide);
   const c = slide.cam;
 
+  if (name === 'skills') {
+    startOrbitSweep(target.clone(), 1300, () => {
+      _camMoveDuration = 1200;
+      startCameraMove(pos, target);
+    });
+    return;
+  }
+
   startCameraMove(pos, target);
 
-  // Optional phase-2 move (e.g. mindset desktop: gentle pull-back while cards reveal).
-  // Mobile skips if no mobile.phase2 — preserves the wider mobile framing.
+  // Optional phase-2 camera move (e.g. mindset: gentle push-in while cards reveal).
+  // mobilePhase2 is mobile-only; phase2 is desktop-only (skip on mobile if no mobile override).
   const onMobile = isMobile();
-  const p2 = (onMobile && c.mobile?.phase2) ? c.mobile.phase2
-           : (!onMobile  && c.phase2)         ? c.phase2
+  const p2 = onMobile && c.mobilePhase2 ? c.mobilePhase2
+           : !onMobile && c.phase2       ? c.phase2
            : null;
-  if (p2) {
+
+  if (p2 && !(onMobile && !c.mobilePhase2 && c.phase2)) {
     _cam2Timeout = setTimeout(() => {
       _cam2Timeout     = null;
       _camMoveDuration = p2.ms ?? 2000;
@@ -160,21 +174,36 @@ function _applyAnimationForSlide(slide, name) {
   const { clip, clips, loop } = slide.anim;
 
   if (name === 'about') {
-    showAboutWireframe(() => { cancelIdleLoop(); playClip(clip, 1.0, 1.2); });
+    showAboutWireframe(() => {
+      cancelIdleLoop();
+      playClip(clip, 1.0, 1.2);
+    });
   } else if (name === 'mindset') {
     hideAboutWireframe();
-    // GLB clip is 'ide-to-walk' (typo in the model — missing 'l').
-    playFeaturedClip('ide-to-walk', 0.45, () => playClip('walking', 1.0, 0.5));
+    playFeaturedClip('ide-to-walk', 0.45, () => {
+      playClip('walking', 1.0, 0.5);
+    });
   } else {
     hideAboutWireframe();
-    if (loop)     playClip(clip);
-    else if (clips?.length) playClipSequence(clips);
-    else          playFeaturedClip(clip);
+    if (loop)               playClip(clip);
+    else if (clips?.length > 1) playClipSequence(clips);
+    else                    playFeaturedClip(clip);
+  }
+}
+
+// Listener handle so we can remove it if the user navigates away early.
+let _expDoneListener = null;
+
+function _clearExpDoneListener() {
+  if (_expDoneListener) {
+    document.removeEventListener('_exp-timeline-done', _expDoneListener);
+    _expDoneListener = null;
   }
 }
 
 function _applyUIForSlide(slide, name) {
   hideCard();
+  _clearExpDoneListener();
 
   hideBubbles();
   if (name === 'skills')   showSkillBubbles();
@@ -183,19 +212,24 @@ function _applyUIForSlide(slide, name) {
   if (name === 'mindset') {
     _overlayTimeout = setTimeout(() => {
       _overlayTimeout = null;
-      showHowIWorkOverlay();
+      showHowIWorkOverlay(slide.duration - MINDSET_OVERLAY_DELAY_MS);
     }, MINDSET_OVERLAY_DELAY_MS);
   } else {
     hideHowIWorkOverlay();
   }
 
-  const body  = name === 'mindset' ? '' : slide.body;
-  const delay = name === 'myworld' ? MYWORLD_CARD_DELAY_MS : CARD_DELAY_MS;
-  showCard(slide.title, body, delay, name, slide.subtitle ?? '');
+  // Experience: slide advances when the timeline finishes one pass (not on timer).
+  if (name === 'experience') {
+    _expDoneListener = () => { _expDoneListener = null; _goToNextSlide(); };
+    document.addEventListener('_exp-timeline-done', _expDoneListener, { once: true });
+  }
+
+  const bodyText = name === 'mindset' ? '' : slide.body;
+  const delay    = name === 'myworld' ? MYWORLD_CARD_DELAY_MS : CARD_DELAY_MS;
+  showCard(slide.title, bodyText, delay, name, slide.subtitle ?? '');
 }
 
 // ── Flow ──────────────────────────────────────────────────────────────────────
-
 export function goToSlide(name) {
   const slide = slideByName[name];
   if (!slide) { console.warn(`goToSlide: unknown slide "${name}"`); return; }
@@ -203,8 +237,9 @@ export function goToSlide(name) {
   if (_ctaTimeout)     { clearTimeout(_ctaTimeout);     _ctaTimeout     = null; }
   if (_cam2Timeout)    { clearTimeout(_cam2Timeout);    _cam2Timeout    = null; }
   if (_overlayTimeout) { clearTimeout(_overlayTimeout); _overlayTimeout = null; hideHowIWorkOverlay(); }
+  _clearExpDoneListener();
 
-  _frozen          = false;
+  _frozen = false;
   _currentSlide    = slide;
   _slideTimer      = slide.duration;
   _camMoveDuration = slide.cam.moveMs ?? slide.duration;
@@ -228,22 +263,23 @@ export function goToSlide(name) {
 
 function _goToNextSlide() {
   const next = SLIDES[indexOf(_currentSlide.name) + 1];
-  if (next) goToSlide(next.name);
+  if (!next) return;
+  goToSlide(next.name);
 }
 
 function _goToPrevSlide() {
   const idx = indexOf(_currentSlide.name);
-  if (idx > 0) goToSlide(SLIDES[idx - 1].name);
+  if (idx <= 0) return;
+  goToSlide(SLIDES[idx - 1].name);
 }
 
-// ── Presentation lifecycle ────────────────────────────────────────────────────
 
 function _startPresentation() {
   _active = true;
   controls.enabled = false;
   playerReleaseControl();
   showPresentingUI();
-  prevBtn.style.display = 'none';
+  prevBtn.style.display  = 'none';
   goToSlide('intro');
 }
 
@@ -318,6 +354,7 @@ function _returnHome() {
   });
 }
 
+/** Internal wrapper — records duration for tickPresentation. */
 function _glideHome() {
   const dur    = glideHome();
   _glideDuration = dur;
@@ -325,8 +362,7 @@ function _glideHome() {
   return dur;
 }
 
-// ── Character reactions to UI events ─────────────────────────────────────────
-
+// ── Experience — subtle character reaction on hover ───────────────────────────
 document.addEventListener('exp-block-hover', () => {
   if (_currentSlide?.name !== 'experience') return;
   playClip('head-nod-yes');
@@ -335,6 +371,7 @@ document.addEventListener('exp-block-hover', () => {
   }, 1200);
 });
 
+// ── Projects — character reacts when user hovers a card ───────────────────────
 let _lastProjHover = 0;
 document.addEventListener('proj-card-hover', () => {
   if (_currentSlide?.name !== 'projects') return;
@@ -348,27 +385,10 @@ document.addEventListener('proj-card-hover', () => {
 });
 
 // ── Button wiring ─────────────────────────────────────────────────────────────
-
-nextBtn.addEventListener('click', () => {
-  audio.resume(); audio.playButtonClick();
-  if (_active) _goToNextSlide();
-});
-
-prevBtn.addEventListener('click', () => {
-  audio.resume(); audio.playButtonClick();
-  if (_active) _goToPrevSlide();
-});
-
-backBtn.addEventListener('click', () => {
-  audio.resume(); audio.playButtonClick();
-  backBtn.style.display = 'none';
-  _returnHome();
-});
-
-presentBtn.addEventListener('click', () => {
-  audio.resume(); audio.playButtonClick();
-  _active ? _endPresentation() : _startPresentation();
-});
+nextBtn.addEventListener('click',    () => { audio.resume(); audio.playButtonClick(); if (_active) _goToNextSlide(); });
+prevBtn.addEventListener('click',    () => { audio.resume(); audio.playButtonClick(); if (_active) _goToPrevSlide(); });
+backBtn.addEventListener('click',    () => { audio.resume(); audio.playButtonClick(); backBtn.style.display = 'none'; _returnHome(); });
+presentBtn.addEventListener('click', () => { audio.resume(); audio.playButtonClick(); _active ? _endPresentation() : _startPresentation(); });
 
 exploreBtn.addEventListener('click', () => {
   audio.resume(); audio.playButtonClick();
@@ -380,16 +400,7 @@ exploreBtn.addEventListener('click', () => {
   goToSlide('myworld');
 });
 
-skipBtn.addEventListener('click', () => {
-  if (_active) {
-    audio.playButtonClick();
-    trackSlide('skip');
-    goToSlide('myworld');
-  }
-});
-
 // ── Per-frame tick ────────────────────────────────────────────────────────────
-
 export function tickPresentation(delta, elapsed) {
   if (isPlayerActive()) return false;
 

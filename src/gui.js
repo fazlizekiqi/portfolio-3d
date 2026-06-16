@@ -110,12 +110,12 @@ for (const slide of SLIDES) {
   }
 
   if (c.anchor) {
-    const fA = f.addFolder('⚓ Anchor');
-    fA.add(c.anchor, 'dist',          0.5, 12.0, 0.05).name('Cam Z distance').onChange(apply);
-    fA.add(c.anchor, 'offsetX',      -5.0,  5.0, 0.05).name('Cam offset X').onChange(apply);
-    fA.add(c.anchor, 'camY',         -1.0,  4.0, 0.05).name('Cam Y').onChange(apply);
-    fA.add(c.anchor, 'targetOffsetX',-5.0,  5.0, 0.05).name('Target offset X').onChange(apply);
-    fA.add(c.anchor, 'targetY',      -1.0,  4.0, 0.05).name('Target Y').onChange(apply);
+    const fA = f.addFolder('⚓ Anchor (spawn-relative)');
+    fA.add(c.anchor, 'dist',         0.5, 12.0, 0.05).name('Cam Z distance').onChange(apply);
+    fA.add(c.anchor, 'camY',        -1.0,  4.0, 0.05).name('Cam Y').onChange(apply);
+    fA.add(c.anchor, 'targetY',     -1.0,  4.0, 0.05).name('Target Y').onChange(apply);
+    fA.add(c.anchor, 'offsetX',     -5.0,  5.0, 0.05).name('Cam offset X').onChange(apply);
+    fA.add(c.anchor, 'targetOffsetX',-5.0, 5.0, 0.05).name('Target offset X').onChange(apply);
   }
 
   if (c.mobile?.pos && c.mobile?.target) {
@@ -132,12 +132,11 @@ for (const slide of SLIDES) {
 
   if (c.mobile?.anchor) {
     const fMA = f.addFolder('⚓ Mobile Anchor');
-    const ma = c.mobile.anchor;
-    fMA.add(ma, 'dist',          0.5, 15.0, 0.05).name('Cam Z distance').onChange(apply);
-    fMA.add(ma, 'offsetX',      -5.0,  5.0, 0.05).name('Cam offset X').onChange(apply);
-    fMA.add(ma, 'camY',         -1.0,  4.0, 0.05).name('Cam Y').onChange(apply);
-    fMA.add(ma, 'targetOffsetX',-5.0,  5.0, 0.05).name('Target offset X').onChange(apply);
-    fMA.add(ma, 'targetY',      -1.0,  4.0, 0.05).name('Target Y').onChange(apply);
+    fMA.add(c.mobile.anchor, 'dist',          0.5, 15.0, 0.05).name('Cam Z distance').onChange(apply);
+    fMA.add(c.mobile.anchor, 'camY',         -1.0,  4.0, 0.05).name('Cam Y').onChange(apply);
+    fMA.add(c.mobile.anchor, 'targetY',      -1.0,  4.0, 0.05).name('Target Y').onChange(apply);
+    fMA.add(c.mobile.anchor, 'offsetX',      -5.0,  5.0, 0.05).name('Cam offset X').onChange(apply);
+    fMA.add(c.mobile.anchor, 'targetOffsetX',-5.0,  5.0, 0.05).name('Target offset X').onChange(apply);
   }
 }
 

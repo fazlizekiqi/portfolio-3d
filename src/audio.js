@@ -251,6 +251,37 @@ const audio = {
     source.stop(now + dur + 0.01);
   },
 
+  playTimelineNode() {
+    if (!this._ctx || this._muted) return;
+    const t = this._ctx.currentTime;
+    [660, 880].forEach((freq, i) => {
+      const osc  = this._ctx.createOscillator();
+      const gain = this._ctx.createGain();
+      osc.connect(gain); gain.connect(this._master);
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0, t + i * 0.06);
+      gain.gain.linearRampToValueAtTime(0.18, t + i * 0.06 + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + i * 0.06 + 0.18);
+      osc.start(t + i * 0.06);
+      osc.stop(t + i * 0.06 + 0.22);
+    });
+  },
+
+  playScanBeep() {
+    if (!this._ctx || this._muted) return;
+    const t   = this._ctx.currentTime;
+    const osc  = this._ctx.createOscillator();
+    const gain = this._ctx.createGain();
+    osc.connect(gain); gain.connect(this._master);
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(1200, t);
+    osc.frequency.linearRampToValueAtTime(1600, t + 0.05);
+    gain.gain.setValueAtTime(0.08, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
+    osc.start(t); osc.stop(t + 0.10);
+  },
+
   // ── Footsteps ───────────────────────────────────────────────────────────────
 
   /**
