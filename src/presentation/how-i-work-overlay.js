@@ -615,20 +615,12 @@ export function tickHowIWorkOverlay(delta) {
   _statement.style.left = `${sx}px`;
   _statement.style.top  = `${sy}px`;
 
-  // Keep the statement from overflowing into the side cards by capping its
-  // width to the gap between the top-left and top-right card edges.
-  if (mobile) {
-    _statement.style.maxWidth = '';
-  } else {
-    const tlRect = _blockEls[0].getBoundingClientRect();
-    const trRect = _blockEls[1].getBoundingClientRect();
-    const avail  = Math.max(220, trRect.left - tlRect.right - 40);
-    _statement.style.maxWidth = `${Math.min(avail, 640)}px`;
-  }
-
   // BUILT ON is anchored above the bottom nav bar via CSS (not avatar-tracked).
 
-  if (mobile) return;  // connectors hidden on mobile
+  if (mobile) {
+    _statement.style.maxWidth = '';
+    return; // connectors + width clamp both need the (desktop-only) card rects
+  }
 
   // Connectors — re-route each card toward a terminus just outside the avatar.
   const endYMin = topMargin + 40;
@@ -636,11 +628,17 @@ export function tickHowIWorkOverlay(delta) {
   _packetClock += delta;
   const progress = (_packetClock % (PACKET_MS / 1000)) / (PACKET_MS / 1000);
 
+  const rects = _blockEls.map(el => el.getBoundingClientRect());
+
+  // Keep the statement from overflowing into the side cards by capping its
+  // width to the gap between the top-left and top-right card edges.
+  const avail = Math.max(220, rects[1].left - rects[0].right - 40);
+  _statement.style.maxWidth = `${Math.min(avail, 640)}px`;
+
   CARDS.forEach((c, i) => {
     const conn = _conns[i];
     const left = c.pos === 'tl' || c.pos === 'bl';
-    const rect = _blockEls[i].getBoundingClientRect();
-    const a = _blockAnchor(rect);
+    const a = _blockAnchor(rects[i]);
 
     // Terminus: avatar chest, pushed outward to the card's side, clamped vertically.
     const endX = chestX + (left ? -(AVATAR_HALF + NODE_GAP) : (AVATAR_HALF + NODE_GAP));

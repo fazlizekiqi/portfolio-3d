@@ -1,15 +1,19 @@
 /**
  * cta-hud.js — Sci-fi "command center" overlay for the "Let's Connect" slide.
  *
- * A left-side glass HUD panel (headline + 3 contact cards + status line), a
- * top-right resume button, three floating "data panel" callouts near the
- * character, and light background decoration (radar rings, drifting
+ * Desktop: a left-side glass HUD panel (headline + 3 contact cards + status
+ * line), a top-right resume button, three floating "data panel" callouts near
+ * the character, and light background decoration (radar rings, drifting
  * particles). Each HUD panel has a short leader line that points toward the
  * radar's second ring (a stand-in for "the character's general area")
  * and stops there — never reaching all the way to the character itself.
  * The line's start point, length and angle are computed once from real DOM
  * geometry (panel rect → radar center) in `_layout()`, called on show/resize
  * only — there's no per-frame tracking or animation.
+ *
+ * Mobile: the HUD panels, radar and leader lines are hidden. The command
+ * panel collapses to bare text and 3 circular icon buttons (LinkedIn/GitHub/
+ * Email) under the title strip, with no card chrome.
  *
  * Public API
  * ──────────
@@ -285,7 +289,7 @@ _style.textContent = `
 
 /* ── Mobile-only elements: hidden on desktop so the desktop layout is
    byte-for-byte unchanged ── */
-._cta2-svg, ._cta2-sub-mobile, ._cta2-card-scan { display: none; }
+._cta2-svg, ._cta2-sub-mobile { display: none; }
 
 /* ── Mobile: the command panel becomes a premium "control panel" contact
    card, anchored just below the title strip, over the character ── */
@@ -315,7 +319,7 @@ _style.textContent = `
   }
   #_cta2-wrap.cta2-visible #_cta2-panel { transform: translateX(-50%) translateY(0); }
 
-  ._cta2-corner, ._cta2-scanline, ._cta2-card-scan { display: none; }
+  ._cta2-corner, ._cta2-scanline { display: none; }
 
   ._cta2-headline { order: 1; margin-bottom: 0; text-align: center; }
   ._cta2-h1, ._cta2-br, ._cta2-h2, ._cta2-sub, ._cta2-status { display: none; }
@@ -453,7 +457,6 @@ _panel.innerHTML = `
   </div>
   <div class="_cta2-sub">I'm always open to new opportunities, collaborations, and interesting projects.</div>
   <div class="_cta2-sub-mobile">Open to opportunities, freelance projects and collaborations.</div>
-  <div class="_cta2-card-scan"></div>
   <div class="_cta2-cards">
     ${CONTACTS.map(c => `
       <a class="_cta2-card" href="${c.href}" ${c.external ? 'target="_blank" rel="noopener"' : ''}>
