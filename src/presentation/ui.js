@@ -4,7 +4,7 @@
 import { buildExperienceHTML } from './slides/experience/experience.templates.js';
 import { buildIntroHTML } from './slides/intro/intro.templates.js';
 import { buildAboutHTML } from './slides/about/about.templates.js';
-import { showCtaHud, hideCtaHud } from './cta-hud.js';
+import { showCtaHud, hideCtaHud } from './slides/cta/cta-view.js';
 import { audio } from '../audio.js';
 import './slides/intro/intro.css';
 import './slides/experience/experience.css';
@@ -149,7 +149,7 @@ _style.textContent = `
 }
 
 /* ─── CTA — top title/subtitle restyled for the sci-fi HUD redesign;       */
-/* ─── the body panel itself is unused (content lives in cta-hud.js)       */
+/* ─── the body panel itself is unused (content lives in cta-view.js)      */
 #_slide-body-panel.slide-cta { display: none; }
 #_slide-card.slide-cta #_sTitle { text-transform: uppercase; }
 
