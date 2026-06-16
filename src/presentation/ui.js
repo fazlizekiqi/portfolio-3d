@@ -1,9 +1,14 @@
 /**
  * ui.js — All presentation DOM elements and their visibility helpers.
  */
-import { buildExperienceHTML, buildIntroHTML, buildAboutHTML } from './templates.js';
+import { buildExperienceHTML } from './slides/experience/experience.templates.js';
+import { buildIntroHTML } from './slides/intro/intro.templates.js';
+import { buildAboutHTML } from './slides/about/about.templates.js';
 import { showCtaHud, hideCtaHud } from './cta-hud.js';
 import { audio } from '../audio.js';
+import './slides/intro/intro.css';
+import './slides/experience/experience.css';
+import './slides/about/about.css';
 
 // ── Slide title strip (top) ───────────────────────────────────────────────────
 const card = document.createElement('div');
@@ -120,266 +125,6 @@ _style.textContent = `
   }
 }
 
-/* ─── experience slide — panel pinned to left third ─────────────────────── */
-#_slide-body-panel.slide-experience {
-  justify-content: flex-start;
-  align-items: center;
-  padding-left: 20%;
-  padding-right: 0;
-  bottom: 0;
-  top: 56px;
-}
-#_slide-body-panel.slide-experience #_sBodyInner {
-  text-align: left;
-  width: 38%;
-  max-width: 440px;
-  margin-left: 0;
-  padding: 0;
-}
-#_slide-body-panel.slide-experience #_sBody {
-  display: block;
-  text-align: left;
-  white-space: normal;
-}
-
-/* ── timeline wrap — svg left, cards right ── */
-._exp-timeline-wrap {
-  display: flex;
-  align-items: stretch;
-  gap: 16px;
-}
-._exp-tl-svg {
-  flex-shrink: 0;
-  width: 26px;
-  overflow: visible;
-}
-
-/* ── cards column ── */
-._exp-cards {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-/* ── job block — card style ── */
-._exp-block {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 8px 4px;
-  background: none;
-  border: none;
-  border-radius: 0;
-  margin-bottom: 0;
-  cursor: pointer;
-  transition: transform 0.35s ease, opacity 0.35s ease;
-  will-change: transform;
-}
-._exp-block:hover {
-  transform: translateX(4px) scale(1.016);
-  animation: none;
-}
-._exp-block.exp-active {
-  transform: translateX(2px) scale(1.020);
-}
-@keyframes _exp-pulse {
-  0%, 100% { box-shadow: 0 0 22px rgba(0, 180, 255, 0.28); }
-  50%       { box-shadow: 0 0 36px rgba(0, 210, 255, 0.48); }
-}
-
-._exp-logo {
-  width: 50px;
-  height: 50px;
-  object-fit: contain;
-  flex-shrink: 0;
-  filter: brightness(1.1) drop-shadow(0 0 6px rgba(0,180,255,0.3));
-  transition: filter 0.3s ease;
-}
-._exp-block:hover ._exp-logo,
-._exp-block.exp-active ._exp-logo {
-  filter: brightness(1.35) drop-shadow(0 0 10px rgba(0,210,255,0.55));
-}
-._exp-logo-placeholder {
-  width: 50px;
-  height: 50px;
-  flex-shrink: 0;
-}
-._exp-text {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-/* ── Visual hierarchy: Role > Company > Stack ── */
-._exp-role {
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: .12em;
-  color: #eef6ff;
-  text-shadow: 0 0 16px rgba(0,190,255,0.55);
-  transition: color 0.3s, text-shadow 0.3s;
-}
-._exp-block.exp-active ._exp-role {
-  color: #ffffff;
-  text-shadow: 0 0 22px rgba(0, 210, 255, 0.75), 0 0 6px rgba(255,255,255,0.3);
-}
-._exp-company {
-  font-size: 11px;
-  letter-spacing: .10em;
-  color: #4dcfea;
-  text-shadow: 0 0 8px rgba(0,200,255,0.35);
-  transition: color 0.3s, text-shadow 0.3s;
-}
-._exp-block:hover ._exp-company {
-  color: #00e5ff;
-  text-shadow: 0 0 14px rgba(0,230,255,0.70);
-}
-._exp-block.exp-active ._exp-company {
-  color: #00f0ff;
-  text-shadow: 0 0 16px rgba(0,240,255,0.90);
-}
-._exp-stack {
-  font-size: 9.5px;
-  letter-spacing: .07em;
-  color: rgba(130, 195, 215, 0.55);
-  text-shadow: none;
-  margin-top: 2px;
-  transition: color 0.3s;
-}
-._exp-block.exp-active ._exp-stack {
-  color: rgba(160, 215, 235, 0.72);
-}
-
-@media (max-width: 640px) {
-  #_slide-body-panel.slide-experience {
-    justify-content: flex-start;
-    padding-left: 12px;
-    top: 50px;
-  }
-  #_slide-body-panel.slide-experience #_sBodyInner {
-    width: 58%;
-    max-width: none;
-    margin-left: 0;
-  }
-  ._exp-role    { font-size: 10px; }
-  ._exp-company { font-size: 9px; }
-  ._exp-stack   { font-size: 8px; }
-  ._exp-block   { gap: 10px; padding: 8px 10px; }
-  ._exp-logo    { width: 36px; height: 36px; }
-  ._exp-tl-svg  { width: 18px; }
-}
-
-/* ─── intro terminal boot sequence ──────────────────────────────────────── */
-._term-boot {
-  font-family: 'Share Tech Mono', 'Courier New', monospace;
-  font-size: 12px;
-  letter-spacing: .09em;
-  color: #c8eaf5;
-  text-align: left;
-  line-height: 2.15;
-  text-shadow: 0 1px 4px rgba(0,0,0,0.95);
-}
-._tb-row {
-  opacity: 0;
-  animation: _tb-appear 0.45s ease forwards;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-}
-@keyframes _tb-appear {
-  from { opacity: 0; transform: translateX(-10px); }
-  to   { opacity: 1; transform: translateX(0); }
-}
-._tb-prompt { color: #00e5ff; flex-shrink: 0; }
-._tb-key    { color: rgba(0,200,255,0.60); min-width: 88px; }
-._tb-val    { color: #eef6ff; text-shadow: 0 0 10px rgba(0,200,255,0.35); }
-._tb-bar    { color: #00ccff; text-shadow: 0 0 10px rgba(0,200,255,0.80); letter-spacing: .02em; }
-._tb-pct    { color: #00ffaa; font-weight: bold; text-shadow: 0 0 12px rgba(0,255,160,0.65); }
-._tb-blink-cursor {
-  color: #00e5ff;
-  animation: _tb-blink-anim 1s step-end infinite;
-  text-shadow: 0 0 8px rgba(0,230,255,0.9);
-}
-@keyframes _tb-blink-anim { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
-
-/* ─── about stats dashboard ──────────────────────────────────────────────── */
-._about-wrap {  }
-._about-stats-row {
-  display: flex;
-  justify-content: center;
-  gap: 26px;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
-}
-._ab-stat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 5px;
-  opacity: 0;
-  animation: _ab-pop 0.55s cubic-bezier(0.34,1.56,0.64,1) forwards;
-}
-._ab-stat:nth-child(1) { animation-delay: 0.30s; }
-._ab-stat:nth-child(2) { animation-delay: 0.55s; }
-._ab-stat:nth-child(3) { animation-delay: 0.80s; }
-._ab-stat:nth-child(4) { animation-delay: 1.05s; }
-@keyframes _ab-pop {
-  from { opacity: 0; transform: translateY(14px) scale(0.82); }
-  to   { opacity: 1; transform: translateY(0)    scale(1);    }
-}
-._ab-val {
-  font-size: 28px;
-  font-weight: bold;
-  color: #00e5ff;
-  text-shadow: 0 0 22px rgba(0,230,255,0.70), 0 0 6px rgba(0,230,255,0.4);
-  line-height: 1;
-  letter-spacing: .03em;
-}
-._ab-lbl {
-  font-size: 9px;
-  color: rgba(0,200,255,0.55);
-  letter-spacing: .16em;
-}
-._ab-divider {
-  width: 60%;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(0,180,255,0.30), transparent);
-  margin: 8px auto 12px;
-  opacity: 0;
-  animation: _ab-pop 0.3s ease forwards;
-  animation-delay: 1.25s;
-}
-._ab-bio {
-  font-size: 11px;
-  color: #c8eaf5;
-  line-height: 2.1;
-  letter-spacing: .08em;
-  text-shadow: 0 1px 3px rgba(0,0,0,0.98);
-  opacity: 0;
-  animation: _ab-pop 0.4s ease forwards;
-  animation-delay: 1.45s;
-}
-._ab-tag {
-  color: #00ccff;
-  text-shadow: 0 0 10px rgba(0,200,255,0.55);
-}
-
-/* ─── intro slide — terminal pinned bottom-left so character is free ─────── */
-#_slide-body-panel.slide-intro {
-  justify-content: flex-start;
-  align-items: flex-end;
-  padding-left: 5%;
-}
-#_slide-body-panel.slide-intro #_sBodyInner {
-  text-align: left;
-  max-width: 420px;
-  padding: 0;
-}
-#_slide-body-panel.slide-intro #_sBody {
-  text-align: left;
-  white-space: normal;
-}
-
 /* ─── skills / projects slide — body text bottom-right corner ────────────── */
 #_slide-body-panel.slide-skills,
 #_slide-body-panel.slide-projects {
@@ -403,48 +148,14 @@ _style.textContent = `
   display: none;
 }
 
-/* ─── about slide — stats panel bottom-right ─────────────────────────────── */
-#_slide-body-panel.slide-about {
-  justify-content: flex-end;
-  align-items: flex-end;
-  padding-right: 4%;
-}
-#_slide-body-panel.slide-about #_sBodyInner {
-  text-align: right;
-  max-width: 340px;
-  padding: 0;
-}
-#_slide-body-panel.slide-about ._about-wrap { text-align: right; }
-#_slide-body-panel.slide-about ._about-stats-row { justify-content: flex-end; }
-#_slide-body-panel.slide-about ._ab-bio { text-align: right; }
-
 /* ─── CTA — top title/subtitle restyled for the sci-fi HUD redesign;       */
 /* ─── the body panel itself is unused (content lives in cta-hud.js)       */
 #_slide-body-panel.slide-cta { display: none; }
 #_slide-card.slide-cta #_sTitle { text-transform: uppercase; }
 
 @media (max-width: 640px) {
-  ._ab-val   { font-size: 22px; }
-  ._about-stats-row { gap: 16px; margin-bottom: 6px; }
-  ._ab-divider { margin: 4px auto 8px; }
-  ._term-boot { font-size: 10px; }
-  #_slide-body-panel.slide-intro { padding-left: 3%; }
   #_slide-body-panel.slide-skills,
   #_slide-body-panel.slide-projects { padding-right: 3%; }
-  #_slide-body-panel.slide-about {
-    justify-content: center;
-    align-items: flex-end;
-    padding-right: 0;
-    padding-left: 0;
-  }
-  #_slide-body-panel.slide-about #_sBodyInner {
-    text-align: center;
-    max-width: 100%;
-    padding: 0 16px;
-  }
-  #_slide-body-panel.slide-about ._about-wrap  { text-align: center; }
-  #_slide-body-panel.slide-about ._about-stats-row { justify-content: center; }
-  #_slide-body-panel.slide-about ._ab-bio      { text-align: center; }
 }
 
 /* ─── audio mute button ───────────────────────────────────────────────────── */

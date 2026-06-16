@@ -1,11 +1,7 @@
 /**
- * templates.js — Pure HTML-string builders for each slide's body content.
- *
- * No DOM access, no imports from the app — only import.meta.env.BASE_URL.
- * Each function returns an HTML string consumed by showCard() in ui.js.
+ * experience.templates.js — Pure HTML-string builder for the experience slide's
+ * timeline + job-block panel.
  */
-
-import { YEARS_EXPERIENCE } from './slides.js';
 
 const _base = import.meta.env.BASE_URL.replace(/\/$/, '');
 
@@ -72,42 +68,6 @@ export function buildExperienceHTML(body) {
     ${svgMarkup}
     <div class="_exp-cards">
       ${blocks.join('')}
-    </div>
-  </div>`;
-}
-
-/** Terminal boot sequence for the intro slide. */
-export function buildIntroHTML() {
-  const rows = [
-    { delay: 0.25, prompt: true,  content: `<span class="_tb-blink-cursor">▌</span>&nbsp;ESTABLISHING_CONNECTION<span class="_tb-blink-cursor">...</span>` },
-    { delay: 0.85, prompt: false, content: `<span class="_tb-key">ENGINEER </span><span class="_tb-val">FAZLI ZEKIQI</span>` },
-    { delay: 1.30, prompt: false, content: `<span class="_tb-key">ROLE     </span><span class="_tb-val">SR. SOFTWARE ENGINEER</span>` },
-    { delay: 1.75, prompt: false, content: `<span class="_tb-key">LOCATION </span><span class="_tb-val">STOCKHOLM, SWEDEN</span>` },
-    { delay: 2.20, prompt: false, content: `<span class="_tb-key">FOCUS    </span><span class="_tb-val">DISTRIBUTED SYSTEMS</span>` },
-    { delay: 2.80, prompt: false, content: `<span class="_tb-key">SYSTEMS  </span><span class="_tb-bar">██████████</span>&nbsp;<span class="_tb-pct">100% ONLINE</span>` },
-    { delay: 3.40, prompt: true,  content: `<span class="_tb-blink-cursor">▌</span>` },
-  ];
-  const html = rows.map(r => {
-    const promptHtml = r.prompt
-      ? `<span class="_tb-prompt">&gt;</span>`
-      : `<span class="_tb-prompt" style="opacity:0.35">&gt;</span>`;
-    return `<div class="_tb-row" style="animation-delay:${r.delay}s">${promptHtml}&nbsp;${r.content}</div>`;
-  }).join('');
-  return `<div class="_term-boot">${html}</div>`;
-}
-
-/** Engineering stats dashboard for the about slide. */
-export function buildAboutHTML() {
-  return `<div class="_about-wrap">
-    <div class="_about-stats-row">
-      <div class="_ab-stat"><div class="_ab-val">${YEARS_EXPERIENCE}+</div><div class="_ab-lbl">YEARS EXP</div></div>
-      <div class="_ab-stat"><div class="_ab-val">3</div><div class="_ab-lbl">COMPANIES</div></div>
-      <div class="_ab-stat"><div class="_ab-val">29</div><div class="_ab-lbl">TECHNOLOGIES</div></div>
-      <div class="_ab-stat"><div class="_ab-val">50+</div><div class="_ab-lbl">PROJECTS</div></div>
-    </div>
-    <div class="_ab-divider"></div>
-    <div class="_ab-bio">
-      Training · Running · Electronics · Robots
     </div>
   </div>`;
 }

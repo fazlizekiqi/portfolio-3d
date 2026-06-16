@@ -25,7 +25,8 @@
 import * as THREE from 'three';
 import { scene, renderer } from '../scene.js';
 import { audio } from '../audio.js';
-import { YEARS_EXPERIENCE } from '../presentation/slides.js';
+import { buildBioScanHTML } from '../presentation/slides/about/about.templates.js';
+import '../presentation/slides/about/about-bioscan.css';
 import _holoVert from '../shaders/about-holo.vert.glsl?raw';
 import _holoFrag from '../shaders/about-holo.frag.glsl?raw';
 import _dotsVert from '../shaders/about-dots.vert.glsl?raw';
@@ -108,79 +109,11 @@ function _injectBurnIntoMat(mat, uniforms) {
 }
 
 // ── DOM — Biometric scan panel (LEFT side) ────────────────────────────────────
-const _css = document.createElement('style');
-_css.textContent = `
-#_bio-scan {
-  position: fixed; left: 5%; top: 50%; transform: translateY(-50%);
-  z-index: 18; pointer-events: none;
-  font-family: 'Share Tech Mono','Courier New',monospace;
-  opacity: 0; transition: opacity 0.5s ease; min-width: 250px;
-}
-._bio-hdr { font-size:10px; color:rgba(0,200,255,0.55); letter-spacing:.22em;
-  margin-bottom:16px; display:flex; align-items:center; gap:9px; }
-._bio-hdr-dot { width:7px; height:7px; border-radius:50%; background:#00e5ff;
-  box-shadow:0 0 9px rgba(0,230,255,0.9); flex-shrink:0;
-  animation:_bdot 1.1s ease-in-out infinite; }
-@keyframes _bdot {
-  0%,100%{opacity:1;box-shadow:0 0 9px rgba(0,230,255,0.9);}
-  50%    {opacity:0.35;box-shadow:0 0 3px rgba(0,180,255,0.3);}
-}
-._bio-sep { height:1px; background:linear-gradient(90deg,rgba(0,200,255,0.40),transparent);
-  margin:0 0 14px; }
-._bio-row { display:flex; gap:0; margin-bottom:10px;
-  opacity:0; transform:translateX(-14px);
-  transition:opacity 0.42s ease,transform 0.42s cubic-bezier(0.22,0.61,0.36,1);
-  font-size:11px; letter-spacing:.08em; line-height:1.5; }
-._bio-row.vis { opacity:1; transform:translateX(0); }
-._bio-k { color:rgba(0,200,255,0.50); min-width:112px; font-size:9px; letter-spacing:.14em; }
-._bio-v { color:#eef6ff; text-shadow:0 0 10px rgba(0,200,255,0.28); }
-._bio-bar-wrap { margin:16px 0 10px; opacity:0; transition:opacity 0.4s ease; }
-._bio-bar-wrap.vis { opacity:1; }
-._bio-bar-lbl { font-size:9px; color:rgba(0,200,255,0.45); letter-spacing:.14em;
-  margin-bottom:5px; display:flex; justify-content:space-between; }
-._bio-bar-track { height:3px; background:rgba(0,150,200,0.18); border-radius:2px;
-  width:230px; position:relative; overflow:hidden; }
-._bio-bar-fill { position:absolute; left:0; top:0; bottom:0; width:0%;
-  background:linear-gradient(90deg,#005577,#00e5ff); border-radius:2px;
-  box-shadow:0 0 6px rgba(0,220,255,0.6); transition:width 0.10s linear; }
-._bio-done { margin-top:14px; font-size:10px; color:#00ffaa; letter-spacing:.18em;
-  text-shadow:0 0 14px rgba(0,255,160,0.65); opacity:0; transition:opacity 0.7s ease;
-  display:flex; align-items:center; gap:9px; }
-._bio-done.vis { opacity:1; }
-._bio-done-bar { height:1px; flex:1; background:linear-gradient(90deg,rgba(0,255,160,0.50),transparent); }
-._bio-scanline { position:fixed; left:0; right:0; height:3px;
-  background:linear-gradient(90deg,transparent 0%,rgba(0,220,255,0.0) 10%,
-    rgba(0,220,255,0.55) 40%,rgba(0,220,255,0.95) 50%,
-    rgba(0,220,255,0.55) 60%,rgba(0,220,255,0.0) 90%,transparent 100%);
-  pointer-events:none; z-index:17; opacity:0; transition:opacity 0.25s; filter:blur(0.5px); }
-@media (max-width:640px) {
-  /* top-left under the title — the bottom half belongs to the stats panel */
-  #_bio-scan { left:4%; top:72px; bottom:auto; transform:none; min-width:0; max-width:58vw; }
-  ._bio-hdr { margin-bottom:10px; }
-  ._bio-sep { margin-bottom:9px; }
-  ._bio-row { font-size:9.5px; margin-bottom:7px; }
-  ._bio-k { min-width:64px; font-size:8px; }
-  ._bio-bar-wrap { margin:10px 0 6px; }
-  ._bio-bar-track { width:130px; }
-}
-`;
-document.head.appendChild(_css);
-
+// CSS lives in presentation/slides/about/about-bioscan.css (imported above);
+// markup is built by buildBioScanHTML() in about.templates.js.
 const _bioEl = document.createElement('div');
 _bioEl.id = '_bio-scan';
-_bioEl.innerHTML = `
-  <div class="_bio-hdr"><div class="_bio-hdr-dot"></div>BIOMETRIC SCAN</div>
-  <div class="_bio-sep"></div>
-  <div class="_bio-row" id="_br0"><span class="_bio-k">HEAD / BRAIN </span><span class="_bio-v">ARCHITECTURE: DISTRIBUTED</span></div>
-  <div class="_bio-row" id="_br1"><span class="_bio-k">CHEST / CORE </span><span class="_bio-v">${YEARS_EXPERIENCE}+ YEARS IN PRODUCTION</span></div>
-  <div class="_bio-row" id="_br2"><span class="_bio-k">ARMS / STACK </span><span class="_bio-v">JAVA · KAFKA · GCP · K8S</span></div>
-  <div class="_bio-row" id="_br3"><span class="_bio-k">LEGS / BASE  </span><span class="_bio-v">STOCKHOLM, SWEDEN</span></div>
-  <div class="_bio-bar-wrap" id="_brBar">
-    <div class="_bio-bar-lbl"><span>SCAN PROGRESS</span><span id="_brPct">0%</span></div>
-    <div class="_bio-bar-track"><div class="_bio-bar-fill" id="_brFill"></div></div>
-  </div>
-  <div class="_bio-done" id="_brDone"><span>▋ ANALYSIS COMPLETE</span><div class="_bio-done-bar"></div></div>
-`;
+_bioEl.innerHTML = buildBioScanHTML();
 document.body.appendChild(_bioEl);
 
 const _scanLine = document.createElement('div');
