@@ -26,6 +26,18 @@ import * as THREE from 'three';
 import { scene, renderer } from '../scene.js';
 import { audio } from '../audio.js';
 import { YEARS_EXPERIENCE } from '../presentation/slides.js';
+import _holoVert from '../shaders/about-holo.vert.glsl?raw';
+import _holoFrag from '../shaders/about-holo.frag.glsl?raw';
+import _dotsVert from '../shaders/about-dots.vert.glsl?raw';
+import _dotsFrag from '../shaders/about-dots.frag.glsl?raw';
+import _burnVert from '../shaders/about-burn-stripe.vert.glsl?raw';
+import _burnFrag from '../shaders/about-burn-stripe.frag.glsl?raw';
+import _wireVert from '../shaders/about-wire.vert.glsl?raw';
+import _wireFrag from '../shaders/about-wire.frag.glsl?raw';
+import BURN_VERT_PARS     from '../shaders/about-burn.vert.pars.glsl?raw';
+import BURN_VERT_POSITION from '../shaders/about-burn.vert.position.glsl?raw';
+import BURN_FRAG_PARS     from '../shaders/about-burn.frag.pars.glsl?raw';
+import BURN_FRAG_DISCARD  from '../shaders/about-burn.frag.discard.glsl?raw';
 
 // ── Timing ────────────────────────────────────────────────────────────────────
 const T_HEADER_IN     = 0.5;
@@ -44,139 +56,6 @@ const ROW_BURN_T      = [0.12, 0.35, 0.60, 0.82];
 // ── Ghost look ────────────────────────────────────────────────────────────────
 const WIRE_MAX_OP   = 0.55;  // electricity shader opacity gate — higher = more visible
 const HOLO_BUILD_OP = 1.00;  // hologram opacity — full brightness throughout all phases
-
-// ── Hologram shell shader (fresnel rim + faint fill + scanlines) ──────────────
-const _holoVert = /* glsl */`
-  varying vec3  vNormal;
-  varying vec3  vViewDir;
-  varying float vWorldY;
-  void main() {
-    vNormal  = normalize(normalMatrix * normal);
-    vec4 mv  = modelViewMatrix * vec4(position, 1.0);
-    vViewDir = normalize(-mv.xyz);
-    vWorldY  = (modelMatrix * vec4(position, 1.0)).y;
-    gl_Position = projectionMatrix * mv;
-  }
-`;
-const _holoFrag = /* glsl */`
-  uniform float uOpacity;
-  uniform float uTime;
-  uniform float uClipY;      // hide fragments below this world-Y (reveal sweep)
-  uniform float uClipYMax;   // outro burn: discard fragments above this + noise (head→feet)
-  uniform float uPulse;
-  varying vec3  vNormal;
-  varying vec3  vViewDir;
-  varying float vWorldY;
-  // compact value noise — same functions used in the character burn shader
-  float _hh(vec2 p){p=fract(p*vec2(127.1,311.7));p+=dot(p,p+19.19);return fract(p.x*p.y);}
-  float _hn(vec2 p){vec2 i=floor(p),f=fract(p),u=f*f*(3.-2.*f);
-    return mix(mix(_hh(i),_hh(i+vec2(1,0)),u.x),mix(_hh(i+vec2(0,1)),_hh(i+vec2(1,1)),u.x),u.y);}
-  float _hf(vec2 p){float v=0.,a=.5;for(int i=0;i<4;i++){v+=a*_hn(p);p=p*2.1;a*=.5;}return v;}
-  void main() {
-    if (vWorldY < uClipY) discard;
-    // Outro: noisy dissolve from head down (mirrors character intro burn direction)
-    if (uClipYMax < 900.0) {
-      float _e = 0.20;
-      float _n = _hf(vec2(vWorldY * 5.5, uTime * 0.45)) * _e * 1.9
-               + _hn(vec2(vWorldY * 13.0, uTime * 0.35)) * _e * 0.6;
-      if (vWorldY > uClipYMax + _n) discard;
-    }
-    float fres = pow(1.0 - abs(dot(normalize(vNormal), normalize(vViewDir))), 2.0);
-    float scan = 0.5 + 0.5 * sin(vWorldY * 70.0 - uTime * 2.6);
-    vec3  col  = mix(vec3(0.0, 0.35, 0.65), vec3(0.25, 0.95, 1.0), fres);
-    float a    = (0.05 + fres * 0.75 + scan * 0.04) * uOpacity * (1.0 + uPulse * 0.9);
-    gl_FragColor = vec4(col, a);
-  }
-`;
-
-// ── Vertex-cloud scatter shader ───────────────────────────────────────────────
-const _dotsVert = /* glsl */`
-  attribute vec3 aOffset;
-  uniform float uSettle;
-  uniform float uOpacity;
-  varying float vOpacity;
-  void main() {
-    float e = 1.0 - pow(1.0 - uSettle, 3.0);
-    vec3  p = mix(position + aOffset, position, e);
-    gl_Position  = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
-    gl_PointSize = 2.8;
-    vOpacity     = uOpacity;
-  }
-`;
-const _dotsFrag = /* glsl */`
-  varying float vOpacity;
-  void main() {
-    vec2 uv = gl_PointCoord - 0.5;
-    if (dot(uv,uv) > 0.25) discard;
-    gl_FragColor = vec4(0.0, 0.85, 1.0, vOpacity);
-  }
-`;
-
-// ── Burn-edge glow stripe shader ──────────────────────────────────────────────
-const _burnVert = /* glsl */`
-  varying vec2 vUv;
-  void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }
-`;
-const _burnFrag = /* glsl */`
-  uniform float uOpacity;
-  varying vec2 vUv;
-  void main() {
-    float cy    = abs(vUv.y - 0.5) * 2.0;
-    float cx    = abs(vUv.x - 0.5) * 2.0;
-    float edgeX = 1.0 - smoothstep(0.55, 1.0, cx);
-    float core  = pow(1.0 - cy, 3.0);
-    float flame = pow(1.0 - cy, 9.0);
-    vec3 col = mix(vec3(0.0,0.30,0.80), vec3(0.0,0.85,1.0), core);
-    col      = mix(col, vec3(0.95,0.97,1.0), flame * 0.85);
-    float alpha = (core * 0.88 + flame * 0.12) * edgeX * uOpacity;
-    gl_FragColor = vec4(col, alpha);
-  }
-`;
-
-// ── Electricity wire shader ───────────────────────────────────────────────────
-// uClipY mirrors the hologram's clip — fragments below are discarded so the
-// wire stays in perfect sync with the burn/reveal boundary without needing
-// THREE.js clipping-plane machinery.
-const _wireVert = /* glsl */`
-  varying vec3 vWorldPos;
-  void main() {
-    vWorldPos   = (modelMatrix * vec4(position, 1.0)).xyz;
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-  }
-`;
-const _wireFrag = /* glsl */`
-  uniform float uOpacity;
-  uniform float uTime;
-  uniform float uClipY;   // same boundary as hologram uClipY
-  varying vec3  vWorldPos;
-
-  void main() {
-    if (uOpacity <= 0.001) discard;
-    if (vWorldPos.y < uClipY) discard;   // sync with burn / reveal front
-
-    float y = vWorldPos.y;
-
-    // Two flowing current bands moving up the body
-    float f1  = fract(y * 2.5 - uTime * 1.6);
-    float b1  = pow(1.0 - clamp(abs(f1 - 0.5) * 5.0, 0.0, 1.0), 3.0);
-
-    float f2  = fract(y * 5.0 - uTime * 3.0);
-    float b2  = pow(1.0 - clamp(abs(f2 - 0.5) * 8.0, 0.0, 1.0), 3.0) * 0.5;
-
-    float total = b1 + b2;
-
-    // Colour: dim-cyan → bright-cyan → near-white
-    vec3 c0 = vec3(0.00, 0.40, 0.75);
-    vec3 c1 = vec3(0.00, 0.75, 1.00);
-    vec3 c2 = vec3(0.70, 0.93, 1.00);
-
-    vec3 col = mix(c0, c1, clamp(total,       0.0, 1.0));
-    col      = mix(col, c2, clamp(total - 1.0, 0.0, 1.0));
-
-    float alpha = (0.20 + clamp(total, 0.0, 1.0) * 0.50) * uOpacity;
-    gl_FragColor = vec4(col, clamp(alpha, 0.0, 1.0));
-  }
-`;
 
 // ── Per-material burn shader inject ───────────────────────────────────────────
 // uBurnY = 999  → nothing discarded (full char visible)
@@ -201,62 +80,25 @@ function _injectBurnIntoMat(mat, uniforms) {
     shader.vertexShader = shader.vertexShader
       .replace(
         '#include <common>',
-        `varying float vBurnWorldY;\n#include <common>`
+        `${BURN_VERT_PARS}\n#include <common>`
       )
       .replace(
         '#include <skinning_vertex>',
-        `#include <skinning_vertex>
-         vBurnWorldY = (modelMatrix * vec4(transformed, 1.0)).y;`
+        `#include <skinning_vertex>\n${BURN_VERT_POSITION}`
       );
 
     // 4. Fragment: declare varying + uniforms + compact noise functions
     shader.fragmentShader = shader.fragmentShader
       .replace(
         '#include <common>',
-        `varying float vBurnWorldY;
-         uniform float uBurnY;
-         uniform float uBurnEdge;
-         uniform float uBurnTime;
-         // value noise hash
-         float _bh(vec2 p){p=fract(p*vec2(127.1,311.7));p+=dot(p,p+19.19);return fract(p.x*p.y);}
-         // bilinear noise
-         float _bn(vec2 p){
-           vec2 i=floor(p),f=fract(p),u=f*f*(3.-2.*f);
-           return mix(mix(_bh(i),_bh(i+vec2(1,0)),u.x),
-                      mix(_bh(i+vec2(0,1)),_bh(i+vec2(1,1)),u.x),u.y);
-         }
-         // 4-octave fbm
-         float _bf(vec2 p){float v=0.,a=.5;for(int i=0;i<4;i++){v+=a*_bn(p);p=p*2.1;a*=.5;}return v;}
-         #include <common>`
+        `${BURN_FRAG_PARS}\n#include <common>`
       );
 
     // 5. Append burn discard + flame glow just before the shader's final closing brace
     const lastBrace = shader.fragmentShader.lastIndexOf('}');
     shader.fragmentShader =
       shader.fragmentShader.slice(0, lastBrace) +
-      `
-      {
-        // ── Paper-burn dissolve: top → bottom ─────────────────────────────
-        // Noisy threshold creates the ragged burning-paper edge
-        float _bNoise = _bf(vec2(vBurnWorldY * 5.5, uBurnTime * 0.45)) * uBurnEdge * 1.9
-                      + _bn(vec2(vBurnWorldY * 13.0, uBurnTime * 0.35)) * uBurnEdge * 0.6;
-        float _threshold = uBurnY + _bNoise;
-        // Above threshold = burned away → discard
-        if (vBurnWorldY > _threshold) discard;
-        // Edge proximity: 0=far from edge, 1=right at edge
-        float _edgeT = clamp((_threshold - vBurnWorldY) / uBurnEdge, 0.0, 1.0);
-        float _atEdge = 1.0 - _edgeT;   // 1=at burn front, 0=far inside
-        // Cyan core → gold/orange outer flame (like the iris transition shader)
-        vec3  _fCyan  = vec3(0.0, 0.85, 1.0);
-        vec3  _fGold  = vec3(1.0, 0.82, 0.05);
-        vec3  _fEdge  = mix(_fCyan, _fGold, pow(_atEdge, 0.5));
-        float _edgeMix = pow(_atEdge, 1.8) * 0.96;
-        gl_FragColor.rgb = mix(gl_FragColor.rgb, _fEdge, _edgeMix);
-        // Slightly fade the very edge so it dissolves rather than hard-cuts
-        gl_FragColor.a  *= mix(1.0, 0.0, pow(_atEdge, 3.5));
-        if (gl_FragColor.a < 0.005) discard;
-      }
-      ` +
+      `\n${BURN_FRAG_DISCARD}\n` +
       shader.fragmentShader.slice(lastBrace);
   };
 
