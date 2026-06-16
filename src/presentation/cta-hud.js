@@ -6,17 +6,30 @@
  * the character by animated SVG leader lines (same technique as
  * how-i-work-overlay.js: stroke-dasharray draw-in + crosshair reference marks
  * + a traveling pulse dot), and light background decoration (radar rings,
- * drifting particles). All anchors are fixed screen-space percentages — the
- * character's on-screen position is fixed for the slide's camera move, so no
- * 3D-to-screen projection is needed.
+ * drifting particles). The leader-line targets and radar crosshair are
+ * projected live from the character's 3D world position every frame (via
+ * tickCtaHud), so they stay locked on regardless of camera drift or resize —
+ * only the HUD panels themselves are CSS-positioned at fixed screen anchors.
  *
  * Public API
  * ──────────
  *   showCtaHud()
  *   hideCtaHud()
+ *   tickCtaHud(delta)
  */
 
+import * as THREE from 'three';
+import { camera } from '../scene.js';
+import { modelGroup } from '../character/model.js';
+import { isMobile } from '../constants.js';
+
 const _base = import.meta.env.BASE_URL.replace(/\/$/, '');
+
+// Approximate chest height of the character — no head/chest bone reference
+// exists, so we offset from the root position (matches the camY/targetY
+// convention used by the about/experience anchor-camera slides).
+const ANCHOR_Y_OFFSET = 1.3;
+const _anchorWorld = new THREE.Vector3();
 
 const CONTACTS = [
   { hex: 'in',  label: 'LinkedIn', detail: 'linkedin.com/in/fazli-zekiqi', href: 'https://linkedin.com/in/fazli-zekiqi', external: true },
@@ -263,19 +276,51 @@ _style.textContent = `
 ._cta2-mark line   { stroke: rgba(0,210,255,0.45); stroke-width: 1; }
 ._cta2-pulse { fill: #7df3ff; filter: drop-shadow(0 0 4px rgba(0,220,255,0.9)); }
 
+/* ── Mobile: compact bottom dock — short headline + icon-only contact row,
+   docked above the nav bar so the character stays fully visible above it ── */
 @media (max-width: 767px) {
   #_cta2-resume { top: 12px; right: 12px; font-size: 9px; padding: 6px 12px; }
+
   #_cta2-panel {
-    top: auto; bottom: 6%; left: 50%;
+    top: auto; bottom: 54px; left: 50%;
     transform: translateX(-50%) translateY(16px);
     width: 92vw; max-height: none;
-    padding: 18px 18px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border-radius: 10px;
   }
   #_cta2-wrap.cta2-visible #_cta2-panel { transform: translateX(-50%) translateY(0); }
-  ._cta2-headline { font-size: 19px; }
-  ._cta2-sub { font-size: 11px; margin-bottom: 14px; }
-  ._cta2-card { min-height: 52px; padding: 9px 12px; }
-  ._cta2-hex { width: 30px; height: 30px; font-size: 10px; }
+
+  ._cta2-corner, ._cta2-scanline { display: none; }
+
+  ._cta2-headline {
+    flex: 1;
+    font-size: 12px;
+    line-height: 1.3;
+    margin-bottom: 0;
+    /* Collapse to the first line only — "amazing together." is dropped on mobile. */
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  ._cta2-headline br { display: none; }
+  ._cta2-sub, ._cta2-status { display: none; }
+
+  ._cta2-cards { flex-direction: row; gap: 8px; }
+  ._cta2-card {
+    min-height: 0;
+    width: 42px; height: 42px;
+    padding: 0;
+    border-radius: 50%;
+    justify-content: center;
+  }
+  ._cta2-card-text, ._cta2-card-arrow { display: none; }
+  ._cta2-hex { width: 100%; height: 100%; }
+
   ._cta2-hud, #_cta2-svg, #_cta2-radar, #_cta2-particles { display: none; }
 }
 `;
@@ -287,10 +332,23 @@ const SVGNS = 'http://www.w3.org/2000/svg';
 const _wrap = document.createElement('div');
 _wrap.id = '_cta2-wrap';
 
-// Background radar rings (purely decorative, fixed near the character)
+// Background radar rings (decorative, locked to the character's projected position)
 const _radar = document.createElementNS(SVGNS, 'svg');
 _radar.id = '_cta2-radar';
 _radar.setAttribute('preserveAspectRatio', 'none');
+const _radarRings = [3, 6, 9].map(n => {
+  const c = document.createElementNS(SVGNS, 'circle');
+  c.setAttribute('class', '_cta2-radar-ring');
+  c.dataset.scale = n;
+  _radar.appendChild(c);
+  return c;
+});
+const _radarCrossH = document.createElementNS(SVGNS, 'line');
+const _radarCrossV = document.createElementNS(SVGNS, 'line');
+_radarCrossH.setAttribute('class', '_cta2-radar-cross');
+_radarCrossV.setAttribute('class', '_cta2-radar-cross');
+_radar.appendChild(_radarCrossH);
+_radar.appendChild(_radarCrossV);
 _wrap.appendChild(_radar);
 
 // Drifting particles
@@ -391,35 +449,59 @@ function _hudAnchor(el, r) {
   return { x: r.left < window.innerWidth / 2 ? r.right : r.left, y: r.top + r.height / 2 };
 }
 
+/** Projects the character's tracked world point to pixel coords, or null if not ready. */
+function _projectCharacterScreenPos() {
+  if (!modelGroup) return null;
+  _anchorWorld.copy(modelGroup.position);
+  _anchorWorld.y += ANCHOR_Y_OFFSET;
+  _anchorWorld.project(camera);
+  return {
+    x: (_anchorWorld.x + 1) / 2 * window.innerWidth,
+    y: (1 - _anchorWorld.y) / 2 * window.innerHeight,
+  };
+}
+
+/** Re-targets the radar crosshair + each leader-line endpoint at `t` (pixel coords). */
+function _updateAnchors(t) {
+  const minDim = Math.min(window.innerWidth, window.innerHeight);
+  _radarRings.forEach(c => {
+    c.setAttribute('cx', t.x);
+    c.setAttribute('cy', t.y);
+    c.setAttribute('r', Number(c.dataset.scale) * minDim * 0.04);
+  });
+  _radarCrossH.setAttribute('x1', t.x - 60); _radarCrossH.setAttribute('y1', t.y);
+  _radarCrossH.setAttribute('x2', t.x + 60); _radarCrossH.setAttribute('y2', t.y);
+  _radarCrossV.setAttribute('x1', t.x); _radarCrossV.setAttribute('y1', t.y - 60);
+  _radarCrossV.setAttribute('x2', t.x); _radarCrossV.setAttribute('y2', t.y + 60);
+
+  _pathEls.forEach((path, i) => {
+    const a = path._a;
+    path.setAttribute('d', `M${a.x},${a.y} L${t.x},${t.y}`);
+    _markEls[i].setAttribute('transform', `translate(${t.x},${t.y})`);
+    path._t = t;
+  });
+}
+
 function _layout() {
   const w = window.innerWidth, h = window.innerHeight;
   _svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
   _radar.setAttribute('viewBox', `0 0 ${w} ${h}`);
 
-  // Radar: faint concentric circles + crosshair behind the character's area.
-  const rcx = w * 0.66, rcy = h * 0.50;
-  _radar.innerHTML = [3, 6, 9].map(n =>
-    `<circle class="_cta2-radar-ring" cx="${rcx}" cy="${rcy}" r="${n * Math.min(w, h) * 0.04}"></circle>`
-  ).join('') +
-    `<line class="_cta2-radar-cross" x1="${rcx - 60}" y1="${rcy}" x2="${rcx + 60}" y2="${rcy}"></line>
-     <line class="_cta2-radar-cross" x1="${rcx}" y1="${rcy - 60}" x2="${rcx}" y2="${rcy + 60}"></line>`;
+  const t = _projectCharacterScreenPos() ?? { x: w * 0.66, y: h * 0.50 };
 
   HUD_PANELS.forEach((p, i) => {
     const r = _hudEls[i].getBoundingClientRect();
     const a = _hudAnchor(_hudEls[i], r);
-    const t = { x: p.anchor.x * w, y: p.anchor.y * h };
+    _pathEls[i]._a = a;
+  });
+  _updateAnchors(t);
 
-    const path = _pathEls[i];
-    path.setAttribute('d', `M${a.x},${a.y} L${t.x},${t.y}`);
+  _pathEls.forEach(path => {
     const len = path.getTotalLength();
     path.style.strokeDasharray  = `${len}`;
     path.style.strokeDashoffset = `${len}`;
     path.style.transition = 'none';
-
-    _markEls[i].setAttribute('transform', `translate(${t.x},${t.y})`);
-    _pathEls[i]._len = len;
-    _pathEls[i]._a   = a;
-    _pathEls[i]._t   = t;
+    path._len = len;
   });
 }
 
@@ -464,4 +546,13 @@ export function hideCtaHud() {
   _showing = false;
   _wrap.classList.remove('cta2-visible');
   if (_rafId) { cancelAnimationFrame(_rafId); _rafId = null; }
+}
+
+/** Per-frame: keep the leader-line targets + radar crosshair locked to the
+ *  character as the cta slide's camera drifts. Mobile hides all the elements
+ *  this drives, so it's a no-op there. */
+export function tickCtaHud() {
+  if (!_showing || isMobile()) return;
+  const t = _projectCharacterScreenPos();
+  if (t) _updateAnchors(t);
 }

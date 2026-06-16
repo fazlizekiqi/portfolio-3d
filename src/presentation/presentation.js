@@ -35,6 +35,7 @@ import {
 } from './ui.js';
 import { showHowIWorkOverlay, hideHowIWorkOverlay } from './how-i-work-overlay.js';
 import { showAboutWireframe, hideAboutWireframe, tickAboutWireframe } from '../character/about-wireframe.js';
+import { tickCtaHud } from './cta-hud.js';
 
 export { initCameraState } from './camera.js';
 export { currentCamLook }  from './camera.js';
@@ -415,6 +416,7 @@ export function tickPresentation(delta, elapsed) {
 
   if (_active) {
     if (_currentSlide.name === 'about') tickAboutWireframe(delta);
+    if (_currentSlide.name === 'cta')   tickCtaHud(delta);
     _slideTimer -= delta * 1000;
     if (_slideTimer <= 0 && !_frozen) _goToNextSlide();
     setProgressFill(1 - _slideTimer / _currentSlide.duration);
