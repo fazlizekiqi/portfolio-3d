@@ -2,47 +2,34 @@
  * cta-hud.js — Sci-fi "command center" overlay for the "Let's Connect" slide.
  *
  * A left-side glass HUD panel (headline + 3 contact cards + status line), a
- * top-right resume button, three floating "data panel" callouts connected to
- * the character by animated SVG leader lines (same technique as
- * how-i-work-overlay.js: stroke-dasharray draw-in + crosshair reference marks
- * + a traveling pulse dot), and light background decoration (radar rings,
- * drifting particles). The leader-line targets and radar crosshair are
- * projected live from the character's 3D world position every frame (via
- * tickCtaHud), so they stay locked on regardless of camera drift or resize —
- * only the HUD panels themselves are CSS-positioned at fixed screen anchors.
+ * top-right resume button, three floating "data panel" callouts near the
+ * character, and light background decoration (radar rings, drifting
+ * particles). Each HUD panel has a short static "sensor stub" — a half-line
+ * with an open-ended mark — extending toward the character; it's purely
+ * decorative and intentionally doesn't connect anywhere; it's a CSS
+ * pseudo-element anchored to the panel's own box, so it can't desync from
+ * anything and can't render behind/under unrelated elements.
  *
  * Public API
  * ──────────
  *   showCtaHud()
  *   hideCtaHud()
- *   tickCtaHud(delta)
  */
-
-import * as THREE from 'three';
-import { camera } from '../scene.js';
-import { modelGroup } from '../character/model.js';
-import { isMobile } from '../constants.js';
 
 const _base = import.meta.env.BASE_URL.replace(/\/$/, '');
 
-// Approximate chest height of the character — no head/chest bone reference
-// exists, so we offset from the root position (matches the camY/targetY
-// convention used by the about/experience anchor-camera slides).
-const ANCHOR_Y_OFFSET = 1.3;
-const _anchorWorld = new THREE.Vector3();
-
 const CONTACTS = [
-  { hex: 'in',  label: 'LinkedIn', detail: 'linkedin.com/in/fazli-zekiqi', href: 'https://linkedin.com/in/fazli-zekiqi', external: true },
-  { hex: '</>', label: 'GitHub',   detail: 'github.com/fazlizekiqi',       href: 'https://github.com/fazlizekiqi',       external: true },
-  { hex: '@',   label: 'Email',    detail: 'fazlizekiqi1@hotmail.com',     href: 'mailto:fazlizekiqi1@hotmail.com',      external: false },
+  { hex: 'in',         label: 'LinkedIn', detail: 'linkedin.com/in/fazli-zekiqi', href: 'https://linkedin.com/in/fazli-zekiqi', external: true },
+  { hex: '&lt;/&gt;',  label: 'GitHub',   detail: 'github.com/fazlizekiqi',       href: 'https://github.com/fazlizekiqi',       external: true },
+  { hex: '&#9993;',    label: 'Email',    detail: 'fazlizekiqi1@hotmail.com',     href: 'mailto:fazlizekiqi1@hotmail.com',      external: false },
 ];
 
-// Floating HUD data panels: pos = CSS placement class, anchor = fixed
-// screen-space target point (fraction of viewport) near the character.
+// Floating HUD data panels: pos = CSS placement class, side = which edge the
+// decorative sensor-stub extends from (toward the character).
 const HUD_PANELS = [
-  { pos: 'avail', title: 'AVAILABLE FOR', body: 'Freelance<br>Full-time<br>Collaborations', blink: true,  anchor: { x: 0.60, y: 0.30 } },
-  { pos: 'based', title: 'BASED IN',      body: '\u{1F310} Earth',                          blink: false, anchor: { x: 0.58, y: 0.80 } },
-  { pos: 'focus', title: 'FOCUS AREAS',   body: 'Software Engineering<br>Backend Systems<br>Kafka &amp; Distributed Systems<br>Cloud Architecture', blink: false, anchor: { x: 0.76, y: 0.46 } },
+  { pos: 'avail', side: 'left',  title: 'AVAILABLE FOR', body: 'Freelance<br>Full-time<br>Collaborations', blink: true },
+  { pos: 'based', side: 'left',  title: 'BASED IN',      body: '\u{1F310} Earth',                          blink: false },
+  { pos: 'focus', side: 'left',  title: 'FOCUS AREAS',   body: 'Software Engineering<br>Backend Systems<br>Kafka &amp; Distributed Systems<br>Cloud Architecture', blink: false },
 ];
 
 const FONT = `'Share Tech Mono','Courier New',monospace`;
@@ -60,8 +47,8 @@ _style.textContent = `
   transition: opacity 0.5s ease;
 }
 /* Wrapper itself stays click-through; only the panel + resume button below opt
-   back in via pointer-events:auto, so the decorative full-screen SVG/radar/
-   particle layers never swallow clicks meant for the contact cards. */
+   back in via pointer-events:auto, so the decorative radar/particle layers
+   never swallow clicks meant for the contact cards. */
 #_cta2-wrap.cta2-visible { opacity: 1; }
 
 /* ── Resume button ─────────────────────────────────────────────────────── */
@@ -269,12 +256,30 @@ _style.textContent = `
 }
 ._cta2-hud-body { font-size: 10.5px; line-height: 1.6; color: rgba(200,230,245,0.75); }
 
-/* ── Leader-line / connector SVG layer ─────────────────────────────────── */
-#_cta2-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-._cta2-leader { fill: none; stroke: rgba(0,200,255,0.45); stroke-width: 1.1; }
-._cta2-mark circle { fill: none; stroke: rgba(0,210,255,0.55); stroke-width: 1; }
-._cta2-mark line   { stroke: rgba(0,210,255,0.45); stroke-width: 1; }
-._cta2-pulse { fill: #7df3ff; filter: drop-shadow(0 0 4px rgba(0,220,255,0.9)); }
+/* ── Sensor stub — a short, static, open-ended half-line on the panel's own
+   box (no separate SVG layer, so it can never render behind anything else
+   and never needs to "connect" to a moving target). ── */
+._cta2-hud::before, ._cta2-hud::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  pointer-events: none;
+}
+._cta2-hud::before {
+  width: 34px;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(0,200,255,0.50), transparent);
+}
+._cta2-hud::after {
+  width: 7px; height: 7px;
+  border: 1px solid rgba(0,210,255,0.55);
+  border-radius: 50%;
+  transform: translateY(-50%);
+}
+._cta2-hud[data-side="left"]::before  { right: 100%; transform: scaleX(-1); }
+._cta2-hud[data-side="left"]::after   { right: calc(100% + 34px); transform: translate(50%, -50%); }
+._cta2-hud[data-side="right"]::before { left: 100%; }
+._cta2-hud[data-side="right"]::after  { left: calc(100% + 34px); transform: translate(-50%, -50%); }
 
 /* ── Mobile: compact bottom dock — short headline + icon-only contact row,
    docked above the nav bar so the character stays fully visible above it ── */
@@ -300,15 +305,11 @@ _style.textContent = `
     font-size: 12px;
     line-height: 1.3;
     margin-bottom: 0;
-    /* Collapse to the first line only — "amazing together." is dropped on mobile. */
-    display: -webkit-box;
-    -webkit-line-clamp: 1;
-    -webkit-box-orient: vertical;
+    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  ._cta2-headline br { display: none; }
-  ._cta2-sub, ._cta2-status { display: none; }
+  ._cta2-h2, ._cta2-br, ._cta2-sub, ._cta2-status { display: none; }
 
   ._cta2-cards { flex-direction: row; gap: 8px; }
   ._cta2-card {
@@ -321,7 +322,7 @@ _style.textContent = `
   ._cta2-card-text, ._cta2-card-arrow { display: none; }
   ._cta2-hex { width: 100%; height: 100%; }
 
-  ._cta2-hud, #_cta2-svg, #_cta2-radar, #_cta2-particles { display: none; }
+  ._cta2-hud, #_cta2-radar, #_cta2-particles { display: none; }
 }
 `;
 document.head.appendChild(_style);
@@ -332,23 +333,10 @@ const SVGNS = 'http://www.w3.org/2000/svg';
 const _wrap = document.createElement('div');
 _wrap.id = '_cta2-wrap';
 
-// Background radar rings (decorative, locked to the character's projected position)
+// Background radar rings (purely decorative, fixed near the character's area)
 const _radar = document.createElementNS(SVGNS, 'svg');
 _radar.id = '_cta2-radar';
 _radar.setAttribute('preserveAspectRatio', 'none');
-const _radarRings = [3, 6, 9].map(n => {
-  const c = document.createElementNS(SVGNS, 'circle');
-  c.setAttribute('class', '_cta2-radar-ring');
-  c.dataset.scale = n;
-  _radar.appendChild(c);
-  return c;
-});
-const _radarCrossH = document.createElementNS(SVGNS, 'line');
-const _radarCrossV = document.createElementNS(SVGNS, 'line');
-_radarCrossH.setAttribute('class', '_cta2-radar-cross');
-_radarCrossV.setAttribute('class', '_cta2-radar-cross');
-_radar.appendChild(_radarCrossH);
-_radar.appendChild(_radarCrossV);
 _wrap.appendChild(_radar);
 
 // Drifting particles
@@ -380,7 +368,7 @@ _panel.innerHTML = `
   <span class="_cta2-corner _cta2-corner-tl"></span>
   <span class="_cta2-corner _cta2-corner-br"></span>
   <div class="_cta2-scanline"></div>
-  <div class="_cta2-headline">Let's build something<br>amazing together.</div>
+  <div class="_cta2-headline"><span class="_cta2-h1">Let's build something</span><br class="_cta2-br"><span class="_cta2-h2">amazing together.</span></div>
   <div class="_cta2-sub">I'm always open to new opportunities, collaborations, and interesting projects.</div>
   <div class="_cta2-cards">
     ${CONTACTS.map(c => `
@@ -398,135 +386,30 @@ _panel.innerHTML = `
 _wrap.appendChild(_panel);
 
 // Floating HUD panels
-const _hudEls = HUD_PANELS.map(p => {
+HUD_PANELS.forEach(p => {
   const el = document.createElement('div');
   el.className = `_cta2-hud _cta2-hud-${p.pos}`;
+  el.dataset.side = p.side;
   el.innerHTML = `
     <div class="_cta2-hud-title">${p.blink ? '<span class="_cta2-hud-blink"></span>' : ''}${p.title}</div>
     <div class="_cta2-hud-body">${p.body}</div>`;
   _wrap.appendChild(el);
-  return el;
-});
-
-// Leader-line / connector SVG
-const _svg = document.createElementNS(SVGNS, 'svg');
-_svg.id = '_cta2-svg';
-_svg.setAttribute('preserveAspectRatio', 'none');
-_wrap.appendChild(_svg);
-
-const _pathEls  = [];
-const _markEls  = [];
-const _pulseEls = [];
-HUD_PANELS.forEach(() => {
-  const path = document.createElementNS(SVGNS, 'path');
-  path.setAttribute('class', '_cta2-leader');
-  _svg.appendChild(path);
-  _pathEls.push(path);
-
-  const g = document.createElementNS(SVGNS, 'g');
-  g.setAttribute('class', '_cta2-mark');
-  g.innerHTML = `
-    <circle r="6"></circle>
-    <line x1="-10" y1="0" x2="-3" y2="0"></line>
-    <line x1="3"  y1="0" x2="10" y2="0"></line>
-    <line x1="0" y1="-10" x2="0" y2="-3"></line>
-    <line x1="0" y1="3"  x2="0" y2="10"></line>`;
-  _svg.appendChild(g);
-  _markEls.push(g);
-
-  const pulse = document.createElementNS(SVGNS, 'circle');
-  pulse.setAttribute('class', '_cta2-pulse');
-  pulse.setAttribute('r', '3');
-  _svg.appendChild(pulse);
-  _pulseEls.push(pulse);
 });
 
 document.body.appendChild(_wrap);
 
 // ── Layout ────────────────────────────────────────────────────────────────
-function _hudAnchor(el, r) {
-  // Connect from the edge of the HUD block closest to its target.
-  return { x: r.left < window.innerWidth / 2 ? r.right : r.left, y: r.top + r.height / 2 };
-}
-
-/** Projects the character's tracked world point to pixel coords, or null if not ready. */
-function _projectCharacterScreenPos() {
-  if (!modelGroup) return null;
-  _anchorWorld.copy(modelGroup.position);
-  _anchorWorld.y += ANCHOR_Y_OFFSET;
-  _anchorWorld.project(camera);
-  return {
-    x: (_anchorWorld.x + 1) / 2 * window.innerWidth,
-    y: (1 - _anchorWorld.y) / 2 * window.innerHeight,
-  };
-}
-
-/** Re-targets the radar crosshair + each leader-line endpoint at `t` (pixel coords). */
-function _updateAnchors(t) {
-  const minDim = Math.min(window.innerWidth, window.innerHeight);
-  _radarRings.forEach(c => {
-    c.setAttribute('cx', t.x);
-    c.setAttribute('cy', t.y);
-    c.setAttribute('r', Number(c.dataset.scale) * minDim * 0.04);
-  });
-  _radarCrossH.setAttribute('x1', t.x - 60); _radarCrossH.setAttribute('y1', t.y);
-  _radarCrossH.setAttribute('x2', t.x + 60); _radarCrossH.setAttribute('y2', t.y);
-  _radarCrossV.setAttribute('x1', t.x); _radarCrossV.setAttribute('y1', t.y - 60);
-  _radarCrossV.setAttribute('x2', t.x); _radarCrossV.setAttribute('y2', t.y + 60);
-
-  _pathEls.forEach((path, i) => {
-    const a = path._a;
-    path.setAttribute('d', `M${a.x},${a.y} L${t.x},${t.y}`);
-    _markEls[i].setAttribute('transform', `translate(${t.x},${t.y})`);
-    path._t = t;
-  });
-}
-
 function _layout() {
   const w = window.innerWidth, h = window.innerHeight;
-  _svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
   _radar.setAttribute('viewBox', `0 0 ${w} ${h}`);
 
-  const t = _projectCharacterScreenPos() ?? { x: w * 0.66, y: h * 0.50 };
-
-  HUD_PANELS.forEach((p, i) => {
-    const r = _hudEls[i].getBoundingClientRect();
-    const a = _hudAnchor(_hudEls[i], r);
-    _pathEls[i]._a = a;
-  });
-  _updateAnchors(t);
-
-  _pathEls.forEach(path => {
-    const len = path.getTotalLength();
-    path.style.strokeDasharray  = `${len}`;
-    path.style.strokeDashoffset = `${len}`;
-    path.style.transition = 'none';
-    path._len = len;
-  });
-}
-
-function _drawIn() {
-  _pathEls.forEach((path, i) => {
-    setTimeout(() => {
-      path.style.transition    = 'stroke-dashoffset 0.8s ease';
-      path.style.strokeDashoffset = '0';
-    }, 200 + i * 160);
-  });
-}
-
-// ── Traveling data-pulse along each connector ────────────────────────────
-let _rafId = null;
-function _tickPulse(ts) {
-  _rafId = requestAnimationFrame(_tickPulse);
-  _pathEls.forEach((path, i) => {
-    const len = path._len ?? 0;
-    if (!len) return;
-    const speed = 0.00035; // fraction of path per ms
-    const t = (ts * speed + i * 0.33) % 1;
-    const pt = path.getPointAtLength(t * len);
-    _pulseEls[i].setAttribute('cx', pt.x);
-    _pulseEls[i].setAttribute('cy', pt.y);
-  });
+  // Radar: faint concentric circles + crosshair, fixed near the character's area.
+  const rcx = w * 0.64, rcy = h * 0.48;
+  _radar.innerHTML = [3, 6, 9].map(n =>
+    `<circle class="_cta2-radar-ring" cx="${rcx}" cy="${rcy}" r="${n * Math.min(w, h) * 0.04}"></circle>`
+  ).join('') +
+    `<line class="_cta2-radar-cross" x1="${rcx - 60}" y1="${rcy}" x2="${rcx + 60}" y2="${rcy}"></line>
+     <line class="_cta2-radar-cross" x1="${rcx}" y1="${rcy - 60}" x2="${rcx}" y2="${rcy + 60}"></line>`;
 }
 
 function _onResize() { if (_showing) _layout(); }
@@ -538,21 +421,9 @@ export function showCtaHud() {
   _showing = true;
   _wrap.classList.add('cta2-visible');
   _layout();
-  _drawIn();
-  if (!_rafId) _rafId = requestAnimationFrame(_tickPulse);
 }
 
 export function hideCtaHud() {
   _showing = false;
   _wrap.classList.remove('cta2-visible');
-  if (_rafId) { cancelAnimationFrame(_rafId); _rafId = null; }
-}
-
-/** Per-frame: keep the leader-line targets + radar crosshair locked to the
- *  character as the cta slide's camera drifts. Mobile hides all the elements
- *  this drives, so it's a no-op there. */
-export function tickCtaHud() {
-  if (!_showing || isMobile()) return;
-  const t = _projectCharacterScreenPos();
-  if (t) _updateAnchors(t);
 }
