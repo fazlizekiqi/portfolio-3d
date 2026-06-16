@@ -81,7 +81,7 @@ _style.textContent = `
 #_hiw-wrap {
   position: fixed;
   inset: 0;
-  z-index: 15;
+  z-index: 21;
   pointer-events: none;
   font-family: ${FONT};
 }
@@ -125,10 +125,13 @@ _style.textContent = `
   left: 0; top: 0;
   transform: translate(-50%, -100%);
   text-align: center;
-  white-space: nowrap;
+  white-space: normal;
   opacity: 0;
   transition: opacity 0.6s ease;
   padding: 0 26px;
+  width: max-content;
+  max-width: 640px;
+  box-sizing: border-box;
 }
 #_hiw-wrap.hiw-anchor-visible #_hiw-statement { opacity: 1; }
 ._hiw-stmt-label {
@@ -139,12 +142,13 @@ _style.textContent = `
   text-shadow: 0 0 10px rgba(0,210,255,0.5);
 }
 ._hiw-stmt-main {
-  font-size: clamp(26px, 3vw, 44px);
+  font-size: clamp(18px, 2.6vw, 44px);
   font-weight: 700;
   letter-spacing: .06em;
   color: #00d2ff;
   text-shadow: 0 0 24px rgba(0,210,255,0.6), 0 0 4px rgba(0,230,255,0.8);
-  line-height: 1.1;
+  line-height: 1.15;
+  white-space: normal;
 }
 ._hiw-stmt-sub {
   font-size: clamp(11px, 1vw, 14px);
@@ -179,18 +183,19 @@ _style.textContent = `
 /* ── BUILT ON glassmorphism panel ──────────────────────────────────────────── */
 #_hiw-builton {
   position: absolute;
-  left: 0; top: 0;
+  left: 50%; bottom: 24px; top: auto;
   width: clamp(500px, 46vw, 600px);
   box-sizing: border-box;
   padding: 14px 22px 16px;
-  background: rgba(2,9,22,0.72);
+  background: rgba(2,9,22,0.82);
   border: 1px solid rgba(0,200,255,0.34);
   border-radius: 6px;
   backdrop-filter: blur(10px);
-  box-shadow: 0 12px 40px rgba(0,0,0,0.55), 0 0 30px rgba(0,160,255,0.10);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.6), 0 0 30px rgba(0,160,255,0.12);
   opacity: 0;
   transition: opacity 0.6s ease;
-  /* base centring lives in the float keyframe so per-frame code only sets left/top */
+  /* anchored above the bottom nav bar — not avatar-tracked, so it stays put
+     (and on top of) the Explore/Present buttons regardless of camera move */
   animation: _hiw-bo-float 5s ease-in-out infinite;
 }
 #_hiw-wrap.hiw-anchor-visible #_hiw-builton { opacity: 1; }
@@ -274,7 +279,7 @@ _style.textContent = `
     margin-top 0.4s ease;
 }
 ._hiw-blk.hiw-expanded ._hiw-blk-body {
-  max-height: clamp(240px, 22vw, 400px);
+  max-height: min(clamp(180px, 22vw, 400px), 40vh);
   opacity: 1;
   margin-top: 8px;
 }
@@ -432,7 +437,7 @@ _style.textContent = `
   ._hiw-blk-bl { bottom: 54px; left: 6px;  top: auto; transform: translateY(12px) scale(0.94); }
   ._hiw-blk-br { bottom: 54px; right: 6px; top: auto; transform: translateY(12px) scale(0.94); }
   ._hiw-blk.hiw-visible { transform: translateY(0) scale(1); }
-  ._hiw-blk.hiw-expanded ._hiw-blk-body { max-height: 168px; margin-top: 5px; }
+  ._hiw-blk.hiw-expanded ._hiw-blk-body { max-height: min(168px, 30vh); margin-top: 5px; }
   ._hiw-blk-img   { height: 34px; margin-bottom: 5px; }
   ._hiw-blk-cap   { font-size: 7px; line-height: 1.4; margin-bottom: 5px; }
   ._hiw-blk-tag   { font-size: 6px; padding: 1px 3px; }
@@ -577,7 +582,6 @@ let _cycleStart  = null;
 let _showing     = false;
 let _stepMs      = CYCLE_MS;   // per-card expand window, set from slide duration
 let _packetClock = 0;         // accumulates delta for packet progress
-let _builtonH    = 130;       // measured panel height (for bottom clamp)
 
 const _v = new THREE.Vector3();  // scratch — avoid per-frame allocation
 
@@ -588,13 +592,10 @@ function _worldToScreen(v, w, h) {
 }
 
 // ── Connector geometry ────────────────────────────────────────────────────────
-function _blockAnchor(pos, r) {
-  switch (pos) {
-    case 'tl': return { x: r.right - 6, y: r.bottom - 4 };
-    case 'tr': return { x: r.left + 6,  y: r.bottom - 4 };
-    case 'bl': return { x: r.right - 6, y: r.top + 4 };
-    case 'br': return { x: r.left + 6,  y: r.top + 4 };
-  }
+// All connectors start at the horizontal midpoint of the card's bottom edge,
+// regardless of which corner the card lives in.
+function _blockAnchor(r) {
+  return { x: r.left + r.width / 2, y: r.bottom };
 }
 
 /** Orthogonal "Manhattan" route from a card's inner corner to a terminus just
@@ -621,8 +622,6 @@ export function tickHowIWorkOverlay(delta) {
   const headX = head.x, headY = head.y;
   const chest = _worldToScreen(_v.copy(modelGroup.position).setY(baseY + 0.95), w, h);
   const chestX = chest.x, chestY = chest.y;
-  const feet  = _worldToScreen(_v.copy(modelGroup.position).setY(baseY + 0.0), w, h);
-  const feetX = feet.x, feetY = feet.y;
 
   // Statement — ~120px above the head, clamped within a top band.
   const topMargin = mobile ? 80 : 150;
@@ -631,17 +630,24 @@ export function tickHowIWorkOverlay(delta) {
   _statement.style.left = `${sx}px`;
   _statement.style.top  = `${sy}px`;
 
-  // BUILT ON — below the feet, clamped above the bottom UI.
-  const bottomMargin = mobile ? 70 : 90;
-  let py = Math.min(Math.max(feetY + 28, h * 0.55), h - _builtonH - bottomMargin);
-  _builton.style.left = `${feetX}px`;
-  _builton.style.top  = `${py}px`;
+  // Keep the statement from overflowing into the side cards by capping its
+  // width to the gap between the top-left and top-right card edges.
+  if (mobile) {
+    _statement.style.maxWidth = '';
+  } else {
+    const tlRect = _blockEls[0].getBoundingClientRect();
+    const trRect = _blockEls[1].getBoundingClientRect();
+    const avail  = Math.max(220, trRect.left - tlRect.right - 40);
+    _statement.style.maxWidth = `${Math.min(avail, 640)}px`;
+  }
+
+  // BUILT ON is anchored above the bottom nav bar via CSS (not avatar-tracked).
 
   if (mobile) return;  // connectors hidden on mobile
 
   // Connectors — re-route each card toward a terminus just outside the avatar.
   const endYMin = topMargin + 40;
-  const endYMax = py - 20;
+  const endYMax = h - 200;
   _packetClock += delta;
   const progress = (_packetClock % (PACKET_MS / 1000)) / (PACKET_MS / 1000);
 
@@ -649,7 +655,7 @@ export function tickHowIWorkOverlay(delta) {
     const conn = _conns[i];
     const left = c.pos === 'tl' || c.pos === 'bl';
     const rect = _blockEls[i].getBoundingClientRect();
-    const a = _blockAnchor(c.pos, rect);
+    const a = _blockAnchor(rect);
 
     // Terminus: avatar chest, pushed outward to the card's side, clamped vertically.
     const endX = chestX + (left ? -(AVATAR_HALF + NODE_GAP) : (AVATAR_HALF + NODE_GAP));
@@ -677,8 +683,6 @@ export function tickHowIWorkOverlay(delta) {
 function _layoutStatic() {
   const w = window.innerWidth, h = window.innerHeight;
   _svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
-  const r = _builton.getBoundingClientRect();
-  if (r.height) _builtonH = r.height;
 }
 
 // ── Typewriter ────────────────────────────────────────────────────────────────
