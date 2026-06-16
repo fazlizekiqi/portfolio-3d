@@ -1,12 +1,12 @@
 /**
  * about.templates.js — Pure HTML-string builder for the about slide's
  * engineering-stats dashboard (the body-panel content, distinct from the
- * biometric scan overlay driven by about-wireframe.js).
+ * biometric scan overlay driven by about-ui.js / about-view.js).
  */
 
 import { YEARS_EXPERIENCE } from '../../slides.js';
 
-/** Biometric scan panel markup (LEFT side) for the about-wireframe sequence. */
+/** Biometric scan panel markup (LEFT side) for the About Me sequence. */
 export function buildBioScanHTML() {
   return `
   <div class="_bio-hdr"><div class="_bio-hdr-dot"></div>BIOMETRIC SCAN</div>

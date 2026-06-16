@@ -34,7 +34,7 @@ import {
   resetPresentBtn, setProgressFill, hideCard, showCard,
 } from './ui.js';
 import { showHowIWorkOverlay, hideHowIWorkOverlay, tickHowIWorkOverlay } from './slides/mindset/how-i-work-view.js';
-import { showAboutWireframe, hideAboutWireframe, tickAboutWireframe } from '../character/about-wireframe.js';
+import { showAboutWireframe, hideAboutWireframe, tickAboutWireframe } from './slides/about/about-view.js';
 
 export { initCameraState } from './camera.js';
 export { currentCamLook }  from './camera.js';
