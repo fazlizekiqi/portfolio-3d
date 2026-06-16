@@ -183,7 +183,7 @@ _style.textContent = `
 /* ── BUILT ON glassmorphism panel ──────────────────────────────────────────── */
 #_hiw-builton {
   position: absolute;
-  left: 50%; bottom: 24px; top: auto;
+  left: 50%; bottom: 96px; top: auto;
   width: clamp(500px, 46vw, 600px);
   box-sizing: border-box;
   padding: 14px 22px 16px;
@@ -194,8 +194,8 @@ _style.textContent = `
   box-shadow: 0 12px 40px rgba(0,0,0,0.6), 0 0 30px rgba(0,160,255,0.12);
   opacity: 0;
   transition: opacity 0.6s ease;
-  /* anchored above the bottom nav bar — not avatar-tracked, so it stays put
-     (and on top of) the Explore/Present buttons regardless of camera move */
+  /* anchored clear above the bottom nav bar — not avatar-tracked, so it never
+     overlaps the Explore/Present buttons regardless of the camera move */
   animation: _hiw-bo-float 5s ease-in-out infinite;
 }
 #_hiw-wrap.hiw-anchor-visible #_hiw-builton { opacity: 1; }
@@ -279,7 +279,7 @@ _style.textContent = `
     margin-top 0.4s ease;
 }
 ._hiw-blk.hiw-expanded ._hiw-blk-body {
-  max-height: min(clamp(180px, 22vw, 400px), 40vh);
+  max-height: clamp(220px, 46vh, 560px);
   opacity: 1;
   margin-top: 8px;
 }
@@ -426,31 +426,15 @@ _style.textContent = `
 
 /* ── Mobile ─────────────────────────────────────────────────────────────────── */
 @media (max-width: 767px) {
-  ._hiw-blk {
-    width: 37vw;
-    padding: 5px 7px 6px;
-    border-radius: 3px;
-    backdrop-filter: blur(5px);
+  /* The 4 principle cards and all their connector decorations are removed on
+     mobile — the slide reduces to the centre statement + BUILT ON panel. */
+  ._hiw-blk,
+  ._hiw-conn, ._hiw-node, ._hiw-packet, ._hiw-reticle, ._hiw-bracket {
+    display: none;
   }
-  ._hiw-blk-tl { top: 56px;    left: 6px;  transform: translateY(-12px) scale(0.94); }
-  ._hiw-blk-tr { top: 56px;    right: 6px; transform: translateY(-12px) scale(0.94); }
-  ._hiw-blk-bl { bottom: 54px; left: 6px;  top: auto; transform: translateY(12px) scale(0.94); }
-  ._hiw-blk-br { bottom: 54px; right: 6px; top: auto; transform: translateY(12px) scale(0.94); }
-  ._hiw-blk.hiw-visible { transform: translateY(0) scale(1); }
-  ._hiw-blk.hiw-expanded ._hiw-blk-body { max-height: min(168px, 30vh); margin-top: 5px; }
-  ._hiw-blk-img   { height: 34px; margin-bottom: 5px; }
-  ._hiw-blk-cap   { font-size: 7px; line-height: 1.4; margin-bottom: 5px; }
-  ._hiw-blk-tag   { font-size: 6px; padding: 1px 3px; }
-  ._hiw-blk-title { font-size: 9px; letter-spacing: .06em; }
-  ._hiw-blk-idx   { width: 15px; height: 15px; font-size: 8px; }
-  ._hiw-blk-hd    { margin-bottom: 0; gap: 6px; }
-  ._hiw-blk-ref, ._hiw-blk-dim { display: none; }
   #_hiw-rail { display: none; }
 
-  /* Hub decorations off on mobile */
-  ._hiw-conn, ._hiw-node, ._hiw-packet, ._hiw-reticle, ._hiw-bracket { display: none; }
-
-  #_hiw-statement { white-space: normal; padding: 0; width: 64vw; }
+  #_hiw-statement { white-space: normal; padding: 0; width: 64vw; max-width: 64vw; }
   ._hiw-stmt-main { font-size: 16px; letter-spacing: .04em; }
   ._hiw-stmt-sub  { display: none; }
   ._hiw-stmt-label { font-size: 8px; letter-spacing: .3em; margin-bottom: 4px; }
@@ -458,6 +442,7 @@ _style.textContent = `
   #_hiw-builton {
     width: min(92vw, 420px);
     padding: 10px 12px 12px;
+    bottom: 84px;          /* lifted well clear of the bottom nav bar */
   }
   ._hiw-bo-cols { flex-wrap: wrap; }
   ._hiw-bo-col  { flex: 0 0 46%; }
