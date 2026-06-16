@@ -19,10 +19,29 @@
 
 const _base = import.meta.env.BASE_URL.replace(/\/$/, '');
 
+// Inline-SVG glyphs (viewBox 0 0 24 24, stroke=currentColor) — used on mobile only;
+// desktop keeps the text `hex` glyph so its appearance is unchanged.
+const ICON_LINKEDIN = '<path d="M4.5 9.5H7.5V19H4.5z"/><circle cx="6" cy="6" r="1.6"/><path d="M10.5 19V9.5H13.3V11C13.8 10 14.9 9.2 16.4 9.2C18.8 9.2 19.8 10.8 19.8 13.4V19H17V13.9C17 12.5 16.5 11.6 15.3 11.6C14.3 11.6 13.8 12.3 13.5 13C13.4 13.3 13.3 13.6 13.3 14V19z" fill="currentColor" stroke="none"/>';
+const ICON_GITHUB   = '<path d="M9 19c-4 1.2-4-2-5.5-2.5M14.5 21v-3.1c0-.9-.3-1.5-.7-1.9 2.4-.3 4.9-1.2 4.9-5.3 0-1.2-.4-2.1-1.1-2.9.1-.3.5-1.4-.1-2.9 0 0-.9-.3-3 .1.8-.3-1.8-.4-2.7 0-2.1-.4-3-.1-3-.1-.6 1.5-.2 2.6-.1 2.9-.7.8-1.1 1.7-1.1 2.9 0 4.1 2.5 5 4.9 5.3-.3.3-.6.8-.7 1.5-.6.3-2.1.7-3-.9 0 0-.5-1-1.5-1.1 0 0-1 0-.1.6 0 0 .7.3 1.1 1.4 0 0 .6 2 3.6 1.3V21"/>';
+const ICON_EMAIL    = '<rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="M3.5 7L12 13L20.5 7"/>';
+const ICON_X        = '<path d="M4 4L20 20M20 4L4 20" stroke-width="2"/>';
+const ICON_DISCORD  = '<path d="M8 7.5C9.5 7 10.7 7 12 7s2.5 0 4 .5c1.6 2 2.4 4.4 2.5 7.2-1.2 1-2.5 1.6-3.7 1.8l-.8-1.3M8 7.5C6.4 7.5 5.6 9.9 5.5 12.7c1.2 1 2.5 1.6 3.7 1.8l.8-1.3M8 7.5 7.4 6M16 7.5 16.6 6"/><circle cx="9.5" cy="12.5" r="1"/><circle cx="14.5" cy="12.5" r="1"/>';
+const ICON_CODE     = '<path d="M8.5 8L4.5 12L8.5 16M15.5 8L19.5 12L15.5 16M13.5 6L10.5 18"/>';
+
 const CONTACTS = [
-  { hex: 'in',         label: 'LinkedIn', detail: 'linkedin.com/in/fazli-zekiqi', href: 'https://linkedin.com/in/fazli-zekiqi', external: true },
-  { hex: '&lt;/&gt;',  label: 'GitHub',   detail: 'github.com/fazlizekiqi',       href: 'https://github.com/fazlizekiqi',       external: true },
-  { hex: '&#9993;',    label: 'Email',    detail: 'fazlizekiqi1@hotmail.com',     href: 'mailto:fazlizekiqi1@hotmail.com',      external: false },
+  { hex: 'in',         icon: ICON_LINKEDIN, label: 'LinkedIn', detail: 'linkedin.com/in/fazli-zekiqi', href: 'https://linkedin.com/in/fazli-zekiqi', external: true },
+  { hex: '&lt;/&gt;',  icon: ICON_GITHUB,   label: 'GitHub',   detail: 'github.com/fazlizekiqi',       href: 'https://github.com/fazlizekiqi',       external: true },
+  { hex: '&#9993;',    icon: ICON_EMAIL,    label: 'Email',    detail: 'fazlizekiqi1@hotmail.com',     href: 'mailto:fazlizekiqi1@hotmail.com',      external: false },
+];
+
+// Decorative floating icons framing the character on mobile (not links).
+const FLOAT_ICONS = [
+  { icon: ICON_LINKEDIN, cls: 'fl-1' },
+  { icon: ICON_GITHUB,   cls: 'fl-2' },
+  { icon: ICON_EMAIL,    cls: 'fl-3' },
+  { icon: ICON_X,        cls: 'fl-4' },
+  { icon: ICON_DISCORD,  cls: 'fl-5' },
+  { icon: ICON_CODE,     cls: 'fl-6' },
 ];
 
 const HUD_PANELS = [
@@ -277,60 +296,211 @@ _style.textContent = `
 }
 ._cta2-hud-body { font-size: 10.5px; line-height: 1.6; color: rgba(200,230,245,0.75); }
 
-/* ── Mobile: compact bottom dock — 3 icon-only contact buttons arched
-   above a short one-line message, docked above the nav bar so the
-   character stays fully visible above it ── */
+/* ── Mobile-only elements: hidden on desktop so the desktop layout is
+   byte-for-byte unchanged ── */
+._cta2-svg, ._cta2-sub-mobile, ._cta2-card-scan { display: none; }
+#_cta2-floats { position: absolute; inset: 0; pointer-events: none; }
+._cta2-float { display: none; }
+
+/* ── Mobile: floating holographic icons frame the character, and the command
+   panel becomes a premium "control panel" contact card docked at the bottom ── */
 @media (max-width: 767px) {
+  /* ── Floating holographic icon cards (decorative) ── */
+  ._cta2-float {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 90px; height: 90px;
+    box-sizing: border-box;
+    border-radius: 24px;
+    color: #4fd9ff;
+    background: linear-gradient(155deg, rgba(4,16,34,0.62), rgba(2,10,24,0.40));
+    border: 1.5px solid rgba(0,200,255,0.42);
+    backdrop-filter: blur(8px);
+    box-shadow:
+      0 0 22px rgba(0,180,255,0.22),
+      0 8px 24px rgba(0,0,0,0.45),
+      inset 0 0 16px rgba(0,170,255,0.14);
+    overflow: hidden;
+    opacity: 0;
+    animation:
+      _cta2-fl-in 0.6s ease forwards,
+      _cta2-fl-float 5.5s ease-in-out infinite,
+      _cta2-fl-tilt 9s ease-in-out infinite,
+      _cta2-fl-glow 3.4s ease-in-out infinite,
+      _cta2-fl-flicker 7s steps(1) infinite;
+    transition: scale 0.2s ease;
+  }
+  ._cta2-float svg { width: 40px; height: 40px; filter: drop-shadow(0 0 6px rgba(0,210,255,0.6)); }
+  ._cta2-float::after {  /* subtle scan-line */
+    content: '';
+    position: absolute;
+    left: 0; right: 0; height: 14px; top: -14px;
+    background: linear-gradient(to bottom, transparent, rgba(0,225,255,0.16), transparent);
+    animation: _cta2-fl-scan 3.6s linear infinite;
+    pointer-events: none;
+  }
+  ._cta2-float:hover { scale: 1.08; }
+
+  /* tiny drifting particles around each icon */
+  ._cta2-float-dot {
+    position: absolute;
+    width: 2px; height: 2px;
+    border-radius: 50%;
+    background: rgba(120,235,255,0.9);
+    box-shadow: 0 0 5px rgba(0,220,255,0.85);
+    animation: _cta2-fl-dot 4.5s ease-in-out infinite;
+  }
+  ._cta2-float-dot-a { left: 14%; top: 70%; animation-delay: 0s;   }
+  ._cta2-float-dot-b { left: 78%; top: 30%; animation-delay: 1.4s; }
+  ._cta2-float-dot-c { left: 60%; top: 82%; animation-delay: 2.7s; }
+
+  /* placement — frame the centred mobile character (upper/mid band), ~80px out */
+  .fl-1 { top: 21%;  left: 5%;  transform: rotateY(-8deg); animation-delay: 0s,   0s,   0s,   0s,   0s;   }
+  .fl-2 { top: 47%;  left: 4%;  transform: rotateY(6deg);  animation-delay: 0.1s, 0.8s, 1.1s, 0.5s, 1.2s; }
+  .fl-3 { top: 35%;  right: 5%; transform: rotateY(8deg);  animation-delay: 0.2s, 1.6s, 0.4s, 1.0s, 2.3s; }
+  .fl-4 { top: 15%;  right: 8%; transform: rotateY(7deg);  animation-delay: 0.3s, 2.2s, 1.8s, 1.5s, 3.1s; }
+  .fl-5 { top: 52%;  right: 6%; transform: rotateY(5deg);  animation-delay: 0.4s, 0.5s, 2.4s, 2.0s, 0.7s; }
+  .fl-6 { top: 9%;   left: 13%; transform: rotateY(-6deg); animation-delay: 0.5s, 1.2s, 0.9s, 2.5s, 1.9s; }
+
+  @keyframes _cta2-fl-in    { to { opacity: 1; } }
+  @keyframes _cta2-fl-float { 0%,100% { translate: 0 0; } 50% { translate: 0 -11px; } }
+  @keyframes _cta2-fl-tilt  { 0%,100% { rotate: y -6deg; } 50% { rotate: y 8deg; } }
+  @keyframes _cta2-fl-glow  {
+    0%,100% { box-shadow: 0 0 18px rgba(0,180,255,0.18), 0 8px 24px rgba(0,0,0,0.45), inset 0 0 14px rgba(0,170,255,0.12); }
+    50%     { box-shadow: 0 0 30px rgba(0,210,255,0.40), 0 8px 24px rgba(0,0,0,0.45), inset 0 0 20px rgba(0,200,255,0.22); }
+  }
+  @keyframes _cta2-fl-flicker { 0%,96%,100% { opacity: 1; } 97% { opacity: 0.55; } 98.5% { opacity: 0.9; } }
+  @keyframes _cta2-fl-scan  { 0% { top: -14px; } 100% { top: 100%; } }
+  @keyframes _cta2-fl-dot   { 0%,100% { transform: translate(0,0); opacity: 0.2; } 50% { transform: translate(4px,-7px); opacity: 1; } }
+
   #_cta2-resume { top: 12px; right: 12px; font-size: 9px; padding: 6px 12px; }
 
+  /* ── Premium contact-card hub, docked at the bottom ── */
   #_cta2-panel {
-    top: auto; bottom: 70px; left: 50%;
-    transform: translateX(-50%) translateY(16px);
-    width: auto; max-height: none;
+    top: auto; bottom: 60px; left: 50%;
+    transform: translateX(-50%) translateY(18px);
+    width: 90vw; max-width: 460px; max-height: none;
+    min-height: 200px;
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 10px;
-    padding: 14px 20px;
-    border-radius: 16px;
+    justify-content: center;
+    gap: 12px;
+    padding: 22px 18px 20px;
+    border-radius: 32px;
+    background: rgba(2,9,22,0.78);
+    border: 1px solid rgba(0,200,255,0.34);
+    box-shadow:
+      0 0 34px rgba(0,170,255,0.22),
+      0 16px 48px rgba(0,0,0,0.6),
+      inset 0 0 26px rgba(0,150,255,0.08);
+    backdrop-filter: blur(12px);
+    overflow: hidden;
   }
   #_cta2-wrap.cta2-visible #_cta2-panel { transform: translateX(-50%) translateY(0); }
 
   ._cta2-corner, ._cta2-scanline { display: none; }
 
-  ._cta2-headline {
-    order: 2;
-    margin-bottom: 0;
-    text-align: center;
+  /* faint scan-line sweeping the card for the "control panel" feel */
+  ._cta2-card-scan {
+    display: block;
+    position: absolute;
+    left: 0; right: 0; top: 0; height: 40px;
+    background: linear-gradient(to bottom, transparent, rgba(0,210,255,0.10), transparent);
+    animation: _cta2-scan 5s linear infinite;
+    pointer-events: none;
   }
+
+  ._cta2-headline { order: 1; margin-bottom: 0; text-align: center; }
   ._cta2-h1, ._cta2-br, ._cta2-h2, ._cta2-sub, ._cta2-status { display: none; }
   ._cta2-h-mobile {
     display: block;
-    font-size: 13px;
-    letter-spacing: .05em;
-    color: #d9f8ff;
-    text-shadow: 0 0 14px rgba(0,210,255,0.5);
+    font-size: 24px;
+    letter-spacing: .04em;
+    color: #eaf8ff;
+    text-shadow: 0 0 22px rgba(0,210,255,0.6);
+  }
+  ._cta2-sub-mobile {
+    display: block;
+    order: 2;
+    text-align: center;
+    max-width: 84%;
+    margin: -2px auto 2px;
+    font-size: 11px;
+    line-height: 1.5;
+    letter-spacing: .03em;
+    color: rgba(190,225,240,0.72);
   }
 
   ._cta2-cards {
-    order: 1;
+    order: 3;
     flex-direction: row;
-    align-items: flex-end;
-    gap: 20px;
-  }
-  ._cta2-card {
-    min-height: 0;
-    width: 48px; height: 48px;
-    padding: 0;
-    border-radius: 50%;
     justify-content: center;
+    align-items: flex-start;
+    gap: 18px;
+    width: 100%;
   }
-  /* Arch: the middle button (GitHub) sits slightly higher than the two sides. */
-  ._cta2-card:nth-child(2) { transform: translateY(-14px); }
-  ._cta2-card-text, ._cta2-card-arrow { display: none; }
-  ._cta2-hex { width: 100%; height: 100%; font-size: 15px; }
+  /* each card = a circular button with a label below */
+  ._cta2-card {
+    flex: 0 0 auto;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    min-height: 0;
+    width: auto; padding: 0;
+    background: none;
+    border: none;
+    overflow: visible;
+  }
+  ._cta2-card:hover { background: none; box-shadow: none; transform: none; }
+  ._cta2-hex { display: none; }
+  ._cta2-svg {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 82px; height: 82px;
+    border-radius: 50%;
+    color: #7df3ff;
+    background: rgba(3,14,30,0.55);
+    border: 1.5px solid rgba(0,205,255,0.50);
+    box-shadow:
+      0 0 20px rgba(0,180,255,0.28),
+      inset 0 0 16px rgba(0,170,255,0.16);
+    transition: scale 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  }
+  ._cta2-svg svg { width: 38px; height: 38px; filter: drop-shadow(0 0 6px rgba(0,210,255,0.55)); }
+  ._cta2-card:hover ._cta2-svg,
+  ._cta2-card:active ._cta2-svg {
+    scale: 1.12;
+    border-color: rgba(0,230,255,0.9);
+    box-shadow:
+      0 0 30px rgba(0,210,255,0.55),
+      inset 0 0 22px rgba(0,200,255,0.28);
+  }
+  ._cta2-card-text { display: flex; }
+  ._cta2-card-label {
+    font-size: 9px;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+    color: rgba(0,215,255,0.85);
+    text-shadow: 0 0 10px rgba(0,200,255,0.4);
+  }
+  ._cta2-card-detail, ._cta2-card-arrow { display: none; }
 
   ._cta2-hud, #_cta2-radar, #_cta2-particles, ._cta2-stub-line, ._cta2-stub-dot { display: none; }
+}
+
+/* very small phones — keep the hub and buttons within the viewport */
+@media (max-width: 380px) {
+  ._cta2-svg { width: 70px; height: 70px; }
+  ._cta2-svg svg { width: 32px; height: 32px; }
+  ._cta2-cards { gap: 12px; }
+  ._cta2-h-mobile { font-size: 21px; }
+  ._cta2-float { width: 76px; height: 76px; }
+  ._cta2-float svg { width: 34px; height: 34px; }
 }
 `;
 document.head.appendChild(_style);
@@ -361,6 +531,21 @@ for (let i = 0; i < 14; i++) {
 }
 _wrap.appendChild(_particleLayer);
 
+// Decorative floating holographic icons framing the character (mobile only).
+const _floatLayer = document.createElement('div');
+_floatLayer.id = '_cta2-floats';
+FLOAT_ICONS.forEach(f => {
+  const el = document.createElement('div');
+  el.className = `_cta2-float ${f.cls}`;
+  el.innerHTML = `
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${f.icon}</svg>
+    <span class="_cta2-float-dot _cta2-float-dot-a"></span>
+    <span class="_cta2-float-dot _cta2-float-dot-b"></span>
+    <span class="_cta2-float-dot _cta2-float-dot-c"></span>`;
+  _floatLayer.appendChild(el);
+});
+_wrap.appendChild(_floatLayer);
+
 // Resume button
 const _resumeBtn = document.createElement('a');
 _resumeBtn.id = '_cta2-resume';
@@ -378,13 +563,16 @@ _panel.innerHTML = `
   <div class="_cta2-scanline"></div>
   <div class="_cta2-headline">
     <span class="_cta2-h1">Let's build something</span><br class="_cta2-br"><span class="_cta2-h2">amazing together.</span>
-    <span class="_cta2-h-mobile">Let's connect</span>
+    <span class="_cta2-h-mobile">Let's Connect</span>
   </div>
   <div class="_cta2-sub">I'm always open to new opportunities, collaborations, and interesting projects.</div>
+  <div class="_cta2-sub-mobile">Open to opportunities, freelance projects and collaborations.</div>
+  <div class="_cta2-card-scan"></div>
   <div class="_cta2-cards">
     ${CONTACTS.map(c => `
       <a class="_cta2-card" href="${c.href}" ${c.external ? 'target="_blank" rel="noopener"' : ''}>
         <span class="_cta2-hex">${c.hex}</span>
+        <span class="_cta2-svg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${c.icon}</svg></span>
         <span class="_cta2-card-text">
           <span class="_cta2-card-label">${c.label}</span>
           <span class="_cta2-card-detail">${c.detail}</span>
