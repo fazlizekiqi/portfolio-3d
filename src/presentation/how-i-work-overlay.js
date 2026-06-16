@@ -1,23 +1,36 @@
 /**
- * how-i-work-overlay.js — "Patent Diagram" treatment of the How I Work slide.
+ * how-i-work-overlay.js — "Developer Philosophy Hub" treatment of the How I Work
+ * slide.
  *
- * The character standing centre-stage becomes the SUBJECT of an engineering
- * blueprint. Four engineering-principle callout blocks sit in the corners with
- * leader lines + reference crosshairs pointing AT the character, each card
- * carrying its illustration and a title that typewrites in. A drawing-sheet
- * cartouche reads "FIG. 01 — THE ENGINEER · SHEET 1 OF 1". The scene's normal
- * blue-world gradient shows behind the character.
+ * The avatar is the embodiment of an engineering operating system. Around it:
+ *  - 4 corner principle cards (Design First / Clean Code / Observe / Collaborate)
+ *    each carrying its illustration and a title that typewrites in. The cards
+ *    cycle one-at-a-time (expand → collapse).
+ *  - Segmented HUD "data pathways" route from each card, bend at a glowing
+ *    junction node, and terminate just outside the avatar — with animated data
+ *    packets flowing toward the avatar (the principles feeding the developer).
+ *  - A centre "Core Directive" statement anchored above the avatar's head:
+ *    MY APPROACH · "Purposeful. Practical. People-first." · a supporting line,
+ *    framed by angular HUD brackets.
+ *  - A "BUILT ON" glassmorphism panel below the avatar listing 4 character
+ *    traits (Curiosity / Discipline / Empathy / Consistency).
  *
- * Desktop — 4 corner callouts, leader lines converge on the character.
- * Mobile  — callouts stack top/bottom, leader lines hidden, character framed
- *           in the central band.
+ * The avatar moves on screen (the slide's camera pulls back + tilts down), so
+ * the statement, the panel and the connector endpoints are re-anchored every
+ * frame by projecting the avatar's world position to screen (`tickHowIWorkOverlay`).
  *
- * Public API (unchanged):
- *   showHowIWorkOverlay()
+ * Desktop — full hub. Mobile — connectors hidden, compact statement, 2×2 BUILT ON.
+ *
+ * Public API:
+ *   showHowIWorkOverlay(durationMs)
  *   hideHowIWorkOverlay()
+ *   tickHowIWorkOverlay(delta)        // called every frame from tickPresentation
  */
 
+import * as THREE from 'three';
 import { audio } from '../audio.js';
+import { camera } from '../scene.js';
+import { modelGroup } from '../character/model.js';
 
 const _base = import.meta.env.BASE_URL;
 
@@ -42,9 +55,25 @@ const CARDS = [
     img: `${_base}how-i-work/4.png` },
 ];
 
+// ── Character traits (BUILT ON panel) ───────────────────────────────────────
+const TRAITS = [
+  { title: 'Curiosity',   meaning: 'Always exploring better solutions.',
+    icon: '<circle cx="9" cy="9" r="6"/><line x1="13.5" y1="13.5" x2="19" y2="19"/>' },
+  { title: 'Discipline',  meaning: 'Consistent engineering practices.',
+    icon: '<circle cx="11" cy="11" r="8"/><circle cx="11" cy="11" r="4"/><circle cx="11" cy="11" r="0.6" fill="currentColor"/>' },
+  { title: 'Empathy',     meaning: 'Understanding users and teammates.',
+    icon: '<path d="M11 18.5C11 18.5 3 13.5 3 8.2 3 5.6 5 4 7.1 4 8.8 4 10.2 5 11 6.3 11.8 5 13.2 4 14.9 4 17 4 19 5.6 19 8.2 19 13.5 11 18.5 11 18.5Z"/>' },
+  { title: 'Consistency', meaning: 'Reliable delivery over time.',
+    icon: '<path d="M3 11C3 8.8 4.8 7 7 7 9.2 7 10.5 8.6 11 10 11.5 11.4 12.8 13 15 13 17.2 13 19 11.2 19 9 19 6.8 17.2 5 15 5"/><path d="M19 11C19 13.2 17.2 15 15 15 12.8 15 11.5 13.4 11 12 10.5 10.6 9.2 9 7 9 4.8 9 3 10.8 3 13 3 15.2 4.8 17 7 17"/>' },
+];
+
 const FONT       = `'Share Tech Mono','Courier New',monospace`;
 const CYCLE_MS   = 2600;
 const STAGGER_MS = 170;
+
+const NODE_GAP    = 44;   // px the connector terminus is pushed outside the avatar
+const AVATAR_HALF = 70;   // px approx half-width of the avatar's projected band
+const PACKET_MS   = 3000; // data-packet travel period
 
 // ── Styles ──────────────────────────────────────────────────────────────────
 const _style = document.createElement('style');
@@ -57,7 +86,7 @@ _style.textContent = `
   font-family: ${FONT};
 }
 
-/* ── Leader-line SVG layer ─────────────────────────────────────────────────── */
+/* ── Connector SVG layer ───────────────────────────────────────────────────── */
 #_hiw-svg {
   position: absolute;
   inset: 0;
@@ -65,39 +94,144 @@ _style.textContent = `
   height: 100%;
   overflow: visible;
 }
-._hiw-leader {
+._hiw-conn {
   fill: none;
-  stroke: rgba(0,180,235,0.40);
-  stroke-width: 1.2;
+  stroke: rgba(0,180,235,0.45);
+  stroke-width: 1.3;
+  stroke-linejoin: round;
   transition: stroke 0.4s ease, stroke-width 0.4s ease;
 }
-._hiw-leader.hiw-lead-active {
+._hiw-conn.hiw-conn-active {
   stroke: rgba(0,235,255,0.95);
   stroke-width: 1.8;
   filter: drop-shadow(0 0 4px rgba(0,220,255,0.7));
 }
-._hiw-mark circle {
-  fill: none;
-  stroke: rgba(0,200,240,0.55);
-  stroke-width: 1.2;
-  transition: stroke 0.4s ease;
+._hiw-node {
+  fill: rgba(0,225,255,0.9);
+  filter: drop-shadow(0 0 5px rgba(0,210,255,0.8));
 }
-._hiw-mark line {
-  stroke: rgba(0,200,240,0.55);
-  stroke-width: 1;
-  transition: stroke 0.4s ease;
+._hiw-packet {
+  fill: #9af6ff;
+  filter: drop-shadow(0 0 6px rgba(0,235,255,0.95));
 }
-._hiw-mark text {
-  fill: rgba(0,220,255,0.75);
-  font-family: ${FONT};
-  font-size: 11px;
-  letter-spacing: .08em;
+._hiw-reticle circle { fill: none; stroke: rgba(0,210,255,0.65); stroke-width: 1; }
+._hiw-reticle line   { stroke: rgba(0,210,255,0.65); stroke-width: 1; }
+._hiw-reticle-spin   { animation: _hiw-reticle-spin 6s linear infinite; }
+@keyframes _hiw-reticle-spin { to { transform: rotate(360deg); } }
+
+/* ── Centre philosophy statement (Core Directive) ──────────────────────────── */
+#_hiw-statement {
+  position: absolute;
+  left: 0; top: 0;
+  transform: translate(-50%, -100%);
+  text-align: center;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+  padding: 0 26px;
 }
-._hiw-mark.hiw-mark-active circle,
-._hiw-mark.hiw-mark-active line { stroke: #00eaff; }
-._hiw-mark.hiw-mark-active text { fill: #7df3ff; }
-._hiw-mark { opacity: 0; transition: opacity 0.4s ease; }
-._hiw-mark.hiw-mark-vis { opacity: 1; }
+#_hiw-wrap.hiw-anchor-visible #_hiw-statement { opacity: 1; }
+._hiw-stmt-label {
+  font-size: 10px;
+  letter-spacing: .42em;
+  color: rgba(0,210,255,0.80);
+  margin-bottom: 8px;
+  text-shadow: 0 0 10px rgba(0,210,255,0.5);
+}
+._hiw-stmt-main {
+  font-size: clamp(26px, 3vw, 44px);
+  font-weight: 700;
+  letter-spacing: .06em;
+  color: #00d2ff;
+  text-shadow: 0 0 24px rgba(0,210,255,0.6), 0 0 4px rgba(0,230,255,0.8);
+  line-height: 1.1;
+}
+._hiw-stmt-sub {
+  font-size: clamp(11px, 1vw, 14px);
+  letter-spacing: .04em;
+  color: rgba(255,255,255,0.7);
+  margin-top: 9px;
+}
+/* angular HUD brackets framing the statement */
+._hiw-bracket {
+  position: absolute;
+  top: 50%;
+  width: 16px; height: 64px;
+  transform: translateY(-50%);
+  animation: _hiw-bracket-pulse 2.4s ease-in-out infinite;
+}
+._hiw-bracket-l {
+  left: 0;
+  border-left: 2px solid rgba(0,215,255,0.75);
+  border-top: 2px solid rgba(0,215,255,0.75);
+  border-bottom: 2px solid rgba(0,215,255,0.75);
+  box-shadow: -4px 0 10px rgba(0,200,255,0.25);
+}
+._hiw-bracket-r {
+  right: 0;
+  border-right: 2px solid rgba(0,215,255,0.75);
+  border-top: 2px solid rgba(0,215,255,0.75);
+  border-bottom: 2px solid rgba(0,215,255,0.75);
+  box-shadow: 4px 0 10px rgba(0,200,255,0.25);
+}
+@keyframes _hiw-bracket-pulse { 0%,100% { opacity: .55; } 50% { opacity: 1; } }
+
+/* ── BUILT ON glassmorphism panel ──────────────────────────────────────────── */
+#_hiw-builton {
+  position: absolute;
+  left: 0; top: 0;
+  width: clamp(500px, 46vw, 600px);
+  box-sizing: border-box;
+  padding: 14px 22px 16px;
+  background: rgba(2,9,22,0.72);
+  border: 1px solid rgba(0,200,255,0.34);
+  border-radius: 6px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.55), 0 0 30px rgba(0,160,255,0.10);
+  opacity: 0;
+  transition: opacity 0.6s ease;
+  /* base centring lives in the float keyframe so per-frame code only sets left/top */
+  animation: _hiw-bo-float 5s ease-in-out infinite;
+}
+#_hiw-wrap.hiw-anchor-visible #_hiw-builton { opacity: 1; }
+@keyframes _hiw-bo-float {
+  0%,100% { transform: translate(-50%, 0); }
+  50%     { transform: translate(-50%, -6px); }
+}
+._hiw-bo-header {
+  text-align: center;
+  font-size: 10px;
+  letter-spacing: .34em;
+  color: rgba(0,210,255,0.85);
+  text-shadow: 0 0 10px rgba(0,210,255,0.5);
+  margin-bottom: 12px;
+}
+._hiw-bo-cols { display: flex; gap: 10px; }
+._hiw-bo-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 5px;
+}
+._hiw-bo-icon {
+  width: 26px; height: 26px;
+  color: #7df3ff;
+  filter: drop-shadow(0 0 6px rgba(0,220,255,0.55));
+}
+._hiw-bo-icon svg { width: 100%; height: 100%; display: block; }
+._hiw-bo-title {
+  font-size: 12px;
+  letter-spacing: .10em;
+  color: #eaf8ff;
+}
+._hiw-bo-meaning {
+  font-size: 8.5px;
+  letter-spacing: .02em;
+  line-height: 1.45;
+  color: rgba(160,210,230,0.70);
+}
 
 /* ── Callout blocks ─────────────────────────────────────────────────────────── */
 ._hiw-blk {
@@ -307,6 +441,22 @@ _style.textContent = `
   ._hiw-blk-hd    { margin-bottom: 0; gap: 6px; }
   ._hiw-blk-ref, ._hiw-blk-dim { display: none; }
   #_hiw-rail { display: none; }
+
+  /* Hub decorations off on mobile */
+  ._hiw-conn, ._hiw-node, ._hiw-packet, ._hiw-reticle, ._hiw-bracket { display: none; }
+
+  #_hiw-statement { white-space: normal; padding: 0; width: 64vw; }
+  ._hiw-stmt-main { font-size: 16px; letter-spacing: .04em; }
+  ._hiw-stmt-sub  { display: none; }
+  ._hiw-stmt-label { font-size: 8px; letter-spacing: .3em; margin-bottom: 4px; }
+
+  #_hiw-builton {
+    width: min(92vw, 420px);
+    padding: 10px 12px 12px;
+  }
+  ._hiw-bo-cols { flex-wrap: wrap; }
+  ._hiw-bo-col  { flex: 0 0 46%; }
+  ._hiw-bo-meaning { font-size: 7.5px; }
 }
 `;
 document.head.appendChild(_style);
@@ -316,43 +466,71 @@ const _wrap = document.createElement('div');
 _wrap.id = '_hiw-wrap';
 _wrap.style.display = 'none';
 
-// Leader-line SVG layer
+// Connector SVG layer
 const SVGNS = 'http://www.w3.org/2000/svg';
 const _svg  = document.createElementNS(SVGNS, 'svg');
 _svg.id = '_hiw-svg';
 _svg.setAttribute('preserveAspectRatio', 'none');
-// arrowhead marker
-_svg.innerHTML = `
-  <defs>
-    <marker id="_hiw-arrow" markerWidth="7" markerHeight="7" refX="5.5" refY="3"
-            orient="auto" markerUnits="userSpaceOnUse">
-      <path d="M0,0 L6,3 L0,6" fill="none" stroke="rgba(0,220,255,0.85)" stroke-width="1"/>
-    </marker>
-  </defs>`;
 _wrap.appendChild(_svg);
 
-// Leader paths + reference marks (one per card)
-const _pathEls = [];
-const _markEls = [];
-CARDS.forEach((c) => {
+// Per-card connector pieces: path (route) + node (elbow) + reticle (terminus) + packet
+const _conns = CARDS.map(() => {
   const path = document.createElementNS(SVGNS, 'path');
-  path.setAttribute('class', '_hiw-leader');
-  path.setAttribute('marker-end', 'url(#_hiw-arrow)');
+  path.setAttribute('class', '_hiw-conn');
   _svg.appendChild(path);
-  _pathEls.push(path);
 
-  const g = document.createElementNS(SVGNS, 'g');
-  g.setAttribute('class', '_hiw-mark');
-  g.innerHTML = `
-    <circle r="8"></circle>
-    <line x1="-12" y1="0" x2="-4" y2="0"></line>
-    <line x1="4"  y1="0" x2="12" y2="0"></line>
-    <line x1="0" y1="-12" x2="0" y2="-4"></line>
-    <line x1="0" y1="4"  x2="0" y2="12"></line>
-    <text x="11" y="-9">${c.ref}</text>`;
-  _svg.appendChild(g);
-  _markEls.push(g);
+  const node = document.createElementNS(SVGNS, 'circle');
+  node.setAttribute('class', '_hiw-node');
+  node.setAttribute('r', '2.6');
+  _svg.appendChild(node);
+
+  // reticle: outer <g> we translate, inner <g> spins via CSS
+  const reticle = document.createElementNS(SVGNS, 'g');
+  reticle.setAttribute('class', '_hiw-reticle');
+  const spin = document.createElementNS(SVGNS, 'g');
+  spin.setAttribute('class', '_hiw-reticle-spin');
+  spin.innerHTML = `
+    <circle r="7"></circle>
+    <line x1="-10" y1="0" x2="-4" y2="0"></line>
+    <line x1="4"  y1="0" x2="10" y2="0"></line>
+    <line x1="0" y1="-10" x2="0" y2="-4"></line>
+    <line x1="0" y1="4"  x2="0" y2="10"></line>`;
+  reticle.appendChild(spin);
+  _svg.appendChild(reticle);
+
+  const packet = document.createElementNS(SVGNS, 'circle');
+  packet.setAttribute('class', '_hiw-packet');
+  packet.setAttribute('r', '3');
+  _svg.appendChild(packet);
+
+  return { path, node, reticle, packet, len: 0, d: '' };
 });
+
+// Centre philosophy statement
+const _statement = document.createElement('div');
+_statement.id = '_hiw-statement';
+_statement.innerHTML = `
+  <span class="_hiw-bracket _hiw-bracket-l"></span>
+  <span class="_hiw-bracket _hiw-bracket-r"></span>
+  <div class="_hiw-stmt-label">MY APPROACH</div>
+  <div class="_hiw-stmt-main">Purposeful. Practical. People-first.</div>
+  <div class="_hiw-stmt-sub">Building software that solves real problems and creates meaningful impact.</div>`;
+_wrap.appendChild(_statement);
+
+// BUILT ON panel
+const _builton = document.createElement('div');
+_builton.id = '_hiw-builton';
+_builton.innerHTML = `
+  <div class="_hiw-bo-header">BUILT ON</div>
+  <div class="_hiw-bo-cols">
+    ${TRAITS.map(t => `
+      <div class="_hiw-bo-col">
+        <span class="_hiw-bo-icon"><svg viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round">${t.icon}</svg></span>
+        <span class="_hiw-bo-title">${t.title}</span>
+        <span class="_hiw-bo-meaning">${t.meaning}</span>
+      </div>`).join('')}
+  </div>`;
+_wrap.appendChild(_builton);
 
 // Callout blocks
 const _blockEls = CARDS.map((c) => {
@@ -391,15 +569,25 @@ document.body.appendChild(_rail);
 const _railFill = _rail.querySelector('#_hiw-rail-fill');
 
 // ── Animation state ─────────────────────────────────────────────────────────
-let _rafId      = null;
-let _staggerIds = [];
-let _typeIds    = [];
-let _activeIdx  = -1;
-let _cycleStart = null;
-let _showing    = false;
-let _stepMs     = CYCLE_MS;   // per-card expand window, set from slide duration
+let _rafId       = null;
+let _staggerIds  = [];
+let _typeIds     = [];
+let _activeIdx   = -1;
+let _cycleStart  = null;
+let _showing     = false;
+let _stepMs      = CYCLE_MS;   // per-card expand window, set from slide duration
+let _packetClock = 0;         // accumulates delta for packet progress
+let _builtonH    = 130;       // measured panel height (for bottom clamp)
 
-// ── Leader-line geometry ──────────────────────────────────────────────────────
+const _v = new THREE.Vector3();  // scratch — avoid per-frame allocation
+
+// ── Projection helper ─────────────────────────────────────────────────────────
+function _worldToScreen(v, w, h) {
+  v.project(camera);
+  return { x: (v.x + 1) / 2 * w, y: (1 - v.y) / 2 * h, behind: v.z > 1 };
+}
+
+// ── Connector geometry ────────────────────────────────────────────────────────
 function _blockAnchor(pos, r) {
   switch (pos) {
     case 'tl': return { x: r.right - 6, y: r.bottom - 4 };
@@ -409,57 +597,88 @@ function _blockAnchor(pos, r) {
   }
 }
 
-/** Lay out the SVG, the 4 reference crosshairs around the character, and the
- *  leader paths. When `drawn` is false the paths start fully dashed-out so they
- *  can animate in; when true they stay drawn (used on resize while active). */
-function _layoutLeaders(drawn) {
-  const w = window.innerWidth, h = window.innerHeight;
-  _svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
-
-  const cx = w / 2, cy = h * 0.46;
-  const dx = Math.min(w * 0.075, 92);
-  const dy = Math.min(h * 0.135, 150);
-  const targets = {
-    tl: { x: cx - dx, y: cy - dy }, tr: { x: cx + dx, y: cy - dy },
-    bl: { x: cx - dx, y: cy + dy }, br: { x: cx + dx, y: cy + dy },
-  };
-
-  // Measure the blocks at their RESTING position. Their hidden state carries a
-  // translate/scale transform that getBoundingClientRect would otherwise include,
-  // so neutralise it for the measurement and restore it before the next paint.
-  _blockEls.forEach(el => { el.style.transform = 'none'; });
-  void _wrap.offsetWidth; // force reflow so the measurement sees transform:none
-
-  CARDS.forEach((c, i) => {
-    const a = _blockAnchor(c.pos, _blockEls[i].getBoundingClientRect());
-    const t = targets[c.pos];
-    // Stop the arrow a touch short of the crosshair circle.
-    const ang = Math.atan2(t.y - a.y, t.x - a.x);
-    const ex  = t.x - Math.cos(ang) * 13;
-    const ey  = t.y - Math.sin(ang) * 13;
-
-    const path = _pathEls[i];
-    path.setAttribute('d', `M${a.x},${a.y} L${ex},${ey}`);
-    const len = path.getTotalLength();
-    path.style.transition    = 'none';
-    path.style.strokeDasharray  = `${len}`;
-    path.style.strokeDashoffset = drawn ? '0' : `${len}`;
-
-    _markEls[i].setAttribute('transform', `translate(${t.x},${t.y})`);
-  });
-
-  // Restore the class-driven transform (hidden offset, or none when visible).
-  _blockEls.forEach(el => { el.style.transform = ''; });
+/** Orthogonal "Manhattan" route from a card's inner corner to a terminus just
+ *  outside the avatar. Routes vertically (along the card's inner edge) down to
+ *  the terminus height, then horizontally into the avatar — keeping the run at
+ *  chest height, clear of the centre statement and the BUILT ON panel.
+ *  Returns { d, elbow:{x,y}, end:{x,y} }. */
+function _buildConnectorPath(a, end) {
+  const elbow = { x: a.x, y: end.y };
+  const d = `M${a.x.toFixed(1)},${a.y.toFixed(1)} L${elbow.x.toFixed(1)},${elbow.y.toFixed(1)} L${end.x.toFixed(1)},${end.y.toFixed(1)}`;
+  return { d, elbow, end };
 }
 
-function _drawLeadersIn() {
-  _pathEls.forEach((path, i) => {
-    _staggerIds.push(setTimeout(() => {
-      path.style.transition    = 'stroke-dashoffset 0.9s ease, stroke 0.4s ease';
-      path.style.strokeDashoffset = '0';
-      _markEls[i].classList.add('hiw-mark-vis');
-    }, 120 + i * 150));
+// ── Per-frame anchoring ────────────────────────────────────────────────────────
+export function tickHowIWorkOverlay(delta) {
+  if (!_showing || !modelGroup) return;
+
+  const w = window.innerWidth, h = window.innerHeight;
+  const mobile = w <= 767;
+  const baseY = modelGroup.position.y;
+
+  // Project head / chest / feet world points (capture x/y before reusing _v).
+  const head  = _worldToScreen(_v.copy(modelGroup.position).setY(baseY + 1.7), w, h);
+  const headX = head.x, headY = head.y;
+  const chest = _worldToScreen(_v.copy(modelGroup.position).setY(baseY + 0.95), w, h);
+  const chestX = chest.x, chestY = chest.y;
+  const feet  = _worldToScreen(_v.copy(modelGroup.position).setY(baseY + 0.0), w, h);
+  const feetX = feet.x, feetY = feet.y;
+
+  // Statement — ~120px above the head, clamped within a top band.
+  const topMargin = mobile ? 80 : 150;
+  let sx = Math.min(Math.max(headX, w * 0.5 - 200), w * 0.5 + 200);
+  let sy = Math.min(Math.max(headY - 120, topMargin), h * 0.42);
+  _statement.style.left = `${sx}px`;
+  _statement.style.top  = `${sy}px`;
+
+  // BUILT ON — below the feet, clamped above the bottom UI.
+  const bottomMargin = mobile ? 70 : 90;
+  let py = Math.min(Math.max(feetY + 28, h * 0.55), h - _builtonH - bottomMargin);
+  _builton.style.left = `${feetX}px`;
+  _builton.style.top  = `${py}px`;
+
+  if (mobile) return;  // connectors hidden on mobile
+
+  // Connectors — re-route each card toward a terminus just outside the avatar.
+  const endYMin = topMargin + 40;
+  const endYMax = py - 20;
+  _packetClock += delta;
+  const progress = (_packetClock % (PACKET_MS / 1000)) / (PACKET_MS / 1000);
+
+  CARDS.forEach((c, i) => {
+    const conn = _conns[i];
+    const left = c.pos === 'tl' || c.pos === 'bl';
+    const rect = _blockEls[i].getBoundingClientRect();
+    const a = _blockAnchor(c.pos, rect);
+
+    // Terminus: avatar chest, pushed outward to the card's side, clamped vertically.
+    const endX = chestX + (left ? -(AVATAR_HALF + NODE_GAP) : (AVATAR_HALF + NODE_GAP));
+    const endY = Math.min(Math.max(chestY, endYMin), endYMax);
+    const { d, elbow, end } = _buildConnectorPath(a, { x: endX, y: endY });
+
+    if (d !== conn.d) {
+      conn.path.setAttribute('d', d);
+      conn.d   = d;
+      conn.len = conn.path.getTotalLength();
+    }
+    conn.node.setAttribute('cx', elbow.x.toFixed(1));
+    conn.node.setAttribute('cy', elbow.y.toFixed(1));
+    conn.reticle.setAttribute('transform', `translate(${end.x.toFixed(1)},${end.y.toFixed(1)})`);
+
+    if (conn.len > 0) {
+      const p = conn.path.getPointAtLength(progress * conn.len);
+      conn.packet.setAttribute('cx', p.x.toFixed(1));
+      conn.packet.setAttribute('cy', p.y.toFixed(1));
+    }
   });
+}
+
+// ── Static layout (SVG viewBox; routing happens per-frame in the tick) ─────────
+function _layoutStatic() {
+  const w = window.innerWidth, h = window.innerHeight;
+  _svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  const r = _builton.getBoundingClientRect();
+  if (r.height) _builtonH = r.height;
 }
 
 // ── Typewriter ────────────────────────────────────────────────────────────────
@@ -480,8 +699,7 @@ function _setActive(idx) {
     el.classList.toggle('hiw-active',   i === idx);
     el.classList.toggle('hiw-expanded', i === idx);
   });
-  _pathEls.forEach((p,  i) => p.classList.toggle('hiw-lead-active', i === idx));
-  _markEls.forEach((m,  i) => m.classList.toggle('hiw-mark-active', i === idx));
+  _conns.forEach((conn, i) => conn.path.classList.toggle('hiw-conn-active', i === idx));
   _activeIdx = idx;
   if (idx >= 0) audio.playTimelineNode?.();
 }
@@ -507,7 +725,7 @@ function _tick(ts) {
 
 // ── Resize ────────────────────────────────────────────────────────────────────
 function _onResize() {
-  if (_showing) _layoutLeaders(true);
+  if (_showing) _layoutStatic();
 }
 window.addEventListener('resize', _onResize);
 
@@ -519,25 +737,28 @@ const OUTRO_MS = 800;
 
 export function showHowIWorkOverlay(durationMs = CYCLE_MS * CARDS.length + INTRO_MS + OUTRO_MS) {
   _clearTimers();
-  _showing    = true;
-  _cycleStart = null;
-  _activeIdx  = -1;
+  _showing     = true;
+  _cycleStart  = null;
+  _activeIdx   = -1;
+  _packetClock = 0;
 
   // Fit the 4 expand windows into the slide's remaining time.
   _stepMs = Math.max(1800, (durationMs - INTRO_MS - OUTRO_MS) / CARDS.length);
 
   _wrap.style.display   = '';
+  _wrap.classList.remove('hiw-anchor-visible');
   _rail.style.opacity   = '0';
   _railFill.style.width = '0%';
 
   // Reset visuals (all cards collapsed)
   _blockEls.forEach(el => el.classList.remove('hiw-visible', 'hiw-active', 'hiw-expanded'));
-  _pathEls.forEach(p => p.classList.remove('hiw-lead-active'));
-  _markEls.forEach(m => m.classList.remove('hiw-mark-vis', 'hiw-mark-active'));
+  _conns.forEach(conn => conn.path.classList.remove('hiw-conn-active'));
   _titleEls.forEach(t => (t.textContent = ''));
 
-  // Position leader lines now (blocks already have their CSS-fixed positions).
-  _layoutLeaders(false);
+  // Static layout, then anchor everything to the avatar on this first frame so
+  // nothing paints at (0,0) before the render loop's tick takes over.
+  _layoutStatic();
+  tickHowIWorkOverlay(0);
 
   // Stagger the collapsed callouts in, typewrite each title as it lands.
   CARDS.forEach((c, i) => {
@@ -547,8 +768,8 @@ export function showHowIWorkOverlay(durationMs = CYCLE_MS * CARDS.length + INTRO
     }, 220 + i * STAGGER_MS));
   });
 
-  // Leader lines draw after the blocks are placed.
-  _staggerIds.push(setTimeout(_drawLeadersIn, 260));
+  // Statement, panel + connectors fade in once the blocks are placed.
+  _staggerIds.push(setTimeout(() => { _wrap.classList.add('hiw-anchor-visible'); }, 260));
 
   // Rail + sequential expand/collapse pass once everything has settled.
   _staggerIds.push(setTimeout(() => { _rail.style.opacity = '1'; }, INTRO_MS - 100));
@@ -559,9 +780,9 @@ export function hideHowIWorkOverlay() {
   _showing = false;
   _clearTimers();
 
+  _wrap.classList.remove('hiw-anchor-visible');
   _blockEls.forEach(el => el.classList.remove('hiw-visible', 'hiw-active', 'hiw-expanded'));
-  _pathEls.forEach(p => p.classList.remove('hiw-lead-active'));
-  _markEls.forEach(m => m.classList.remove('hiw-mark-vis', 'hiw-mark-active'));
+  _conns.forEach(conn => conn.path.classList.remove('hiw-conn-active'));
   _rail.style.opacity   = '0';
   _railFill.style.width = '0%';
 
