@@ -311,9 +311,9 @@ _style.textContent = `
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 90px; height: 90px;
+    width: 54px; height: 54px;
     box-sizing: border-box;
-    border-radius: 24px;
+    border-radius: 16px;
     color: #4fd9ff;
     background: linear-gradient(155deg, rgba(4,16,34,0.62), rgba(2,10,24,0.40));
     border: 1.5px solid rgba(0,200,255,0.42);
@@ -332,7 +332,7 @@ _style.textContent = `
       _cta2-fl-flicker 7s steps(1) infinite;
     transition: scale 0.2s ease;
   }
-  ._cta2-float svg { width: 40px; height: 40px; filter: drop-shadow(0 0 6px rgba(0,210,255,0.6)); }
+  ._cta2-float svg { width: 24px; height: 24px; filter: drop-shadow(0 0 5px rgba(0,210,255,0.6)); }
   ._cta2-float::after {  /* subtle scan-line */
     content: '';
     position: absolute;
@@ -379,18 +379,18 @@ _style.textContent = `
 
   /* ── Premium contact-card hub, docked at the bottom ── */
   #_cta2-panel {
-    top: auto; bottom: 60px; left: 50%;
+    top: auto; bottom: 56px; left: 50%;
     transform: translateX(-50%) translateY(18px);
-    width: 90vw; max-width: 460px; max-height: none;
-    min-height: 200px;
+    width: 88vw; max-width: 360px; max-height: none;
+    min-height: 0;
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 12px;
-    padding: 22px 18px 20px;
-    border-radius: 32px;
+    gap: 8px;
+    padding: 14px 14px 13px;
+    border-radius: 22px;
     background: rgba(2,9,22,0.78);
     border: 1px solid rgba(0,200,255,0.34);
     box-shadow:
@@ -418,20 +418,20 @@ _style.textContent = `
   ._cta2-h1, ._cta2-br, ._cta2-h2, ._cta2-sub, ._cta2-status { display: none; }
   ._cta2-h-mobile {
     display: block;
-    font-size: 24px;
+    font-size: 17px;
     letter-spacing: .04em;
     color: #eaf8ff;
-    text-shadow: 0 0 22px rgba(0,210,255,0.6);
+    text-shadow: 0 0 18px rgba(0,210,255,0.6);
   }
   ._cta2-sub-mobile {
     display: block;
     order: 2;
     text-align: center;
-    max-width: 84%;
-    margin: -2px auto 2px;
-    font-size: 11px;
-    line-height: 1.5;
-    letter-spacing: .03em;
+    max-width: 88%;
+    margin: -1px auto 1px;
+    font-size: 9.5px;
+    line-height: 1.45;
+    letter-spacing: .02em;
     color: rgba(190,225,240,0.72);
   }
 
@@ -440,7 +440,7 @@ _style.textContent = `
     flex-direction: row;
     justify-content: center;
     align-items: flex-start;
-    gap: 18px;
+    gap: 16px;
     width: 100%;
   }
   /* each card = a circular button with a label below */
@@ -448,7 +448,7 @@ _style.textContent = `
     flex: 0 0 auto;
     flex-direction: column;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     min-height: 0;
     width: auto; padding: 0;
     background: none;
@@ -461,17 +461,17 @@ _style.textContent = `
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 82px; height: 82px;
+    width: 54px; height: 54px;
     border-radius: 50%;
     color: #7df3ff;
     background: rgba(3,14,30,0.55);
     border: 1.5px solid rgba(0,205,255,0.50);
     box-shadow:
-      0 0 20px rgba(0,180,255,0.28),
-      inset 0 0 16px rgba(0,170,255,0.16);
+      0 0 16px rgba(0,180,255,0.26),
+      inset 0 0 12px rgba(0,170,255,0.16);
     transition: scale 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
   }
-  ._cta2-svg svg { width: 38px; height: 38px; filter: drop-shadow(0 0 6px rgba(0,210,255,0.55)); }
+  ._cta2-svg svg { width: 25px; height: 25px; filter: drop-shadow(0 0 5px rgba(0,210,255,0.55)); }
   ._cta2-card:hover ._cta2-svg,
   ._cta2-card:active ._cta2-svg {
     scale: 1.12;
@@ -482,11 +482,11 @@ _style.textContent = `
   }
   ._cta2-card-text { display: flex; }
   ._cta2-card-label {
-    font-size: 9px;
-    letter-spacing: .22em;
+    font-size: 8px;
+    letter-spacing: .18em;
     text-transform: uppercase;
     color: rgba(0,215,255,0.85);
-    text-shadow: 0 0 10px rgba(0,200,255,0.4);
+    text-shadow: 0 0 9px rgba(0,200,255,0.4);
   }
   ._cta2-card-detail, ._cta2-card-arrow { display: none; }
 
@@ -495,12 +495,12 @@ _style.textContent = `
 
 /* very small phones — keep the hub and buttons within the viewport */
 @media (max-width: 380px) {
-  ._cta2-svg { width: 70px; height: 70px; }
-  ._cta2-svg svg { width: 32px; height: 32px; }
+  ._cta2-svg { width: 48px; height: 48px; }
+  ._cta2-svg svg { width: 22px; height: 22px; }
   ._cta2-cards { gap: 12px; }
-  ._cta2-h-mobile { font-size: 21px; }
-  ._cta2-float { width: 76px; height: 76px; }
-  ._cta2-float svg { width: 34px; height: 34px; }
+  ._cta2-h-mobile { font-size: 15px; }
+  ._cta2-float { width: 46px; height: 46px; border-radius: 14px; }
+  ._cta2-float svg { width: 20px; height: 20px; }
 }
 `;
 document.head.appendChild(_style);
