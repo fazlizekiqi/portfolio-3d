@@ -33,7 +33,7 @@ import {
   showIdleUI, showPresentingUI, showExploreUI, showWhiteWorldUI, showBackBtn,
   resetPresentBtn, setProgressFill, hideCard, showCard,
 } from './ui.js';
-import { showHowIWorkOverlay, hideHowIWorkOverlay, tickHowIWorkOverlay } from './how-i-work-overlay.js';
+import { showHowIWorkOverlay, hideHowIWorkOverlay, tickHowIWorkOverlay } from './slides/mindset/how-i-work-view.js';
 import { showAboutWireframe, hideAboutWireframe, tickAboutWireframe } from '../character/about-wireframe.js';
 
 export { initCameraState } from './camera.js';
