@@ -25,6 +25,7 @@
 import * as THREE from 'three';
 import { scene, renderer } from '../scene.js';
 import { audio } from '../audio.js';
+import { YEARS_EXPERIENCE } from '../presentation/slides.js';
 
 // ── Timing ────────────────────────────────────────────────────────────────────
 const T_HEADER_IN     = 0.5;
@@ -329,7 +330,7 @@ _bioEl.innerHTML = `
   <div class="_bio-hdr"><div class="_bio-hdr-dot"></div>BIOMETRIC SCAN</div>
   <div class="_bio-sep"></div>
   <div class="_bio-row" id="_br0"><span class="_bio-k">HEAD / BRAIN </span><span class="_bio-v">ARCHITECTURE: DISTRIBUTED</span></div>
-  <div class="_bio-row" id="_br1"><span class="_bio-k">CHEST / CORE </span><span class="_bio-v">6+ YEARS IN PRODUCTION</span></div>
+  <div class="_bio-row" id="_br1"><span class="_bio-k">CHEST / CORE </span><span class="_bio-v">${YEARS_EXPERIENCE}+ YEARS IN PRODUCTION</span></div>
   <div class="_bio-row" id="_br2"><span class="_bio-k">ARMS / STACK </span><span class="_bio-v">JAVA · KAFKA · GCP · K8S</span></div>
   <div class="_bio-row" id="_br3"><span class="_bio-k">LEGS / BASE  </span><span class="_bio-v">STOCKHOLM, SWEDEN</span></div>
   <div class="_bio-bar-wrap" id="_brBar">

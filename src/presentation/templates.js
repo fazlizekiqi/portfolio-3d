@@ -5,6 +5,8 @@
  * Each function returns an HTML string consumed by showCard() in ui.js.
  */
 
+import { YEARS_EXPERIENCE } from './slides.js';
+
 const _base = import.meta.env.BASE_URL.replace(/\/$/, '');
 
 const _imgMap = {
@@ -98,7 +100,7 @@ export function buildIntroHTML() {
 export function buildAboutHTML() {
   return `<div class="_about-wrap">
     <div class="_about-stats-row">
-      <div class="_ab-stat"><div class="_ab-val">6+</div><div class="_ab-lbl">YEARS EXP</div></div>
+      <div class="_ab-stat"><div class="_ab-val">${YEARS_EXPERIENCE}+</div><div class="_ab-lbl">YEARS EXP</div></div>
       <div class="_ab-stat"><div class="_ab-val">3</div><div class="_ab-lbl">COMPANIES</div></div>
       <div class="_ab-stat"><div class="_ab-val">29</div><div class="_ab-lbl">TECHNOLOGIES</div></div>
       <div class="_ab-stat"><div class="_ab-val">50+</div><div class="_ab-lbl">PROJECTS</div></div>
