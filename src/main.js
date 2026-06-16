@@ -1,3 +1,4 @@
+import './styles/base.css';
 import * as THREE from 'three';
 import { renderer, scene, camera } from './scene.js';
 import { loadModel, mixer, modelGroup, setCharacterWhiteWorld } from './character/model.js';
