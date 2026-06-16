@@ -5,7 +5,6 @@ import { tickExplode, getExplodeGroup, introScene } from './character/explode.js
 import { tickPlayer } from './character/player.js';
 import { tickPresentation, initCameraState, goToSlide, startPresentation } from './presentation/presentation.js';
 import { initBlueWorld, tickBlueWorld, tickLightsForWorld } from './world/blueworld.js';
-import { initCtaPlatform } from './world/cta-platform.js';
 import { tickWhiteWorld, setWhiteWorldCharacterRef, showWaypointButtons, hideWaypointButtons, loadEnvironment } from './world/whiteworld.js';
 import { isTornadoCameraActive } from './world/tornado-travel.js';
 import { tickTransition, isWhiteWorld, isTransitioning, getProgress } from './transition.js';
@@ -20,7 +19,6 @@ import './gui.js';
 
 // ── Initialise blue world objects + lights ────────────────────────────────────
 initBlueWorld();
-initCtaPlatform();
 
 // ── Initialise joystick (touch devices) ──────────────────────────────────────
 initJoystick();

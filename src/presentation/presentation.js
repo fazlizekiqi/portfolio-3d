@@ -35,7 +35,6 @@ import {
 } from './ui.js';
 import { showHowIWorkOverlay, hideHowIWorkOverlay } from './how-i-work-overlay.js';
 import { showAboutWireframe, hideAboutWireframe, tickAboutWireframe } from '../character/about-wireframe.js';
-import { showCtaPlatform, hideCtaPlatform, tickCtaPlatform } from '../world/cta-platform.js';
 
 export { initCameraState } from './camera.js';
 export { currentCamLook }  from './camera.js';
@@ -174,8 +173,6 @@ function _applyAnimationForSlide(slide, name) {
 
   const { clip, clips, loop } = slide.anim;
 
-  if (name === 'cta') showCtaPlatform(); else hideCtaPlatform();
-
   if (name === 'about') {
     showAboutWireframe(() => {
       cancelIdleLoop();
@@ -298,7 +295,6 @@ function _endPresentation() {
   hideCard();
   hideHowIWorkOverlay();
   hideAboutWireframe();
-  hideCtaPlatform();
   progressWrap.style.display = 'none';
   nextBtn.style.display      = 'none';
   prevBtn.style.display      = 'none';
@@ -324,7 +320,6 @@ function _returnHome() {
   hideBubbles();
   hideHowIWorkOverlay();
   hideAboutWireframe();
-  hideCtaPlatform();
 
   if (!isWhiteWorld()) {
     controls.maxDistance = 20;
@@ -420,7 +415,6 @@ export function tickPresentation(delta, elapsed) {
 
   if (_active) {
     if (_currentSlide.name === 'about') tickAboutWireframe(delta);
-    if (_currentSlide.name === 'cta')   tickCtaPlatform(delta);
     _slideTimer -= delta * 1000;
     if (_slideTimer <= 0 && !_frozen) _goToNextSlide();
     setProgressFill(1 - _slideTimer / _currentSlide.duration);

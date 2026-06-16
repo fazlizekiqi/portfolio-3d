@@ -46,7 +46,10 @@ _style.textContent = `
   opacity: 0;
   transition: opacity 0.5s ease;
 }
-#_cta2-wrap.cta2-visible { pointer-events: auto; opacity: 1; }
+/* Wrapper itself stays click-through; only the panel + resume button below opt
+   back in via pointer-events:auto, so the decorative full-screen SVG/radar/
+   particle layers never swallow clicks meant for the contact cards. */
+#_cta2-wrap.cta2-visible { opacity: 1; }
 
 /* ── Resume button ─────────────────────────────────────────────────────── */
 #_cta2-resume {
