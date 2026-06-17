@@ -135,14 +135,29 @@
     top: 50px;
   }
   #_slide-body-panel.slide-experience #_sBodyInner {
-    width: 58%;
+    width: 62%;
     max-width: none;
     margin-left: 0;
   }
-  /* ~10% smaller than the previous mobile sizing — the list felt oversized. */
-  ._exp-role    { font-size: 9px; }
-  ._exp-company { font-size: 8px; }
-  ._exp-stack   { font-size: 7px; }
+  /* Compact list footprint (small logo + tight gaps), but crisp readable text:
+     legible sizes, tighter tracking, and no heavy glow (it blurs small type). */
+  ._exp-role {
+    font-size: 11px;
+    letter-spacing: .06em;
+    color: #ffffff;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+  }
+  ._exp-company {
+    font-size: 9.5px;
+    letter-spacing: .05em;
+    color: #7fe0f5;
+    text-shadow: none;
+  }
+  ._exp-stack {
+    font-size: 8px;
+    letter-spacing: .03em;
+    color: rgba(190, 225, 240, 0.85);
+  }
   ._exp-block   { gap: 9px; padding: 7px 9px; }
   ._exp-logo    { width: 32px; height: 32px; }
   ._exp-tl-svg  { width: 16px; }

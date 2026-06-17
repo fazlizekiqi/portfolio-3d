@@ -71,22 +71,11 @@
 /* ── Leader lines: point from each HUD panel toward the radar's second
    ring — never all the way to the character. Geometry is computed once in
    _layout() from real bounding rects; no per-frame work, no animation. ── */
-._cta2-stub-line {
-  position: absolute;
-  top: 0; left: 0;
-  height: 1px;
-  background: linear-gradient(90deg, rgba(0,210,255,0.60), rgba(0,200,255,0.12));
-  transform-origin: left center;
-  pointer-events: none;
-}
+/* Leader lines + reticle dots removed — they read as a stray line pointing
+   at the character. The HUD panels stay; they just no longer draw a leader. */
+._cta2-stub-line,
 ._cta2-stub-dot {
-  position: absolute;
-  top: 0; left: 0;
-  width: 8px; height: 8px;
-  border: 1px solid rgba(0,215,255,0.70);
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
+  display: none;
 }
 
 /* ── Left command panel ────────────────────────────────────────────────── */
