@@ -42,12 +42,7 @@
     rgba(0,220,255,0.55) 60%,rgba(0,220,255,0.0) 90%,transparent 100%);
   pointer-events:none; z-index:17; opacity:0; transition:opacity 0.25s; filter:blur(0.5px); }
 @media (max-width:640px) {
-  /* top-left under the title — the bottom half belongs to the stats panel */
-  #_bio-scan { left:4%; top:72px; bottom:auto; transform:none; min-width:0; max-width:58vw; }
-  ._bio-hdr { margin-bottom:10px; }
-  ._bio-sep { margin-bottom:9px; }
-  ._bio-row { font-size:9.5px; margin-bottom:7px; }
-  ._bio-k { min-width:64px; font-size:8px; }
-  ._bio-bar-wrap { margin:10px 0 6px; }
-  ._bio-bar-track { width:130px; }
+  /* The biometric panel is too cramped to read on a phone — hide it entirely
+     and let the character burn/hologram sequence carry the slide on mobile. */
+  #_bio-scan, ._bio-scanline { display: none; }
 }

@@ -31,6 +31,7 @@ import * as THREE from 'three';
 import { audio } from '../../../audio.js';
 import { camera } from '../../../scene.js';
 import { modelGroup } from '../../../character/model.js';
+import { isMobile } from '../../../constants.js';
 import { CARDS, TRAITS, buildStatementHTML, buildBuiltOnHTML, buildCalloutHTML } from './mindset.templates.js';
 import './how-i-work.css';
 
@@ -232,7 +233,7 @@ function _type(el, text, speed = 34) {
   let i = 0;
   const id = setInterval(() => {
     el.textContent = text.slice(0, ++i);
-    if (i % 2 === 0) audio.playTypewriterClick?.();
+    if (i % 2 === 0 && !isMobile()) audio.playTypewriterClick?.();
     if (i >= text.length) clearInterval(id);
   }, speed);
   _typeIds.push(id);
@@ -246,7 +247,7 @@ function _setActive(idx) {
   });
   _conns.forEach((conn, i) => conn.path.classList.toggle('hiw-conn-active', i === idx));
   _activeIdx = idx;
-  if (idx >= 0) audio.playTimelineNode?.();
+  if (idx >= 0 && !isMobile()) audio.playTimelineNode?.();
 }
 
 // One forward pass: each card expands for a `_stepMs` window (collapsing the

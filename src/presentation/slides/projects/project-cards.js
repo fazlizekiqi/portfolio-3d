@@ -31,8 +31,20 @@ const ORBIT_Z        = 0.8;
 const ORBIT_CENTER_Y = 0.3;
 const ORBIT_SPEED    = 0.05;
 
-// Reset orbit phase when bubbles are hidden so the next visit starts clean
-onHide(() => { /* orbit uses elapsed time directly — no state to reset */ });
+// Mobile orbit angle — starts at 0 each time the cards are shown so the first
+// settled frame lands exactly on each card's basePos (no jump). Advanced once
+// per frame (guarded by the elapsed timestamp since onTick runs per-card).
+let _orbitAngle       = 0;
+let _orbitLastElapsed = -1;
+
+function _advanceOrbit(delta, elapsed) {
+  if (elapsed === _orbitLastElapsed) return;
+  _orbitLastElapsed = elapsed;
+  _orbitAngle += delta * ORBIT_SPEED;
+}
+
+// Reset orbit state when bubbles are hidden so the next visit starts clean.
+onHide(() => { _orbitAngle = 0; _orbitLastElapsed = -1; });
 
 // ── Project image preloader ───────────────────────────────────────────────────
 const _texLoader   = new THREE.TextureLoader();
@@ -305,9 +317,10 @@ function _spawnProjectCard(item, pos3, seed, imgTex, idx = 0) {
         targetOpacity: 0.92,
     };
 
-    entry.onTick = (e, _delta, elapsed) => {
+    entry.onTick = (e, delta, elapsed) => {
         if (isMobile()) {
-            const a = elapsed * ORBIT_SPEED + e.orbitBaseAngle;
+            _advanceOrbit(delta, elapsed);
+            const a = _orbitAngle + e.orbitBaseAngle;
             e.mesh.position.x = Math.sin(a) * ORBIT_R_X;
             e.mesh.position.y = ORBIT_CENTER_Y + Math.cos(a) * ORBIT_R_Y;
             e.mesh.position.z = ORBIT_Z;
