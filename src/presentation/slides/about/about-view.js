@@ -292,7 +292,10 @@ export function tickAboutWireframe(delta) {
 
     setScanPlane(-clipY);
     setHolo({ clipY, clipYMax: 999.0, opacity: HOLO_BUILD_OP, pulse: 0.0, bandH });
-    setWire({ opacity: WIRE_MAX_OP, clipY, bandH });
+    // The hologram SHELL collapses into the construction band, but the
+    // wireframe scaffold stays fully visible over the whole character the
+    // entire outro — never clipped to the front, never band-faded.
+    setWire({ opacity: WIRE_MAX_OP, clipY: _yMin - 0.5, bandH: 999.0 });
     // Settle the gentle sway back to forward-facing
     setSway(Math.sin(T_OUTRO_START * 0.45) * 0.12 * (1.0 - eased));
 
