@@ -10,7 +10,7 @@ import { tickWhiteWorld, setWhiteWorldCharacterRef, showWaypointButtons, hideWay
 import { isTornadoCameraActive } from './world/tornado-travel.js';
 import { tickTransition, isWhiteWorld, isTransitioning, getProgress } from './transition.js';
 import { tickFps } from './fps.js';
-import { tickBubbles } from './presentation/bubbles.js';
+import { tickBubbles } from './presentation/slides/bubbles-shared.js';
 import { showLoader, updateLoader, hideLoader } from './loader.js';
 import { initJoystick } from './joystick.js';
 import { CFG } from './config.js';

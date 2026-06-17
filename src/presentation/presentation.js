@@ -22,7 +22,9 @@ import { trackSlide } from '../analytics.js';
 import { audio } from '../audio.js';
 
 import { SLIDES, slideByName, indexOf, isLastSlide } from './slides.js';
-import { showSkillBubbles, showProjectBubbles, hideBubbles } from './bubbles.js';
+import { showSkillBubbles } from './slides/skills/skill-bubbles.js';
+import { showProjectBubbles } from './slides/projects/project-cards.js';
+import { hideBubbles } from './slides/bubbles-shared.js';
 import {
   startCameraMove, glideHome, tickCamera, startOrbitSweep,
   camLookTarget, currentCamLook,
