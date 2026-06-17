@@ -1,7 +1,6 @@
 uniform float uOpacity;
 uniform float uTime;
 uniform float uClipY;   // same boundary as hologram uClipY
-uniform float uBandH;   // reconstruction: soft fade height above uClipY (999 = off)
 varying vec3  vWorldPos;
 
 void main() {
@@ -28,10 +27,5 @@ void main() {
   col      = mix(col, c2, clamp(total - 1.0, 0.0, 1.0));
 
   float alpha = (0.20 + clamp(total, 0.0, 1.0) * 0.50) * uOpacity;
-  // Reconstruction band: concentrate the current at the reveal front and
-  // fade to nothing uBandH above it (matches the hologram band).
-  if (uBandH < 900.0) {
-    alpha *= clamp(1.0 - max(0.0, y - uClipY) / uBandH, 0.0, 1.0);
-  }
   gl_FragColor = vec4(col, clamp(alpha, 0.0, 1.0));
 }

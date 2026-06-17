@@ -28,7 +28,7 @@
 import * as THREE from 'three';
 import { renderer } from '../../../scene.js';
 import { audio } from '../../../audio.js';
-import { createBurnUniforms, injectBurnIntoMat, setBurnY, setBurnTime, setBurnReconstruct } from './about-burn.js';
+import { createBurnUniforms, injectBurnIntoMat, setBurnY, setBurnTime } from './about-burn.js';
 import {
   initGhost, resetGhost, setDots, setHolo, setWire, setScanPlane, setSway,
   setBurnStripe, hideGhost, fadeOutGhost,
@@ -55,14 +55,6 @@ const ROW_BURN_T      = [0.12, 0.35, 0.60, 0.82];
 // ── Ghost look ────────────────────────────────────────────────────────────────
 const WIRE_MAX_OP   = 0.55;  // electricity shader opacity gate — higher = more visible
 const HOLO_BUILD_OP = 1.00;  // hologram opacity — full brightness throughout all phases
-
-// ── Outro reconstruction band ───────────────────────────────────────────────
-// During the feet→head rebuild the hologram/wire collapse from the full body
-// into a thin glowing "construction front" just above the reveal line, so the
-// region above reads as empty (not-yet-built) rather than a full ghost. The
-// collapse is ramped in inverse-band space for a perceptually smooth retract.
-const OUTRO_BAND_THIN     = 0.7;   // world-units the construction band keeps once collapsed
-const OUTRO_BAND_COLLAPSE = 0.15;  // fraction of the outro spent collapsing full → thin
 
 // ── Module state ──────────────────────────────────────────────────────────────
 let _initialized  = false;
@@ -123,10 +115,9 @@ export function showAboutWireframe(onTPoseCue) {
   _shadowOff = false;
   _charMeshes.forEach(m => { m.castShadow = true; });
 
-  // Char burn: 999 = nothing burned (full character); dissolve mode for the intro
+  // Char burn: 999 = nothing burned (full character)
   setBurnY(_burnUniforms, 999.0);
   setBurnTime(_burnUniforms, 0.0);
-  setBurnReconstruct(_burnUniforms, 0.0);
 
   // DOM reset
   resetAboutUI();
@@ -143,12 +134,10 @@ export function hideAboutWireframe() {
   hideAboutUI();
   // Reset burn — character fully visible (and casting shadow) on other slides
   setBurnY(_burnUniforms, 999.0);
-  setBurnReconstruct(_burnUniforms, 0.0);
   _shadowOff = false;
   _charMeshes.forEach(m => { m.castShadow = true; });
-  // Reset hologram outro clip + reconstruction band so it's clean next show
-  setHolo({ clipYMax: 999.0, bandH: 999.0 });
-  setWire({ bandH: 999.0 });
+  // Reset hologram outro clip so it's clean for the next show
+  setHolo({ clipYMax: 999.0 });
 
   fadeOutGhost(700, () => hideGhost());
 }
@@ -269,11 +258,9 @@ export function tickAboutWireframe(delta) {
     const revealY = _yMin - 0.2 + (_yMax - _yMin + 0.4) * eased;
     const clipY   = Math.min(revealY, _yMax);  // keep clip within model bounds
 
-    // 1. Character: reveal everything BELOW the boundary as a true bottom-up
-    //    reconstruction — the burn shader discards vBurnWorldY > uBurnY+noise,
-    //    and uReconstruct makes each freshly-revealed slice materialise from
-    //    holographic-cyan into the solid shaded mesh over uBuildBand.
-    setBurnReconstruct(_burnUniforms, 1.0);
+    // 1. Character: reveal everything BELOW the boundary
+    //    The burn shader discards vBurnWorldY > uBurnY+noise; raising uBurnY
+    //    uncovers fragments from the bottom upward.
     setBurnY(_burnUniforms, revealY);
     setBurnTime(_burnUniforms, t);
 
@@ -283,19 +270,11 @@ export function tickAboutWireframe(delta) {
       _charMeshes.forEach(m => { m.castShadow = true; });
     }
 
-    // 2. Ghost: collapse the hologram/wire from the full body into a thin
-    //    construction band riding just above the reveal front, so everything
-    //    higher than the front reads as empty/not-yet-built. Ramped in inverse
-    //    band-space (1/bandH) so the retract is perceptually smooth.
-    const invBand = _easeInOut(_clamp01(op / OUTRO_BAND_COLLAPSE)) / OUTRO_BAND_THIN;
-    const bandH   = invBand < 1e-4 ? 999.0 : 1.0 / invBand;
-
+    // 2. Ghost: show only ABOVE the boundary (same uClipY logic as intro)
+    //    uClipY rises from yMin → yMax, clipping ghost from the bottom up.
     setScanPlane(-clipY);
-    setHolo({ clipY, clipYMax: 999.0, opacity: HOLO_BUILD_OP, pulse: 0.0, bandH });
-    // The hologram SHELL collapses into the construction band, but the
-    // wireframe scaffold stays fully visible over the whole character the
-    // entire outro — never clipped to the front, never band-faded.
-    setWire({ opacity: WIRE_MAX_OP, clipY: _yMin - 0.5, bandH: 999.0 });
+    setHolo({ clipY, clipYMax: 999.0, opacity: HOLO_BUILD_OP, pulse: 0.0 });
+    setWire({ opacity: WIRE_MAX_OP, clipY });  // clip (not fade) handles the hide
     // Settle the gentle sway back to forward-facing
     setSway(Math.sin(T_OUTRO_START * 0.45) * 0.12 * (1.0 - eased));
 
@@ -320,9 +299,8 @@ export function tickAboutWireframe(delta) {
       setScanLine('0');
       setBurnStripe({ visible: false });
       setBurnY(_burnUniforms, 999.0);
-      setBurnReconstruct(_burnUniforms, 0.0);
-      setHolo({ clipYMax: 999.0, opacity: 0.0, bandH: 999.0 });
-      setWire({ opacity: 0, bandH: 999.0 });
+      setHolo({ clipYMax: 999.0, opacity: 0.0 });
+      setWire({ opacity: 0 });
       hideGhost();
       setBioOpacity(0);
       _shadowOff = false;
