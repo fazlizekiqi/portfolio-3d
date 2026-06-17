@@ -139,10 +139,11 @@
     max-width: none;
     margin-left: 0;
   }
-  ._exp-role    { font-size: 10px; }
-  ._exp-company { font-size: 9px; }
-  ._exp-stack   { font-size: 8px; }
-  ._exp-block   { gap: 10px; padding: 8px 10px; }
-  ._exp-logo    { width: 36px; height: 36px; }
-  ._exp-tl-svg  { width: 18px; }
+  /* ~10% smaller than the previous mobile sizing — the list felt oversized. */
+  ._exp-role    { font-size: 9px; }
+  ._exp-company { font-size: 8px; }
+  ._exp-stack   { font-size: 7px; }
+  ._exp-block   { gap: 9px; padding: 7px 9px; }
+  ._exp-logo    { width: 32px; height: 32px; }
+  ._exp-tl-svg  { width: 16px; }
 }

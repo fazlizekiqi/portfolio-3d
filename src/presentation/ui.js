@@ -523,6 +523,10 @@ function _startExperienceTimeline() {
       for (let idx = 0; idx < nodeYs.length; idx++) {
         if (activeIdx !== idx && Math.abs(cy - nodeYs[idx]) < 6) {
           activeIdx  = idx;
+          // Snap the dot + glow line exactly onto the node so it parks on the
+          // circle rather than a few pixels past it.
+          dot.setAttribute('cy', nodeYs[idx]);
+          glowLine.setAttribute('y2', nodeYs[idx]);
           setActive(idx);
           pulseNode(nodes[idx]);
           audio.playTimelineNode();

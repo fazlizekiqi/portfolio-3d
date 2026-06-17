@@ -5,12 +5,18 @@
   pointer-events: none;
   font-family: 'Share Tech Mono','Courier New',monospace;
   opacity: 0;
-  transition: opacity 0.5s ease;
+  visibility: hidden;            /* fully inert when not on the CTA slide */
+  transition: opacity 0.5s ease, visibility 0s linear 0.5s;
 }
 /* Wrapper itself stays click-through; only the panel + resume button below opt
    back in via pointer-events:auto, so the decorative radar/particle layers
-   never swallow clicks meant for the contact cards. */
-#_cta2-wrap.cta2-visible { opacity: 1; }
+   never swallow clicks meant for the contact cards. visibility:hidden above
+   keeps those interactive children from being clickable on other slides. */
+#_cta2-wrap.cta2-visible {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.5s ease;
+}
 
 /* ── Resume button ─────────────────────────────────────────────────────── */
 #_cta2-resume {
