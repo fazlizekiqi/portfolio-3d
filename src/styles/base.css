@@ -1,0 +1,10 @@
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    overflow: hidden;
+    background: #020d1a;
+    font-family: 'Share Tech Mono', 'Courier New', monospace;
+}

@@ -1,3 +1,4 @@
+import './styles/base.css';
 import * as THREE from 'three';
 import { renderer, scene, camera } from './scene.js';
 import { loadModel, mixer, modelGroup, setCharacterWhiteWorld } from './character/model.js';
@@ -9,7 +10,7 @@ import { tickWhiteWorld, setWhiteWorldCharacterRef, showWaypointButtons, hideWay
 import { isTornadoCameraActive } from './world/tornado-travel.js';
 import { tickTransition, isWhiteWorld, isTransitioning, getProgress } from './transition.js';
 import { tickFps } from './fps.js';
-import { tickBubbles } from './presentation/bubbles.js';
+import { tickBubbles } from './presentation/slides/bubbles-shared.js';
 import { showLoader, updateLoader, hideLoader } from './loader.js';
 import { initJoystick } from './joystick.js';
 import { CFG } from './config.js';

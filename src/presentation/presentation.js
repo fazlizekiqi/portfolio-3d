@@ -22,7 +22,10 @@ import { trackSlide } from '../analytics.js';
 import { audio } from '../audio.js';
 
 import { SLIDES, slideByName, indexOf, isLastSlide } from './slides.js';
-import { showSkillBubbles, showProjectBubbles, hideBubbles } from './bubbles.js';
+import { getHandler } from './slides/registry.js';
+import { hideBubbles } from './slides/bubbles-shared.js';
+import { hideAboutWireframe } from './slides/about/about-view.js';
+import { hideHowIWorkOverlay } from './slides/mindset/how-i-work-view.js';
 import {
   startCameraMove, glideHome, tickCamera, startOrbitSweep,
   camLookTarget, currentCamLook,
@@ -33,8 +36,6 @@ import {
   showIdleUI, showPresentingUI, showExploreUI, showWhiteWorldUI, showBackBtn,
   resetPresentBtn, setProgressFill, hideCard, showCard,
 } from './ui.js';
-import { showHowIWorkOverlay, hideHowIWorkOverlay, tickHowIWorkOverlay } from './how-i-work-overlay.js';
-import { showAboutWireframe, hideAboutWireframe, tickAboutWireframe } from '../character/about-wireframe.js';
 
 export { initCameraState } from './camera.js';
 export { currentCamLook }  from './camera.js';
@@ -48,7 +49,6 @@ const MINDSET_OVERLAY_DELAY_MS = 1600;
 
 // ── Camera helpers ────────────────────────────────────────────────────────────
 
-/** Resolve { pos, target } from an anchor descriptor + spawn position. */
 function _anchorCam(a) {
   const base = spawnPosition;
   return {
@@ -57,7 +57,6 @@ function _anchorCam(a) {
   };
 }
 
-/** Single source of truth for picking camera pos/target from a slide. */
 function _resolveCamera(slide) {
   const c      = slide.cam;
   const mobile = isMobile() && c.mobile;
@@ -70,7 +69,6 @@ function _resolveCamera(slide) {
   };
 }
 
-/** Re-applies a slide's camera live — pass the slide object from the GUI. */
 export function applySlideCam(slide) {
   const s = slide || _currentSlide;
   if (!s) return;
@@ -85,29 +83,35 @@ let _currentSlide  = SLIDES[0];
 let _slideTimer    = 0;
 let _glideDuration = 1400;
 let _frozen        = false;
-let _ctaTimeout    = null;
-let _cam2Timeout   = null;
-let _overlayTimeout = null;
 let _camMoveDuration = 1400;
 
-// ── CTA slide — just show contact info, no auto-transition ───────────────────
-function _onEnterCta() {
-  _frozen = false;
+// Generic keyed timeout registry — replaces the 3 individual timeout vars.
+const _timeouts = {};
+
+function _scheduleTimeout(key, fn, ms) {
+  if (_timeouts[key]) { clearTimeout(_timeouts[key]); _timeouts[key] = null; }
+  _timeouts[key] = setTimeout(() => { _timeouts[key] = null; fn(); }, ms);
 }
 
-// ── My World slide — camera sweeps behind character, then iris to white world ──
-function _onEnterMyWorld() {
-  showExploreUI();
-  _frozen = false;
-  _ctaTimeout = setTimeout(() => {
-    _ctaTimeout = null;
-    _frozen     = true;
-    hideCard();
-    audio.playIrisWhoosh();
-    audio.stopAmbient(1.0);
-    goToWhiteWorld();
-    _endFromCta();
-  }, MYWORLD_IRIS_DELAY_MS);
+function _clearAllTimeouts() {
+  for (const key of Object.keys(_timeouts)) {
+    if (_timeouts[key]) { clearTimeout(_timeouts[key]); _timeouts[key] = null; }
+  }
+}
+
+// ── Exp-done listener ─────────────────────────────────────────────────────────
+let _expDoneListener = null;
+
+function _clearExpDoneListener() {
+  if (_expDoneListener) {
+    document.removeEventListener('_exp-timeline-done', _expDoneListener);
+    _expDoneListener = null;
+  }
+}
+
+function _setExpDoneListener(fn) {
+  _expDoneListener = () => { _expDoneListener = null; fn(); };
+  document.addEventListener('_exp-timeline-done', _expDoneListener, { once: true });
 }
 
 // ── After iris opens — player takes control ───────────────────────────────────
@@ -129,117 +133,56 @@ function _endFromCta() {
   }, MYWORLD_PLAYER_DELAY_MS);
 }
 
+// ── Default slide hook implementations ───────────────────────────────────────
 
-// ── goToSlide helpers ─────────────────────────────────────────────────────────
+function _defaultCamera(ctx) {
+  startCameraMove(ctx.pos, ctx.target);
 
-function _applyCameraForSlide(slide, name) {
-  const { pos, target } = _resolveCamera(slide);
-  const c = slide.cam;
-
-  if (name === 'skills') {
-    startOrbitSweep(target.clone(), 1300, () => {
-      _camMoveDuration = 1200;
-      startCameraMove(pos, target);
-    });
-    return;
-  }
-
-  startCameraMove(pos, target);
-
-  // Optional phase-2 camera move (e.g. mindset: gentle push-in while cards reveal).
-  // mobilePhase2 is mobile-only; phase2 is desktop-only (skip on mobile if no mobile override).
-  const onMobile = isMobile();
-  const p2 = onMobile && c.mobilePhase2 ? c.mobilePhase2
-           : !onMobile && c.phase2       ? c.phase2
-           : null;
-
-  if (p2 && !(onMobile && !c.mobilePhase2 && c.phase2)) {
-    _cam2Timeout = setTimeout(() => {
-      _cam2Timeout     = null;
-      _camMoveDuration = p2.ms ?? 2000;
+  // Data-driven phase-2 camera move (intro/mindset/cta have one).
+  const c      = ctx.slide.cam;
+  const onMob  = isMobile();
+  const p2     = onMob && c.mobilePhase2 ? c.mobilePhase2
+               : !onMob && c.phase2       ? c.phase2
+               : null;
+  if (p2 && !(onMob && !c.mobilePhase2 && c.phase2)) {
+    ctx.scheduleTimeout('cam2', () => {
+      ctx.setCamMoveDuration(p2.ms ?? 2000);
       startCameraMove(p2.pos, p2.target);
     }, p2.delay ?? 0);
   }
 }
 
-function _applyAnimationForSlide(slide, name) {
+function _defaultAnimation(ctx) {
   cancelIdleLoop();
-
-  if (name === 'experience' && modelGroup) {
-    modelGroup.rotation.y = spawnRotation.y + 0.62;
-  } else if (modelGroup) {
-    modelGroup.rotation.copy(spawnRotation);
-  }
-
-  const { clip, clips, loop } = slide.anim;
-
-  if (name === 'about') {
-    showAboutWireframe(() => {
-      cancelIdleLoop();
-      playClip(clip, 1.0, 1.2);
-    });
-  } else if (name === 'mindset') {
-    hideAboutWireframe();
-    playFeaturedClip('ide-to-walk', 0.45, () => {
-      playClip('walking', 1.0, 0.5);
-    });
-  } else {
-    hideAboutWireframe();
-    if (loop)               playClip(clip);
-    else if (clips?.length > 1) playClipSequence(clips);
-    else                    playFeaturedClip(clip);
-  }
+  if (modelGroup) modelGroup.rotation.copy(spawnRotation);
+  hideAboutWireframe();
+  const { clip, clips, loop } = ctx.slide.anim;
+  if (loop)               playClip(clip);
+  else if (clips?.length > 1) playClipSequence(clips);
+  else                    playFeaturedClip(clip);
 }
 
-// Listener handle so we can remove it if the user navigates away early.
-let _expDoneListener = null;
-
-function _clearExpDoneListener() {
-  if (_expDoneListener) {
-    document.removeEventListener('_exp-timeline-done', _expDoneListener);
-    _expDoneListener = null;
-  }
-}
-
-function _applyUIForSlide(slide, name) {
+function _defaultUI(ctx) {
   hideCard();
-  _clearExpDoneListener();
-
   hideBubbles();
-  if (name === 'skills')   showSkillBubbles();
-  if (name === 'projects') showProjectBubbles();
-
-  if (name === 'mindset') {
-    _overlayTimeout = setTimeout(() => {
-      _overlayTimeout = null;
-      showHowIWorkOverlay(slide.duration - MINDSET_OVERLAY_DELAY_MS);
-    }, MINDSET_OVERLAY_DELAY_MS);
-  } else {
-    hideHowIWorkOverlay();
-  }
-
-  // Experience: slide advances when the timeline finishes one pass (not on timer).
-  if (name === 'experience') {
-    _expDoneListener = () => { _expDoneListener = null; _goToNextSlide(); };
-    document.addEventListener('_exp-timeline-done', _expDoneListener, { once: true });
-  }
-
-  const bodyText = name === 'mindset' ? '' : slide.body;
-  const delay    = name === 'myworld' ? MYWORLD_CARD_DELAY_MS : CARD_DELAY_MS;
-  showCard(slide.title, bodyText, delay, name, slide.subtitle ?? '');
+  hideHowIWorkOverlay();
+  showCard(ctx.slide.title, ctx.slide.body, CARD_DELAY_MS, ctx.name, ctx.slide.subtitle ?? '');
 }
 
-// ── Flow ──────────────────────────────────────────────────────────────────────
+// ── goToSlide ─────────────────────────────────────────────────────────────────
 export function goToSlide(name) {
   const slide = slideByName[name];
   if (!slide) { console.warn(`goToSlide: unknown slide "${name}"`); return; }
 
-  if (_ctaTimeout)     { clearTimeout(_ctaTimeout);     _ctaTimeout     = null; }
-  if (_cam2Timeout)    { clearTimeout(_cam2Timeout);    _cam2Timeout    = null; }
-  if (_overlayTimeout) { clearTimeout(_overlayTimeout); _overlayTimeout = null; hideHowIWorkOverlay(); }
-  _clearExpDoneListener();
+  const handler = getHandler(name);
 
-  _frozen = false;
+  // 1. Clear all pending timeouts + listener
+  _clearAllTimeouts();
+  _clearExpDoneListener();
+  hideHowIWorkOverlay();   // idempotent — covers overlay-scheduled-but-not-shown case
+
+  // 2. Reset state
+  _frozen          = false;
   _currentSlide    = slide;
   _slideTimer      = slide.duration;
   _camMoveDuration = slide.cam.moveMs ?? slide.duration;
@@ -253,12 +196,24 @@ export function goToSlide(name) {
   trackSlide(name);
   audio.playSlideWhoosh();
 
-  _applyCameraForSlide(slide, name);
-  _applyAnimationForSlide(slide, name);
-  _applyUIForSlide(slide, name);
+  // 3. Build ctx — carries presentation-internal state accessors + constants
+  const { pos, target } = _resolveCamera(slide);
+  const ctx = {
+    slide, name, pos, target,
+    setCamMoveDuration: (ms) => { _camMoveDuration = ms; },
+    scheduleTimeout: _scheduleTimeout,
+    setFrozen: (v) => { _frozen = v; },
+    setExpDoneListener: _setExpDoneListener,
+    endFromCta: _endFromCta,
+    goToNext: _goToNextSlide,
+    CARD_DELAY_MS, MYWORLD_CARD_DELAY_MS, MINDSET_OVERLAY_DELAY_MS, MYWORLD_IRIS_DELAY_MS,
+  };
 
-  if (name === 'cta')     _onEnterCta();
-  if (name === 'myworld') _onEnterMyWorld();
+  // 4. Dispatch hooks in exact order: camera → animation → UI → enter
+  (handler.onCamera    ?? _defaultCamera)(ctx);
+  (handler.onAnimation ?? _defaultAnimation)(ctx);
+  (handler.onUI        ?? _defaultUI)(ctx);
+  handler.onEnter?.(ctx);
 }
 
 function _goToNextSlide() {
@@ -287,9 +242,7 @@ export function startPresentation() { _startPresentation(); }
 
 function _endPresentation() {
   _active = false;
-  if (_ctaTimeout)     { clearTimeout(_ctaTimeout);     _ctaTimeout     = null; }
-  if (_cam2Timeout)    { clearTimeout(_cam2Timeout);    _cam2Timeout    = null; }
-  if (_overlayTimeout) { clearTimeout(_overlayTimeout); _overlayTimeout = null; }
+  _clearAllTimeouts();
 
   hideBubbles();
   hideCard();
@@ -313,7 +266,7 @@ function _returnHome() {
   _active          = false;
   controls.enabled = false;
   playerStop();
-  if (_cam2Timeout) { clearTimeout(_cam2Timeout); _cam2Timeout = null; }
+  _clearAllTimeouts();
 
   resetPresentBtn();
   hideCard();
@@ -354,7 +307,6 @@ function _returnHome() {
   });
 }
 
-/** Internal wrapper — records duration for tickPresentation. */
 function _glideHome() {
   const dur    = glideHome();
   _glideDuration = dur;
@@ -414,8 +366,7 @@ export function tickPresentation(delta, elapsed) {
   const { done }   = tickCamera(delta, elapsed, _active ? _currentSlide : null, slideIndex, totalDur, _frozen);
 
   if (_active) {
-    if (_currentSlide.name === 'about')   tickAboutWireframe(delta);
-    if (_currentSlide.name === 'mindset') tickHowIWorkOverlay(delta);
+    getHandler(_currentSlide.name).tick?.(delta, elapsed);
     _slideTimer -= delta * 1000;
     if (_slideTimer <= 0 && !_frozen) _goToNextSlide();
     setProgressFill(1 - _slideTimer / _currentSlide.duration);

@@ -1,0 +1,53 @@
+/* ─── intro terminal boot sequence ──────────────────────────────────────── */
+._term-boot {
+  font-family: 'Share Tech Mono', 'Courier New', monospace;
+  font-size: 12px;
+  letter-spacing: .09em;
+  color: #c8eaf5;
+  text-align: left;
+  line-height: 2.15;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.95);
+}
+._tb-row {
+  opacity: 0;
+  animation: _tb-appear 0.45s ease forwards;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+@keyframes _tb-appear {
+  from { opacity: 0; transform: translateX(-10px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+._tb-prompt { color: #00e5ff; flex-shrink: 0; }
+._tb-key    { color: rgba(0,200,255,0.60); min-width: 88px; }
+._tb-val    { color: #eef6ff; text-shadow: 0 0 10px rgba(0,200,255,0.35); }
+._tb-bar    { color: #00ccff; text-shadow: 0 0 10px rgba(0,200,255,0.80); letter-spacing: .02em; }
+._tb-pct    { color: #00ffaa; font-weight: bold; text-shadow: 0 0 12px rgba(0,255,160,0.65); }
+._tb-blink-cursor {
+  color: #00e5ff;
+  animation: _tb-blink-anim 1s step-end infinite;
+  text-shadow: 0 0 8px rgba(0,230,255,0.9);
+}
+@keyframes _tb-blink-anim { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+/* ─── intro slide — terminal pinned bottom-left so character is free ─────── */
+#_slide-body-panel.slide-intro {
+  justify-content: flex-start;
+  align-items: flex-end;
+  padding-left: 5%;
+}
+#_slide-body-panel.slide-intro #_sBodyInner {
+  text-align: left;
+  max-width: 420px;
+  padding: 0;
+}
+#_slide-body-panel.slide-intro #_sBody {
+  text-align: left;
+  white-space: normal;
+}
+
+@media (max-width: 640px) {
+  ._term-boot { font-size: 10px; }
+  #_slide-body-panel.slide-intro { padding-left: 3%; }
+}

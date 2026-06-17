@@ -1,0 +1,148 @@
+/* ─── experience slide — panel pinned to left third ─────────────────────── */
+#_slide-body-panel.slide-experience {
+  justify-content: flex-start;
+  align-items: center;
+  padding-left: 20%;
+  padding-right: 0;
+  bottom: 0;
+  top: 56px;
+}
+#_slide-body-panel.slide-experience #_sBodyInner {
+  text-align: left;
+  width: 38%;
+  max-width: 440px;
+  margin-left: 0;
+  padding: 0;
+}
+#_slide-body-panel.slide-experience #_sBody {
+  display: block;
+  text-align: left;
+  white-space: normal;
+}
+
+/* ── timeline wrap — svg left, cards right ── */
+._exp-timeline-wrap {
+  display: flex;
+  align-items: stretch;
+  gap: 16px;
+}
+._exp-tl-svg {
+  flex-shrink: 0;
+  width: 26px;
+  overflow: visible;
+}
+
+/* ── cards column ── */
+._exp-cards {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ── job block — card style ── */
+._exp-block {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 4px;
+  background: none;
+  border: none;
+  border-radius: 0;
+  margin-bottom: 0;
+  cursor: pointer;
+  transition: transform 0.35s ease, opacity 0.35s ease;
+  will-change: transform;
+}
+._exp-block:hover {
+  transform: translateX(4px) scale(1.016);
+  animation: none;
+}
+._exp-block.exp-active {
+  transform: translateX(2px) scale(1.020);
+}
+@keyframes _exp-pulse {
+  0%, 100% { box-shadow: 0 0 22px rgba(0, 180, 255, 0.28); }
+  50%       { box-shadow: 0 0 36px rgba(0, 210, 255, 0.48); }
+}
+
+._exp-logo {
+  width: 50px;
+  height: 50px;
+  object-fit: contain;
+  flex-shrink: 0;
+  filter: brightness(1.1) drop-shadow(0 0 6px rgba(0,180,255,0.3));
+  transition: filter 0.3s ease;
+}
+._exp-block:hover ._exp-logo,
+._exp-block.exp-active ._exp-logo {
+  filter: brightness(1.35) drop-shadow(0 0 10px rgba(0,210,255,0.55));
+}
+._exp-logo-placeholder {
+  width: 50px;
+  height: 50px;
+  flex-shrink: 0;
+}
+._exp-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+/* ── Visual hierarchy: Role > Company > Stack ── */
+._exp-role {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  color: #eef6ff;
+  text-shadow: 0 0 16px rgba(0,190,255,0.55);
+  transition: color 0.3s, text-shadow 0.3s;
+}
+._exp-block.exp-active ._exp-role {
+  color: #ffffff;
+  text-shadow: 0 0 22px rgba(0, 210, 255, 0.75), 0 0 6px rgba(255,255,255,0.3);
+}
+._exp-company {
+  font-size: 11px;
+  letter-spacing: .10em;
+  color: #4dcfea;
+  text-shadow: 0 0 8px rgba(0,200,255,0.35);
+  transition: color 0.3s, text-shadow 0.3s;
+}
+._exp-block:hover ._exp-company {
+  color: #00e5ff;
+  text-shadow: 0 0 14px rgba(0,230,255,0.70);
+}
+._exp-block.exp-active ._exp-company {
+  color: #00f0ff;
+  text-shadow: 0 0 16px rgba(0,240,255,0.90);
+}
+._exp-stack {
+  font-size: 9.5px;
+  letter-spacing: .07em;
+  color: rgba(130, 195, 215, 0.55);
+  text-shadow: none;
+  margin-top: 2px;
+  transition: color 0.3s;
+}
+._exp-block.exp-active ._exp-stack {
+  color: rgba(160, 215, 235, 0.72);
+}
+
+@media (max-width: 640px) {
+  #_slide-body-panel.slide-experience {
+    justify-content: flex-start;
+    padding-left: 12px;
+    top: 50px;
+  }
+  #_slide-body-panel.slide-experience #_sBodyInner {
+    width: 58%;
+    max-width: none;
+    margin-left: 0;
+  }
+  ._exp-role    { font-size: 10px; }
+  ._exp-company { font-size: 9px; }
+  ._exp-stack   { font-size: 8px; }
+  ._exp-block   { gap: 10px; padding: 8px 10px; }
+  ._exp-logo    { width: 36px; height: 36px; }
+  ._exp-tl-svg  { width: 18px; }
+}

@@ -1,0 +1,370 @@
+#_hiw-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 21;
+  pointer-events: none;
+  font-family: 'Share Tech Mono','Courier New',monospace;
+}
+
+/* ── Connector SVG layer ───────────────────────────────────────────────────── */
+#_hiw-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+._hiw-conn {
+  fill: none;
+  stroke: rgba(0,180,235,0.45);
+  stroke-width: 1.3;
+  stroke-linejoin: round;
+  transition: stroke 0.4s ease, stroke-width 0.4s ease;
+}
+._hiw-conn.hiw-conn-active {
+  stroke: rgba(0,235,255,0.95);
+  stroke-width: 1.8;
+  filter: drop-shadow(0 0 4px rgba(0,220,255,0.7));
+}
+._hiw-node {
+  fill: rgba(0,225,255,0.9);
+  filter: drop-shadow(0 0 5px rgba(0,210,255,0.8));
+}
+._hiw-packet {
+  fill: #9af6ff;
+  filter: drop-shadow(0 0 6px rgba(0,235,255,0.95));
+}
+._hiw-reticle circle { fill: none; stroke: rgba(0,210,255,0.65); stroke-width: 1; }
+._hiw-reticle line   { stroke: rgba(0,210,255,0.65); stroke-width: 1; }
+._hiw-reticle-spin   { animation: _hiw-reticle-spin 6s linear infinite; }
+@keyframes _hiw-reticle-spin { to { transform: rotate(360deg); } }
+
+/* ── Centre philosophy statement (Core Directive) ──────────────────────────── */
+#_hiw-statement {
+  position: absolute;
+  left: 0; top: 0;
+  transform: translate(-50%, -100%);
+  text-align: center;
+  white-space: normal;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+  padding: 0 26px;
+  width: max-content;
+  max-width: 640px;
+  box-sizing: border-box;
+}
+#_hiw-wrap.hiw-anchor-visible #_hiw-statement { opacity: 1; }
+._hiw-stmt-label {
+  font-size: 10px;
+  letter-spacing: .42em;
+  color: rgba(0,210,255,0.80);
+  margin-bottom: 8px;
+  text-shadow: 0 0 10px rgba(0,210,255,0.5);
+}
+._hiw-stmt-main {
+  font-size: clamp(18px, 2.6vw, 44px);
+  font-weight: 700;
+  letter-spacing: .06em;
+  color: #00d2ff;
+  text-shadow: 0 0 24px rgba(0,210,255,0.6), 0 0 4px rgba(0,230,255,0.8);
+  line-height: 1.15;
+  white-space: normal;
+}
+._hiw-stmt-sub {
+  font-size: clamp(11px, 1vw, 14px);
+  letter-spacing: .04em;
+  color: rgba(255,255,255,0.7);
+  margin-top: 9px;
+}
+/* angular HUD brackets framing the statement */
+._hiw-bracket {
+  position: absolute;
+  top: 50%;
+  width: 16px; height: 64px;
+  transform: translateY(-50%);
+  animation: _hiw-bracket-pulse 2.4s ease-in-out infinite;
+}
+._hiw-bracket-l {
+  left: 0;
+  border-left: 2px solid rgba(0,215,255,0.75);
+  border-top: 2px solid rgba(0,215,255,0.75);
+  border-bottom: 2px solid rgba(0,215,255,0.75);
+  box-shadow: -4px 0 10px rgba(0,200,255,0.25);
+}
+._hiw-bracket-r {
+  right: 0;
+  border-right: 2px solid rgba(0,215,255,0.75);
+  border-top: 2px solid rgba(0,215,255,0.75);
+  border-bottom: 2px solid rgba(0,215,255,0.75);
+  box-shadow: 4px 0 10px rgba(0,200,255,0.25);
+}
+@keyframes _hiw-bracket-pulse { 0%,100% { opacity: .55; } 50% { opacity: 1; } }
+
+/* ── BUILT ON glassmorphism panel ──────────────────────────────────────────── */
+#_hiw-builton {
+  position: absolute;
+  left: 50%; bottom: 96px; top: auto;
+  width: clamp(500px, 46vw, 600px);
+  box-sizing: border-box;
+  padding: 14px 22px 16px;
+  background: rgba(2,9,22,0.82);
+  border: 1px solid rgba(0,200,255,0.34);
+  border-radius: 6px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.6), 0 0 30px rgba(0,160,255,0.12);
+  opacity: 0;
+  transition: opacity 0.6s ease;
+  /* anchored clear above the bottom nav bar — not avatar-tracked, so it never
+     overlaps the Explore/Present buttons regardless of the camera move */
+  animation: _hiw-bo-float 5s ease-in-out infinite;
+}
+#_hiw-wrap.hiw-anchor-visible #_hiw-builton { opacity: 1; }
+@keyframes _hiw-bo-float {
+  0%,100% { transform: translate(-50%, 0); }
+  50%     { transform: translate(-50%, -6px); }
+}
+._hiw-bo-header {
+  text-align: center;
+  font-size: 10px;
+  letter-spacing: .34em;
+  color: rgba(0,210,255,0.85);
+  text-shadow: 0 0 10px rgba(0,210,255,0.5);
+  margin-bottom: 12px;
+}
+._hiw-bo-cols { display: flex; gap: 10px; }
+._hiw-bo-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 5px;
+}
+._hiw-bo-icon {
+  width: 26px; height: 26px;
+  color: #7df3ff;
+  filter: drop-shadow(0 0 6px rgba(0,220,255,0.55));
+}
+._hiw-bo-icon svg { width: 100%; height: 100%; display: block; }
+._hiw-bo-title {
+  font-size: 12px;
+  letter-spacing: .10em;
+  color: #eaf8ff;
+}
+._hiw-bo-meaning {
+  font-size: 8.5px;
+  letter-spacing: .02em;
+  line-height: 1.45;
+  color: rgba(160,210,230,0.70);
+}
+
+/* ── Callout blocks ─────────────────────────────────────────────────────────── */
+._hiw-blk {
+  position: absolute;
+  width: clamp(200px, 22vw, 420px);
+  background: rgba(2,9,24,0.86);
+  border: 1px solid rgba(0,150,200,0.30);
+  border-radius: 4px;
+  padding: clamp(11px, 1.1vw, 20px) clamp(13px, 1.3vw, 24px);
+  box-sizing: border-box;
+  backdrop-filter: blur(7px);
+  opacity: 0;
+  transition:
+    opacity 0.5s ease,
+    transform 0.5s cubic-bezier(0.22,0.61,0.36,1),
+    border-color 0.35s ease,
+    box-shadow 0.35s ease;
+}
+._hiw-blk-tl { top: 92px;    left: 3%;  transform: translate(-30px,-14px) scale(0.94); }
+._hiw-blk-tr { top: 92px;    right: 3%; transform: translate( 30px,-14px) scale(0.94); }
+._hiw-blk-bl { bottom: 70px; left: 3%;  transform: translate(-30px, 14px) scale(0.94); }
+._hiw-blk-br { bottom: 70px; right: 3%; transform: translate( 30px, 14px) scale(0.94); }
+._hiw-blk.hiw-visible { opacity: 1; transform: translate(0,0) scale(1); }
+._hiw-blk.hiw-active {
+  border-color: rgba(0,225,255,0.75);
+  box-shadow:
+    0 8px 26px rgba(0,0,0,0.55),
+    0 0 22px rgba(0,200,255,0.30),
+    inset 0 1px 0 rgba(0,220,255,0.12);
+}
+
+/* Collapsed by default (index + title only); reveals on the active card. */
+._hiw-blk-body {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition:
+    max-height 0.5s cubic-bezier(0.22,0.61,0.36,1),
+    opacity 0.4s ease,
+    margin-top 0.4s ease;
+}
+._hiw-blk.hiw-expanded ._hiw-blk-body {
+  max-height: clamp(220px, 46vh, 560px);
+  opacity: 1;
+  margin-top: 8px;
+}
+
+/* corner brackets */
+._hiw-cb {
+  position: absolute;
+  width: 9px; height: 9px;
+  pointer-events: none;
+}
+._hiw-cb-tl { top: 4px; left: 4px;
+  border-top: 1.5px solid rgba(0,210,255,0.55);
+  border-left: 1.5px solid rgba(0,210,255,0.55); }
+._hiw-cb-br { bottom: 4px; right: 4px;
+  border-bottom: 1.5px solid rgba(0,210,255,0.55);
+  border-right: 1.5px solid rgba(0,210,255,0.55); }
+
+._hiw-blk-hd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+._hiw-blk-idx {
+  font-size: 9px;
+  letter-spacing: .12em;
+  color: rgba(0,200,255,0.85);
+  border: 1px solid rgba(0,180,230,0.45);
+  border-radius: 50%;
+  width: 18px; height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+._hiw-blk-ref {
+  font-size: 8px;
+  letter-spacing: .20em;
+  color: rgba(0,170,210,0.55);
+  flex: 1;
+}
+._hiw-blk-dim {
+  font-size: 7.5px;
+  letter-spacing: .10em;
+  color: rgba(120,180,210,0.40);
+}
+/* card picture banner */
+._hiw-blk-img {
+  position: relative;
+  height: clamp(56px, 5vw, 90px);
+  margin-bottom: 8px;
+  border-radius: 3px;
+  overflow: hidden;
+  border: 1px solid rgba(0,150,200,0.20);
+}
+._hiw-blk-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  filter: brightness(0.5) saturate(0.7) hue-rotate(-8deg);
+  transition: filter 0.4s ease, transform 0.6s ease;
+}
+._hiw-blk.hiw-active ._hiw-blk-img img {
+  filter: brightness(0.95) saturate(1.1);
+  transform: scale(1.04);
+}
+._hiw-blk-img-scan {
+  position: absolute;
+  left: 0; right: 0;
+  height: 2px;
+  top: 0;
+  background: linear-gradient(90deg, transparent, rgba(0,225,255,0.7), transparent);
+  opacity: 0;
+  pointer-events: none;
+}
+._hiw-blk.hiw-active ._hiw-blk-img-scan {
+  opacity: 1;
+  animation: _hiw-img-scan 2s linear infinite;
+}
+@keyframes _hiw-img-scan {
+  0%   { top: 0%; }
+  100% { top: 100%; }
+}
+
+._hiw-blk-title {
+  font-size: clamp(13px, 1.1vw, 18px);
+  font-weight: 700;
+  letter-spacing: .10em;
+  color: #cfeeff;
+  min-height: 15px;
+  transition: color 0.3s ease, text-shadow 0.3s ease;
+}
+._hiw-blk.hiw-active ._hiw-blk-title {
+  color: #00e9ff;
+  text-shadow: 0 0 14px rgba(0,230,255,0.7);
+}
+._hiw-blk-tw-cursor { color: #00e5ff; animation: _hiw-blink 1s step-end infinite; }
+@keyframes _hiw-blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+._hiw-blk-rule {
+  height: 1px;
+  background: linear-gradient(90deg, rgba(0,180,255,0.40), transparent);
+  margin: 6px 0 7px;
+}
+._hiw-blk-cap {
+  font-size: 9px;
+  letter-spacing: .04em;
+  line-height: 1.55;
+  color: rgba(150,205,225,0.70);
+  margin-bottom: 8px;
+}
+._hiw-blk-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+._hiw-blk-tag {
+  font-size: 7px;
+  letter-spacing: .11em;
+  color: rgba(0,175,220,0.55);
+  background: rgba(0,90,160,0.14);
+  border: 1px solid rgba(0,150,200,0.22);
+  border-radius: 2px;
+  padding: 2px 5px;
+  transition: color 0.3s ease, background 0.3s ease, border-color 0.3s ease;
+}
+._hiw-blk.hiw-active ._hiw-blk-tag {
+  color: rgba(0,225,255,0.85);
+  background: rgba(0,120,200,0.22);
+  border-color: rgba(0,200,255,0.42);
+}
+
+/* ── Progress rail ──────────────────────────────────────────────────────────── */
+#_hiw-rail {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: 2px;
+  background: rgba(0,150,200,0.10);
+  z-index: 16;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.5s;
+}
+#_hiw-rail-fill {
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, #004f6e, #00ccff);
+}
+
+/* ── Mobile ─────────────────────────────────────────────────────────────────── */
+@media (max-width: 767px) {
+  /* The 4 principle cards and all their connector decorations are removed on
+     mobile — the slide reduces to the centre statement + BUILT ON panel. */
+  ._hiw-blk,
+  ._hiw-conn, ._hiw-node, ._hiw-packet, ._hiw-reticle, ._hiw-bracket {
+    display: none;
+  }
+  #_hiw-rail { display: none; }
+
+  #_hiw-statement { white-space: normal; padding: 0; width: 64vw; max-width: 64vw; }
+  ._hiw-stmt-main { font-size: 16px; letter-spacing: .04em; }
+  ._hiw-stmt-sub  { display: none; }
+  ._hiw-stmt-label { font-size: 8px; letter-spacing: .3em; margin-bottom: 4px; }
+
+  #_hiw-builton {
+    width: min(92vw, 420px);
+    padding: 10px 12px 12px;
+    bottom: 84px;          /* lifted well clear of the bottom nav bar */
+  }
+  ._hiw-bo-cols { flex-wrap: wrap; }
+  ._hiw-bo-col  { flex: 0 0 46%; }
+  ._hiw-bo-meaning { font-size: 7.5px; }
+}

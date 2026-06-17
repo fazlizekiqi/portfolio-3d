@@ -3,7 +3,7 @@ import { wwLightParams } from './world/blueworld.js';
 import { tornadoCamParams, tornadoParams } from './world/tornado-travel.js';
 import { playerParams } from './character/player.js';
 import { waterParams } from './world/whiteworld.js';
-import { skillLayoutParams, showSkillBubbles } from './presentation/bubbles.js';
+import { skillLayoutParams, showSkillBubbles } from './presentation/slides/skills/skill-bubbles.js';
 import { SLIDES } from './presentation/slides.js';
 import { applySlideCam } from './presentation/presentation.js';
 

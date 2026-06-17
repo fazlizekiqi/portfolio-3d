@@ -4,7 +4,7 @@ import { scene, camera, renderer } from '../scene.js';
 import { LAYER } from '../layers.js';
 import { aimLights } from '../world/blueworld.js';
 import { initExplode, setOnReassembled, setExplodeCartoon } from './explode.js';
-import { initAboutWireframe } from './about-wireframe.js';
+import { initAboutWireframe } from '../presentation/slides/about/about-view.js';
 import { setTornadoCartoon } from '../world/tornado-travel.js';
 import CARTOON_EFFECT from '../shaders/cartoon.frag.glsl?raw';
 import { showIdleUI } from '../presentation/ui.js';
