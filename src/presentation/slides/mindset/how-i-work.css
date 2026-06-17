@@ -89,14 +89,12 @@
   border-left: 2px solid rgba(0,215,255,0.75);
   border-top: 2px solid rgba(0,215,255,0.75);
   border-bottom: 2px solid rgba(0,215,255,0.75);
-  box-shadow: -4px 0 10px rgba(0,200,255,0.25);
 }
 ._hiw-bracket-r {
   right: 0;
   border-right: 2px solid rgba(0,215,255,0.75);
   border-top: 2px solid rgba(0,215,255,0.75);
   border-bottom: 2px solid rgba(0,215,255,0.75);
-  box-shadow: 4px 0 10px rgba(0,200,255,0.25);
 }
 @keyframes _hiw-bracket-pulse { 0%,100% { opacity: .55; } 50% { opacity: 1; } }
 
