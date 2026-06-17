@@ -101,7 +101,11 @@ export function initGhost(charMeshes, modelGroup, yMax) {
       uBandH:   { value: 999.0 },  // 999 = no reconstruction band
     },
     transparent: true, wireframe: true,
-    depthWrite: false, depthTest: true,
+    // depthTest:false → the wireframe scaffold always renders on top and is
+    // never occluded by the solid character as it fills in during the outro.
+    // (During burn/build there's no solid overlapping it, so this only changes
+    // the outro: the electric wireframe now stays visible over the whole body.)
+    depthWrite: false, depthTest: false,
     blending: THREE.AdditiveBlending,
   });
   const wireGrp = new THREE.Group();
