@@ -2,6 +2,8 @@ varying float vBurnWorldY;
 uniform float uBurnY;
 uniform float uBurnEdge;
 uniform float uBurnTime;
+uniform float uReconstruct;  // 0 = dissolve/burn (intro), 1 = reconstruct (outro)
+uniform float uBuildBand;    // world-units over which a revealed slice solidifies
 // value noise hash
 float _bh(vec2 p){p=fract(p*vec2(127.1,311.7));p+=dot(p,p+19.19);return fract(p.x*p.y);}
 // bilinear noise

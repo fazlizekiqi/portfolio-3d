@@ -3,6 +3,7 @@ uniform float uTime;
 uniform float uClipY;      // hide fragments below this world-Y (reveal sweep)
 uniform float uClipYMax;   // outro burn: discard fragments above this + noise (head→feet)
 uniform float uPulse;
+uniform float uBandH;      // reconstruction: soft fade height above uClipY (999 = off)
 varying vec3  vNormal;
 varying vec3  vViewDir;
 varying float vWorldY;
@@ -24,5 +25,10 @@ void main() {
   float scan = 0.5 + 0.5 * sin(vWorldY * 70.0 - uTime * 2.6);
   vec3  col  = mix(vec3(0.0, 0.35, 0.65), vec3(0.25, 0.95, 1.0), fres);
   float a    = (0.05 + fres * 0.75 + scan * 0.04) * uOpacity * (1.0 + uPulse * 0.9);
+  // Reconstruction band: brightest right at the reveal front, fading to
+  // nothing uBandH world-units above it, so the unbuilt region reads empty.
+  if (uBandH < 900.0) {
+    a *= clamp(1.0 - max(0.0, vWorldY - uClipY) / uBandH, 0.0, 1.0);
+  }
   gl_FragColor = vec4(col, a);
 }

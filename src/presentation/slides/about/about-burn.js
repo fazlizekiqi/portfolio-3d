@@ -16,9 +16,11 @@ import BURN_FRAG_DISCARD  from '../../../shaders/about-burn.frag.discard.glsl?ra
 
 export function createBurnUniforms() {
   return {
-    uBurnY:    { value: 999.0 },  // 999 = nothing burned yet
-    uBurnEdge: { value: 0.20  },  // world-units width of burn edge
-    uBurnTime: { value: 0.0   },
+    uBurnY:       { value: 999.0 },  // 999 = nothing burned yet
+    uBurnEdge:    { value: 0.20  },  // world-units width of burn edge
+    uBurnTime:    { value: 0.0   },
+    uReconstruct: { value: 0.0   },  // 0 = dissolve (intro), 1 = reconstruct (outro)
+    uBuildBand:   { value: 0.45  },  // world-units a revealed slice takes to solidify
   };
 }
 
@@ -30,9 +32,11 @@ export function injectBurnIntoMat(mat, uniforms) {
     if (prevOBC) prevOBC(shader);
 
     // 2. Bind uniforms
-    shader.uniforms.uBurnY    = uniforms.uBurnY;
-    shader.uniforms.uBurnEdge = uniforms.uBurnEdge;
-    shader.uniforms.uBurnTime = uniforms.uBurnTime;
+    shader.uniforms.uBurnY       = uniforms.uBurnY;
+    shader.uniforms.uBurnEdge    = uniforms.uBurnEdge;
+    shader.uniforms.uBurnTime    = uniforms.uBurnTime;
+    shader.uniforms.uReconstruct = uniforms.uReconstruct;
+    shader.uniforms.uBuildBand   = uniforms.uBuildBand;
 
     // 3. Vertex: declare varying + compute world-Y after skinning.
     //    We CANNOT use worldpos_vertex because it's gated behind USE_ENVMAP etc.
@@ -64,7 +68,7 @@ export function injectBurnIntoMat(mat, uniforms) {
   };
 
   // Force a unique cache key so THREE.js never reuses an un-injected program
-  mat.customProgramCacheKey = () => 'about_burn_v2';
+  mat.customProgramCacheKey = () => 'about_burn_v3';
   mat.needsUpdate = true;
 }
 
@@ -74,4 +78,8 @@ export function setBurnY(uniformsList, y) {
 
 export function setBurnTime(uniformsList, t) {
   uniformsList.forEach(u => { u.uBurnTime.value = t; });
+}
+
+export function setBurnReconstruct(uniformsList, v) {
+  uniformsList.forEach(u => { u.uReconstruct.value = v; });
 }

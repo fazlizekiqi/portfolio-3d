@@ -74,6 +74,7 @@ export function initGhost(charMeshes, modelGroup, yMax) {
     uClipY:    { value: yMax },
     uClipYMax: { value: 999.0 },  // 999 = no outro clip active
     uPulse:    { value: 0.0 },
+    uBandH:    { value: 999.0 },  // 999 = no reconstruction band (full hologram)
   };
   const holoMat = new THREE.ShaderMaterial({
     vertexShader: _holoVert, fragmentShader: _holoFrag,
@@ -97,6 +98,7 @@ export function initGhost(charMeshes, modelGroup, yMax) {
       uOpacity: { value: 0.0 },
       uTime:    { value: 0.0 },
       uClipY:   { value: 999.0 },  // 999 = everything clipped (invisible at start)
+      uBandH:   { value: 999.0 },  // 999 = no reconstruction band
     },
     transparent: true, wireframe: true,
     depthWrite: false, depthTest: true,
@@ -134,10 +136,12 @@ export function resetGhost(yMax) {
   _dotsUniforms.uOpacity.value = 0.0;
   _wireMat.uniforms.uOpacity.value = 0;
   _wireMat.uniforms.uClipY.value   = 999.0;  // fully hidden until burn starts
+  _wireMat.uniforms.uBandH.value   = 999.0;  // no reconstruction band
   _holoUniforms.uOpacity.value = 0.0;
   _holoUniforms.uClipY.value   = yMax;
   _holoUniforms.uClipYMax.value = 999.0;
   _holoUniforms.uPulse.value   = 0.0;
+  _holoUniforms.uBandH.value   = 999.0;
   _ghostGroup.rotation.y = 0;
   _ghostGroup.visible    = true;
   _burnMesh.visible = false;
@@ -149,17 +153,19 @@ export function setDots(settle, opacity) {
   _dotsUniforms.uOpacity.value = opacity;
 }
 
-export function setHolo({ clipY, clipYMax, opacity, pulse, time }) {
+export function setHolo({ clipY, clipYMax, opacity, pulse, time, bandH }) {
   if (clipY    !== undefined) _holoUniforms.uClipY.value    = clipY;
   if (clipYMax !== undefined) _holoUniforms.uClipYMax.value = clipYMax;
   if (opacity  !== undefined) _holoUniforms.uOpacity.value  = opacity;
   if (pulse    !== undefined) _holoUniforms.uPulse.value    = pulse;
   if (time     !== undefined) _holoUniforms.uTime.value     = time;
+  if (bandH    !== undefined) _holoUniforms.uBandH.value    = bandH;
 }
 
-export function setWire({ clipY, opacity }) {
+export function setWire({ clipY, opacity, bandH }) {
   if (clipY   !== undefined) _wireMat.uniforms.uClipY.value   = clipY;
   if (opacity !== undefined) _wireMat.uniforms.uOpacity.value = opacity;
+  if (bandH   !== undefined) _wireMat.uniforms.uBandH.value   = bandH;
 }
 
 export function setScanPlane(constant) {
