@@ -45,8 +45,8 @@ export function disableHeadLook() {
 export function tickHeadLook(delta) {
   if (!_headBone || (!_enabled && !_lerpingOut)) return;
 
-  const targetYaw   = (_enabled && _mouse.inside) ?  _mouse.x * MAX_YAW   : 0;
-  const targetPitch = (_enabled && _mouse.inside) ? -_mouse.y * MAX_PITCH  : 0;
+  const targetYaw   = (_enabled && _mouse.inside) ? _mouse.x * MAX_YAW   : 0;
+  const targetPitch = (_enabled && _mouse.inside) ? _mouse.y * MAX_PITCH : 0;
 
   const t = Math.min(1, LERP_SPEED * delta);
   _currentYaw   += (targetYaw   - _currentYaw)   * t;
