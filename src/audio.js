@@ -125,13 +125,14 @@ const audio = {
     // sines behind a gentle lowpass, each drifting independently over minutes.
     const droneLP = ctx.createBiquadFilter();
     droneLP.type = 'lowpass';
-    droneLP.frequency.setValueAtTime(200, now);
+    droneLP.frequency.setValueAtTime(280, now);
     droneLP.Q.setValueAtTime(0.5, now);
     droneLP.connect(mainGain);
 
-    [[55,    0.040, 0.009, 0.18],
-     [82.41, 0.065, 0.012, 0.22],
-     [110,   0.055, 0.007, 0.14]].forEach(([freq, level, rate, depth]) => {
+    // 82/110/146 Hz — audible on laptop speakers, felt on headphones.
+    [[82.41, 0.042, 0.009, 0.18],
+     [110,   0.068, 0.012, 0.22],
+     [146.83,0.052, 0.007, 0.14]].forEach(([freq, level, rate, depth]) => {
       const osc = ctx.createOscillator();
       osc.type = 'sine';
       osc.frequency.setValueAtTime(freq, now);
@@ -155,13 +156,13 @@ const audio = {
     windLP.frequency.setValueAtTime(750, now);
 
     const windGain = ctx.createGain();
-    windGain.gain.setValueAtTime(0.004, now);
-    // very slow amplitude breathing (0.025 Hz, ±0.002)
+    windGain.gain.setValueAtTime(0.008, now);
+    // slow amplitude breathing (0.03 Hz, ±0.004)
     const windLfo = ctx.createOscillator();
     windLfo.type = 'sine';
-    windLfo.frequency.setValueAtTime(0.025, now);
+    windLfo.frequency.setValueAtTime(0.03, now);
     const windDepth = ctx.createGain();
-    windDepth.gain.setValueAtTime(0.002, now);
+    windDepth.gain.setValueAtTime(0.004, now);
     windLfo.connect(windDepth);
     windDepth.connect(windGain.gain);
 
@@ -186,11 +187,11 @@ const audio = {
     // Five warm sines (110–440 Hz) with independent amplitude LFOs at different
     // rates. Never a static chord — colour shifts constantly, like the hull's
     // metal resonating faintly under the drone.
-    [[110, 0.010, 0.019, 0.006],
-     [165, 0.013, 0.022, 0.008],
-     [220, 0.015, 0.017, 0.009],
-     [330, 0.008, 0.013, 0.005],
-     [440, 0.005, 0.009, 0.003]].forEach(([freq, base, rate, depth]) => {
+    [[110, 0.020, 0.019, 0.012],
+     [165, 0.025, 0.022, 0.014],
+     [220, 0.030, 0.017, 0.016],
+     [330, 0.016, 0.013, 0.010],
+     [440, 0.010, 0.009, 0.006]].forEach(([freq, base, rate, depth]) => {
       const osc = ctx.createOscillator();
       osc.type = 'sine';
       osc.frequency.setValueAtTime(freq, now);
@@ -240,7 +241,7 @@ const audio = {
    */
   _scheduleCosmicResonance() {
     if (this._aiTimer) clearTimeout(this._aiTimer);
-    const delay = 15000 + Math.random() * 15000;
+    const delay = 8000 + Math.random() * 10000;
     this._aiTimer = setTimeout(() => {
       if (this._droneActive && !this._muted) {
         const bright = this._drone?.brightFilter ?? this._master;
@@ -275,13 +276,13 @@ const audio = {
     const delay = 20000 + Math.random() * 20000;
     this._deepTimer = setTimeout(() => {
       if (this._droneActive && !this._muted) {
-        const freq = 38 + Math.random() * 14;
+        const freq = 55 + Math.random() * 18;  // 55–73 Hz, audible on most speakers
         // primary swell — reactor pressurising
-        this._voice({ type: 'sine', f0: freq, f1: freq, dur: 9.0, peak: 0.004, attack: 2.5,
-                      filter: { type: 'lowpass', freq: 130 } });
+        this._voice({ type: 'sine', f0: freq, f1: freq, dur: 9.0, peak: 0.008, attack: 2.5,
+                      filter: { type: 'lowpass', freq: 180 } });
         // echo — slightly detuned, as if reflecting off the far hull
-        this._voice({ type: 'sine', f0: freq * 0.97, f1: freq * 0.97, dur: 6.5, peak: 0.0025,
-                      attack: 1.8, when: 5.0, filter: { type: 'lowpass', freq: 110 } });
+        this._voice({ type: 'sine', f0: freq * 0.97, f1: freq * 0.97, dur: 6.5, peak: 0.005,
+                      attack: 1.8, when: 5.0, filter: { type: 'lowpass', freq: 160 } });
       }
       if (this._droneActive) this._scheduleOrbitalPulse();
     }, delay);
