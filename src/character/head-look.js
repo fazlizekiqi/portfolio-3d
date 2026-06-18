@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 const MAX_YAW    = 35;   // degrees left/right — comfortable human head turn
-const MAX_PITCH  = 20;   // degrees up/down
+const MAX_PITCH  = 38;   // degrees up/down
 const LERP_SPEED = 4;    // higher = snappier
 
 const DEG2RAD = Math.PI / 180;
