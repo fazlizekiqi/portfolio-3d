@@ -94,6 +94,7 @@ function _layout() {
 
   // Radar: faint concentric circles + crosshair, fixed near the character's area.
   const rcx = w * 0.64, rcy = h * 0.48;
+  const secondRingR = 6 * Math.min(w, h) * 0.04;
   _radar.innerHTML = [3, 6, 9].map(n =>
     `<circle class="_cta2-radar-ring" cx="${rcx}" cy="${rcy}" r="${n * Math.min(w, h) * 0.04}"></circle>`
   ).join('') +
@@ -121,8 +122,8 @@ function _layout() {
       const exitX = cx + t * cosA;
       const exitY = cy + t * sinA;
 
-      // Fixed short length — clearly directional, never reaches the character.
-      const length = Math.min(60, Math.max(24, dist - t - 80));
+      // Stop exactly at the second ring's boundary.
+      const length = Math.max(24, Math.min(260, dist - t - secondRingR));
       const angleDeg = angleRad * 180 / Math.PI;
 
       const { line, dot } = _stubEls[i];
