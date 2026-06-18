@@ -149,7 +149,7 @@ const audio = {
     windLP.frequency.setValueAtTime(2800, now);
 
     const windGain = ctx.createGain();
-    windGain.gain.setValueAtTime(0.014, now);
+    windGain.gain.setValueAtTime(0.010, now);
     // slow amplitude breathing (0.05 Hz, ±0.008)
     const windLfo = ctx.createOscillator();
     windLfo.type = 'sine';
@@ -175,6 +175,31 @@ const audio = {
     windPan.connect(windGain);
     windGain.connect(mainGain);
     nodes.push(windSrc, windLfo, panLfo);
+
+    // ── Layer 3: HARMONIC PAD ─────────────────────────────────────────────────
+    // Four overlapping sines at harmonically related frequencies with independent
+    // amplitude LFOs at different rates — their phase offsets constantly differ,
+    // creating shifting tonal warmth that prevents the "all white noise" feel.
+    [[165, 0.013, 0.022, 0.008],
+     [220, 0.018, 0.017, 0.011],
+     [330, 0.009, 0.013, 0.006],
+     [440, 0.006, 0.009, 0.004]].forEach(([freq, base, rate, depth]) => {
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now);
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(base, now);
+      const lfo = ctx.createOscillator();
+      lfo.type = 'sine';
+      lfo.frequency.setValueAtTime(rate, now);
+      const ld = ctx.createGain();
+      ld.gain.setValueAtTime(depth, now);
+      lfo.connect(ld);
+      ld.connect(g.gain);
+      osc.connect(g);
+      g.connect(mainGain);
+      nodes.push(osc, lfo);
+    });
 
     // ── Layer 5: ENERGY FIELD ─────────────────────────────────────────────────
     // Faint high sine pair through the brightness lowpass — the interface, alive.
@@ -206,11 +231,11 @@ const audio = {
    */
   _scheduleAiEvent() {
     if (this._aiTimer) clearTimeout(this._aiTimer);
-    const delay = 10000 + Math.random() * 10000;
+    const delay = 5000 + Math.random() * 6000;
     this._aiTimer = setTimeout(() => {
       if (this._droneActive && !this._muted) {
         const bright = this._drone?.brightFilter ?? this._master;
-        const pick = Math.floor(Math.random() * 4);
+        const pick = Math.floor(Math.random() * 5);
         if (pick === 0) {
           // soft two-note chime (perfect fifth), slow attack
           this._voice({ type: 'sine', f0: 783.99, f1: 783.99, dur: 3.5, peak: 0.013, attack: 0.9, dest: bright });
@@ -221,9 +246,13 @@ const audio = {
         } else if (pick === 2) {
           // resonance bloom — slight upward glide
           this._voice({ type: 'sine', f0: 560, f1: 600, dur: 5.0, peak: 0.011, attack: 1.6 });
-        } else {
+        } else if (pick === 3) {
           // holographic shimmer — airy filtered noise, no transient
           this._noise({ dur: 1.6, peak: 0.006, attack: 0.5, filter: { type: 'bandpass', freq: 4200, q: 0.6 } });
+        } else {
+          // warm harmonic bloom — two low harmonics bloom together, tonal anchor
+          this._voice({ type: 'sine', f0: 220, f1: 220, dur: 5.5, peak: 0.016, attack: 1.8 });
+          this._voice({ type: 'sine', f0: 330, f1: 330, dur: 5.0, peak: 0.010, attack: 2.0, when: 0.2 });
         }
       }
       if (this._droneActive) this._scheduleAiEvent();
