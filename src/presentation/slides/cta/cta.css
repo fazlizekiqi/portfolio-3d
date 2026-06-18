@@ -68,25 +68,29 @@
   100% { transform: translateY(-90px) translateX(14px); opacity: 0; }
 }
 
-/* ── Leader lines: point from each HUD panel toward the radar's second
-   ring — never all the way to the character. Geometry is computed once in
-   _layout() from real bounding rects; no per-frame work, no animation. ── */
-._cta2-stub-line {
+/* ── Sensor stubs: a short decorative half-line + dot anchored to each HUD
+   panel's left edge, pointing left toward the character area. Pure CSS —
+   no JS geometry, no separate DOM elements. ── */
+._cta2-hud::before,
+._cta2-hud::after {
+  content: '';
   position: absolute;
-  top: 0; left: 0;
-  height: 1px;
-  background: linear-gradient(90deg, rgba(0,210,255,0.60), rgba(0,200,255,0.12));
-  transform-origin: left center;
+  top: 50%;
   pointer-events: none;
 }
-._cta2-stub-dot {
-  position: absolute;
-  top: 0; left: 0;
-  width: 8px; height: 8px;
-  border: 1px solid rgba(0,215,255,0.70);
+._cta2-hud::before {
+  right: 100%;
+  width: 34px;
+  height: 1px;
+  background: linear-gradient(to left, rgba(0,210,255,0.60), rgba(0,200,255,0.08));
+  transform: translateY(-50%);
+}
+._cta2-hud::after {
+  right: calc(100% + 34px);
+  width: 7px; height: 7px;
+  border: 1px solid rgba(0,215,255,0.65);
   border-radius: 50%;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
+  transform: translate(50%, -50%);
 }
 
 /* ── Left command panel ────────────────────────────────────────────────── */
@@ -355,7 +359,7 @@
   }
   ._cta2-card-detail, ._cta2-card-arrow { display: none; }
 
-  ._cta2-hud, #_cta2-radar, #_cta2-particles, ._cta2-stub-line, ._cta2-stub-dot { display: none; }
+  ._cta2-hud, #_cta2-radar, #_cta2-particles { display: none; }
 }
 
 /* very small phones — keep the hub and buttons within the viewport */

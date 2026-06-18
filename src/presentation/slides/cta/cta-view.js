@@ -66,23 +66,12 @@ _panel.id = '_cta2-panel';
 _panel.innerHTML = buildPanelHTML();
 _wrap.appendChild(_panel);
 
-// Floating HUD panels + their leader-line elements (geometry filled in by _layout()).
-const _hudEls  = [];
-const _stubEls = [];
+// Floating HUD panels (sensor stubs are CSS ::before/::after, no JS geometry).
 HUD_PANELS.forEach(p => {
   const el = document.createElement('div');
   el.className = `_cta2-hud _cta2-hud-${p.pos}`;
   el.innerHTML = buildHudPanelHTML(p);
   _wrap.appendChild(el);
-  _hudEls.push(el);
-
-  const line = document.createElement('div');
-  line.className = '_cta2-stub-line';
-  const dot = document.createElement('div');
-  dot.className = '_cta2-stub-dot';
-  _wrap.appendChild(line);
-  _wrap.appendChild(dot);
-  _stubEls.push({ line, dot });
 });
 
 document.body.appendChild(_wrap);
@@ -94,47 +83,11 @@ function _layout() {
 
   // Radar: faint concentric circles + crosshair, fixed near the character's area.
   const rcx = w * 0.64, rcy = h * 0.48;
-  const secondRingR = 6 * Math.min(w, h) * 0.04;
   _radar.innerHTML = [3, 6, 9].map(n =>
     `<circle class="_cta2-radar-ring" cx="${rcx}" cy="${rcy}" r="${n * Math.min(w, h) * 0.04}"></circle>`
   ).join('') +
     `<line class="_cta2-radar-cross" x1="${rcx - 60}" y1="${rcy}" x2="${rcx + 60}" y2="${rcy}"></line>
      <line class="_cta2-radar-cross" x1="${rcx}" y1="${rcy - 60}" x2="${rcx}" y2="${rcy + 60}"></line>`;
-
-  // Leader lines: from each HUD panel's edge, aimed at the radar center,
-  // stopping at the second ring's radius (so they point toward the
-  // character's general area without ever overlapping it).
-  if (window.innerWidth > 767) {
-    _hudEls.forEach((el, i) => {
-      const rect = el.getBoundingClientRect();
-      const cx = rect.left + rect.width / 2;
-      const cy = rect.top + rect.height / 2;
-      const hw = rect.width / 2, hh = rect.height / 2;
-      const dx = rcx - cx, dy = rcy - cy;
-      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-      const angleRad = Math.atan2(dy, dx);
-      const cosA = Math.cos(angleRad), sinA = Math.sin(angleRad);
-
-      // Exit point on the panel's own border, along the ray toward the radar center.
-      const tx = cosA !== 0 ? hw / Math.abs(cosA) : Infinity;
-      const ty = sinA !== 0 ? hh / Math.abs(sinA) : Infinity;
-      const t  = Math.min(tx, ty);
-      const exitX = cx + t * cosA;
-      const exitY = cy + t * sinA;
-
-      const length = Math.max(24, Math.min(260, dist - t - secondRingR));
-      const angleDeg = angleRad * 180 / Math.PI;
-
-      const { line, dot } = _stubEls[i];
-      line.style.left      = `${exitX}px`;
-      line.style.top       = `${exitY}px`;
-      line.style.width     = `${length}px`;
-      line.style.transform = `rotate(${angleDeg}deg)`;
-
-      dot.style.left = `${exitX + length * cosA}px`;
-      dot.style.top  = `${exitY + length * sinA}px`;
-    });
-  }
 }
 
 function _onResize() { if (_showing) _layout(); }
