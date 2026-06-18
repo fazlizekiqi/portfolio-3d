@@ -1,5 +1,6 @@
 import { GUI } from 'dat.gui';
 import { audio } from './audio.js';
+import { camera, controls } from './scene.js';
 import { skeletonDebugParams, applyParams, hideDebugOverlay } from './character/skeleton-debug.js';
 import { wwLightParams } from './world/blueworld.js';
 import { tornadoCamParams, tornadoParams } from './world/tornado-travel.js';
@@ -12,6 +13,53 @@ import { applySlideCam } from './presentation/presentation.js';
 // ── dat.gui panel — starts closed ─────────────────────────────────────────────
 const gui = new GUI({ width: 280, closed: true });
 gui.domElement.style.cssText += 'z-index:200;';
+
+// ── Live camera readout ───────────────────────────────────────────────────────
+// Real-time position / rotation / target of the OrbitControls camera. As you
+// orbit or pan the scene (before entering present/explore mode) these fields
+// update live via dat.GUI's .listen() polling. Rotation is shown in degrees.
+// "Log camera" prints a copy-paste-ready slide-cam block to the console.
+const camRotDeg = { x: 0, y: 0, z: 0 }; // derived each frame from camera.rotation
+const fCam = gui.addFolder('📷 Camera (live)');
+fCam.open();
+
+const fCamPos = fCam.addFolder('Position');
+fCamPos.open();
+fCamPos.add(camera.position, 'x').step(0.01).listen();
+fCamPos.add(camera.position, 'y').step(0.01).listen();
+fCamPos.add(camera.position, 'z').step(0.01).listen();
+
+const fCamRot = fCam.addFolder('Rotation (deg)');
+fCamRot.add(camRotDeg, 'x').step(0.1).listen();
+fCamRot.add(camRotDeg, 'y').step(0.1).listen();
+fCamRot.add(camRotDeg, 'z').step(0.1).listen();
+
+const fCamTgt = fCam.addFolder('Target (orbit)');
+fCamTgt.open();
+fCamTgt.add(controls.target, 'x').step(0.01).listen();
+fCamTgt.add(controls.target, 'y').step(0.01).listen();
+fCamTgt.add(controls.target, 'z').step(0.01).listen();
+
+const RAD2DEG = 180 / Math.PI;
+fCam.add({ logCamera: () => {
+  const p = camera.position, t = controls.target, r = camera.rotation;
+  const f = (n) => Number(n.toFixed(3));
+  console.log(
+    '[Camera] slide-cam block:\n' +
+    `pos:    { x: ${f(p.x)}, y: ${f(p.y)}, z: ${f(p.z)} },\n` +
+    `target: { x: ${f(t.x)}, y: ${f(t.y)}, z: ${f(t.z)} },\n` +
+    `rotation(deg): { x: ${f(r.x * RAD2DEG)}, y: ${f(r.y * RAD2DEG)}, z: ${f(r.z * RAD2DEG)} }`,
+  );
+} }, 'logCamera').name('📋 Log camera');
+
+// Keep the derived degree readout in sync with the live camera rotation.
+function _tickCamReadout() {
+  camRotDeg.x = camera.rotation.x * RAD2DEG;
+  camRotDeg.y = camera.rotation.y * RAD2DEG;
+  camRotDeg.z = camera.rotation.z * RAD2DEG;
+  requestAnimationFrame(_tickCamReadout);
+}
+requestAnimationFrame(_tickCamReadout);
 
 // ── Audio folder — live mixer for the ambient bed + UI/SFX ────────────────────
 // Each layer gets a Volume slider (0…max) and an On/Off toggle so the ambient
