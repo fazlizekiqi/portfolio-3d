@@ -38,30 +38,34 @@ fAudio.add(audio, 'sfxVolume', 0, 2, 0.01).name('UI / SFX vol')
       .onChange(v => audio.setSfxVolume(v));
 
 // ── Skeleton debug folder ─────────────────────────────────────────────────────
-// Toggles + XYZ sliders for eye dots, head ring, and the full SkeletonHelper.
-// Positions are in modelGroup local space (Y=0 = feet, Y≈2 = top of head).
-// Use "Hide all" once everything is positioned to clean up the view.
+// Markers track actual skeleton bones every frame — they follow all animations.
+// Offsets: x=left/right, y=up/down, z=forward — relative to each bone's facing.
+// Adjust offsets until each marker sits on the right spot, then "Hide all".
 const fSkel = gui.addFolder('🦴 Skeleton Debug');
-fSkel.add(skeletonDebugParams, 'showSkeleton').name('Show skeleton').onChange(applyParams);
-fSkel.add(skeletonDebugParams, 'showEyes'    ).name('Show eyes'    ).onChange(applyParams);
-fSkel.add(skeletonDebugParams, 'showHeadRing').name('Show head ring').onChange(applyParams);
+fSkel.add(skeletonDebugParams, 'showJoints').name('Show joints (all bones)').onChange(applyParams);
+fSkel.add(skeletonDebugParams, 'showLines' ).name('Show skeleton lines'    ).onChange(applyParams);
+fSkel.add(skeletonDebugParams, 'jointSize',  0.005, 0.06, 0.001).name('Joint size').onChange(applyParams);
 fSkel.add({ hideDebugOverlay }, 'hideDebugOverlay').name('Hide all');
 
-const fEyeL = fSkel.addFolder('Eye L (cyan)');
-fEyeL.add(skeletonDebugParams.eyeL, 'x', -0.4, 0.4, 0.005).name('X').onChange(applyParams);
-fEyeL.add(skeletonDebugParams.eyeL, 'y', -0.2, 2.2, 0.005).name('Y').onChange(applyParams);
-fEyeL.add(skeletonDebugParams.eyeL, 'z', -0.4, 0.4, 0.005).name('Z').onChange(applyParams);
-
-const fEyeR = fSkel.addFolder('Eye R (cyan)');
-fEyeR.add(skeletonDebugParams.eyeR, 'x', -0.4, 0.4, 0.005).name('X').onChange(applyParams);
-fEyeR.add(skeletonDebugParams.eyeR, 'y', -0.2, 2.2, 0.005).name('Y').onChange(applyParams);
-fEyeR.add(skeletonDebugParams.eyeR, 'z', -0.4, 0.4, 0.005).name('Z').onChange(applyParams);
-
-const fHead = fSkel.addFolder('Head ring (magenta)');
-fHead.add(skeletonDebugParams.head, 'x',      -0.4,  0.4, 0.005).name('X'     ).onChange(applyParams);
-fHead.add(skeletonDebugParams.head, 'y',      -0.2,  2.2, 0.005).name('Y'     ).onChange(applyParams);
-fHead.add(skeletonDebugParams.head, 'z',      -0.4,  0.4, 0.005).name('Z'     ).onChange(applyParams);
-fHead.add(skeletonDebugParams.head, 'radius',  0.05, 0.30, 0.005).name('Radius').onChange(applyParams);
+const SKEL_LANDMARKS = [
+  ['eyeL',  'Eye L (cyan)',     false],
+  ['eyeR',  'Eye R (cyan)',     false],
+  ['head',  'Head ring (pink)', true ],  // has extra radius slider
+  ['chest', 'Chest (yellow)',   false],
+  ['handL', 'Hand L (orange)',  false],
+  ['handR', 'Hand R (orange)',  false],
+  ['footL', 'Foot L (green)',   false],
+  ['footR', 'Foot R (green)',   false],
+];
+for (const [key, label, hasRadius] of SKEL_LANDMARKS) {
+  const f = fSkel.addFolder(label);
+  f.add(skeletonDebugParams[key], 'on'             ).name('Show'  ).onChange(applyParams);
+  f.add(skeletonDebugParams[key], 'x', -0.4, 0.4, 0.005).name('X (←→)').onChange(applyParams);
+  f.add(skeletonDebugParams[key], 'y', -0.4, 0.4, 0.005).name('Y (↑↓)').onChange(applyParams);
+  f.add(skeletonDebugParams[key], 'z', -0.4, 0.4, 0.005).name('Z (fwd)').onChange(applyParams);
+  if (hasRadius)
+    f.add(skeletonDebugParams[key], 'radius', 0.04, 0.30, 0.005).name('Radius').onChange(applyParams);
+}
 
 // ── White-world lighting folder ───────────────────────────────────────────────
 const fWL = gui.addFolder('☀ White World Lighting');

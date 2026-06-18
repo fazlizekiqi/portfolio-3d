@@ -16,7 +16,7 @@ import { initJoystick } from './joystick.js';
 import { CFG } from './config.js';
 import { SLIDES } from './presentation/slides.js';
 import { audio } from './audio.js';
-import { initSkeletonDebug } from './character/skeleton-debug.js';
+import { initSkeletonDebug, tickSkeletonDebug } from './character/skeleton-debug.js';
 import './gui.js';
 
 // ── Initialise blue world objects + lights ────────────────────────────────────
@@ -172,6 +172,7 @@ function _startApp() {
     // 4. Explode + mixer
     tickExplode(delta);
     if (mixer) mixer.update(delta);
+    tickSkeletonDebug(); // must be after mixer.update so bone matrices are current
 
     // 5. Character cartoon effect + lighting
     const wwAmount = 1.0 - getProgress();
