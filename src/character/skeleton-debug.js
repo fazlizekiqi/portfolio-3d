@@ -3,17 +3,17 @@ import * as THREE from 'three';
 // All sliders use world-space units (metres at character scale).
 // Internally, positions are multiplied by _invScale to convert to bone-local space.
 export const skeletonDebugParams = {
-  showJoints: true,
-  showLines:  true,
-  jointSize:  0.035,                                // world radius of each joint sphere
-  eyeL:  { on: true,  x: -0.08, y:  0.14, z:  0.09 },
-  eyeR:  { on: true,  x:  0.08, y:  0.14, z:  0.09 },
-  head:  { on: true,  x:  0.00, y:  0.23, z:  0.00, radius: 0.12 },
-  chest: { on: true,  x:  0.00, y:  0.00, z:  0.09 },
-  handL: { on: true,  x:  0.00, y:  0.00, z:  0.00 },
-  handR: { on: true,  x:  0.00, y:  0.00, z:  0.00 },
-  footL: { on: true,  x:  0.00, y:  0.00, z:  0.00 },
-  footR: { on: true,  x:  0.00, y:  0.00, z:  0.00 },
+  showJoints: false,
+  showLines:  false,
+  jointSize:  0.035,
+  eyeL:  { on: false, x: -0.08, y:  0.14, z:  0.09 },
+  eyeR:  { on: false, x:  0.08, y:  0.14, z:  0.09 },
+  head:  { on: false, x:  0.00, y:  0.23, z:  0.00, radius: 0.12 },
+  chest: { on: false, x:  0.00, y:  0.00, z:  0.09 },
+  handL: { on: false, x:  0.00, y:  0.00, z:  0.00 },
+  handR: { on: false, x:  0.00, y:  0.00, z:  0.00 },
+  footL: { on: false, x:  0.00, y:  0.00, z:  0.00 },
+  footR: { on: false, x:  0.00, y:  0.00, z:  0.00 },
 };
 
 // Head bone rotation override (degrees). Non-zero values layer on top of the
@@ -58,16 +58,6 @@ export function initSkeletonDebug(modelGroup, scene) {
   if (!skinned) { console.warn('[SkeletonDebug] no SkinnedMesh found in modelGroup'); return; }
 
   const sk = skinned.skeleton;
-  console.log('[SkeletonDebug] bone names:', sk.bones.map(b => b.name));
-
-  // Report morph targets so we know if facial expressions are possible.
-  const morphKeys = skinned.morphTargetDictionary
-    ? Object.keys(skinned.morphTargetDictionary)
-    : [];
-  const morphMsg = morphKeys.length
-    ? 'Morph targets found:\n' + morphKeys.join('\n')
-    : 'No morph targets on this mesh — facial expressions need blend shapes added in Blender.';
-  setTimeout(() => alert(morphMsg), 2000);
 
   // The GLB is scaled to ~2 world units by modelGroup.scale.
   // A bone's local 1 unit ≈ 1 / modelGroup.scale.x world units.
