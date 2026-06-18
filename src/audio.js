@@ -17,8 +17,10 @@ const audio = {
   _master: null,       // GainNode → destination
   _drone: null,        // bundle of ambient nodes | null
   _droneActive: false,
-  _aiTimer: null,      // setTimeout id for AI-presence events (Layer 3)
-  _deepTimer: null,    // setTimeout id for deep-space events (Layer 4)
+  _aiTimer: null,      // setTimeout id for the arpeggio shimmer
+  _deepTimer: null,    // setTimeout id for the orbital pulse
+  _chordTimer: null,   // setTimeout id for the chord progression stepper
+  _currentChord: null, // frequencies of the chord currently sounding (for the arp)
   _stepTimer: 0,       // seconds accumulator for footstep rhythm
   _muted: false,
 
@@ -48,36 +50,35 @@ const audio = {
     }
   },
 
-  // ── Ambient bed — observation deck overlooking deep space ────────────────────
+  // ── Ambient bed — Interstellar-style harmonic space ──────────────────────────
 
   /**
-   * startAmbient() — a continuous, evolving space-ambient bed.
-   * 80% space / 20% technology. The visitor sits inside a quiet orbital
-   * observation deck: calm, intelligent, spacious. Nothing demands attention;
-   * everything encourages curiosity. The bed fades into the background after a
-   * minute while still making the experience feel immersive and premium.
-   * No rhythm, no melody, no loop the ear can latch onto.
+   * startAmbient() — a slow, evolving, genuinely *harmonic* space ambient.
    *
-   * Four continuous layers summed into a single mainGain (fades in over 8 s):
+   * The heart is a four-chord hymn (C–Am–F–G) played on organ-like tones and
+   * cycled extremely slowly, so the harmony actually *moves* — yearning,
+   * spacious, cinematic (Interstellar's pipe organ, not a static drone). It's
+   * wrapped in a long cathedral reverb tail for the sense of a vast, near-silent
+   * station, with a sparse high arpeggio shimmering above like distant stars.
    *
-   *   1. STATION HUM    warm bass chord (55 / 82 / 110 Hz) behind a steep lowpass
-   *                     at 200 Hz — the dominant voice; the physical mass of the
-   *                     station. Ultra-slow pitch drift, breathes over minutes.
-   *   2. ATMOSPHERIC    narrow filtered noise (HP 280 → LP 750 Hz) — pressurised
-   *                     air inside the hull. Barely there; prevents dead silence.
-   *   3. HARMONIC       five quiet sines (110–440 Hz) each with its own amplitude
-   *                     LFO at a different rate — the hull's resonance forever
-   *                     shifting colour, never settling into an obvious chord.
-   *   4. GLASS          ultra-faint high sines (1200 / 1800 Hz) through the shared
-   *                     brightness lowpass — the observation window alive with
-   *                     refracted starlight. Only noticed when brightened.
+   * Continuous structure (all → mainGain, fades in over 8 s):
+   *
+   *   ORGAN PAD   Two banks (A/B) each render the current chord as four organ
+   *               voices (fundamental + octave). On each chord change the silent
+   *               bank is retuned and the two banks crossfade over 7 s — no click,
+   *               no glissando, just one chord melting into the next. Held ~16 s
+   *               per chord. A slow swell LFO makes the whole pad breathe.
+   *   BASS ROOT   One sine an octave below the chord's root, gliding legato —
+   *               weight on headphones without muddying small speakers.
+   *   REVERB      A damped stereo feedback delay gives every voice a long, wide
+   *               tail: the cathedral-in-space ambience.
    *
    * Scheduled events:
-   *   Cosmic resonance  15–30 s — a distant tonal event: overtone bloom, spectral
-   *                     shimmer, or spatial harmonic. Rare, unhurried, spacious.
-   *   Orbital pulse     20–40 s — a very low swell (≈40–50 Hz, peak 0.004) then
-   *                     a smaller echo 5 s later: the reactor far below, felt more
-   *                     than heard.
+   *   Arpeggio    11–20 s — the chord tones shimmer upward one octave, sparse and
+   *               soft: the Interstellar twinkle, stars not a clock. Routed through
+   *               the brightness filter (so ambientBrighten() makes it sparkle) and
+   *               into the reverb.
+   *   Orbital pulse 20–40 s — a low reactor swell + echo, felt more than heard.
    */
   startAmbient() {
     if (!this._ctx || this._muted) return;
@@ -94,169 +95,172 @@ const audio = {
     mainGain.gain.linearRampToValueAtTime(1.0, now + 8.0);
     mainGain.connect(this._master);
 
-    // Shared brightness lowpass — glass layer and cosmic shimmer events pass
-    // through it; ambientBrighten() opens it momentarily on interactions.
+    // ── Cathedral reverb — damped stereo feedback delay ───────────────────────
+    // reverbIn feeds two delay lines that cross-feed each other through lowpass
+    // damping (warm tail) and pan hard-ish L/R for width. Loop gain < 1 so it
+    // decays over several seconds — a vast, soft space.
+    const reverbIn = ctx.createGain();
+    const dL = ctx.createDelay(1.0); dL.delayTime.setValueAtTime(0.31, now);
+    const dR = ctx.createDelay(1.0); dR.delayTime.setValueAtTime(0.43, now);
+    const dampL = ctx.createBiquadFilter(); dampL.type = 'lowpass'; dampL.frequency.setValueAtTime(1600, now);
+    const dampR = ctx.createBiquadFilter(); dampR.type = 'lowpass'; dampR.frequency.setValueAtTime(1600, now);
+    const fbL = ctx.createGain(); fbL.gain.setValueAtTime(0.42, now);
+    const fbR = ctx.createGain(); fbR.gain.setValueAtTime(0.42, now);
+    const panL = ctx.createStereoPanner(); panL.pan.setValueAtTime(-0.5, now);
+    const panR = ctx.createStereoPanner(); panR.pan.setValueAtTime(0.5, now);
+    const wet  = ctx.createGain(); wet.gain.setValueAtTime(0.38, now);
+    reverbIn.connect(dL); reverbIn.connect(dR);
+    dL.connect(dampL); dampL.connect(fbL); fbL.connect(dR);
+    dR.connect(dampR); dampR.connect(fbR); fbR.connect(dL);
+    dL.connect(panL); dR.connect(panR);
+    panL.connect(wet); panR.connect(wet); wet.connect(mainGain);
+
+    // Shared brightness lowpass — the arpeggio passes through it (dry to mainGain
+    // and into the reverb); ambientBrighten() opens it momentarily on interactions.
     const brightFilter = ctx.createBiquadFilter();
     brightFilter.type = 'lowpass';
-    brightFilter.frequency.setValueAtTime(1500, now);
+    brightFilter.frequency.setValueAtTime(2600, now);
     brightFilter.connect(mainGain);
+    brightFilter.connect(reverbIn);
 
-    // Helper: osc → gain(level) → destination (mainGain by default)
-    const out = (osc, level, dest = mainGain) => {
+    // ── ORGAN PAD — the harmonic centre ───────────────────────────────────────
+    // A slow Interstellar hymn. Each chord is voiced as four notes; common tones
+    // between chords keep the crossfades smooth (good voice-leading).
+    const CHORDS = [
+      [261.63, 329.63, 392.00, 587.33], // C add9  (C  E  G  D)
+      [220.00, 329.63, 392.00, 493.88], // A m7    (A  E  G  B)
+      [174.61, 261.63, 349.23, 440.00], // F maj   (F  C  F  A)
+      [196.00, 293.66, 392.00, 493.88], // G maj   (G  D  G  B)
+    ];
+    const NOTE_GAIN = [0.060, 0.052, 0.044, 0.032]; // lower notes carry more weight
+
+    // Pad → gentle lowpass → swell (organ breathing) → mainGain, with a send to reverb.
+    const padSwell = ctx.createGain();
+    padSwell.gain.setValueAtTime(0.9, now);
+    padSwell.connect(mainGain);
+    const swellLfo = ctx.createOscillator();
+    swellLfo.type = 'sine';
+    swellLfo.frequency.setValueAtTime(0.04, now);
+    const swellDepth = ctx.createGain();
+    swellDepth.gain.setValueAtTime(0.12, now);
+    swellLfo.connect(swellDepth);
+    swellDepth.connect(padSwell.gain);
+    nodes.push(swellLfo);
+
+    const padFilter = ctx.createBiquadFilter();
+    padFilter.type = 'lowpass';
+    padFilter.frequency.setValueAtTime(3000, now);
+    padFilter.connect(padSwell);
+    const reverbSend = ctx.createGain();
+    reverbSend.gain.setValueAtTime(0.3, now);
+    padFilter.connect(reverbSend);
+    reverbSend.connect(reverbIn);
+
+    // A bank = four organ voices (fundamental + octave each), summed into one
+    // gain we can crossfade. setChord() retunes all eight oscillators at once.
+    const makeBank = () => {
       const g = ctx.createGain();
-      g.gain.setValueAtTime(level, now);
-      osc.connect(g);
-      g.connect(dest);
+      g.gain.setValueAtTime(0, now);
+      g.connect(padFilter);
+      const fund = [], oct = [];
+      for (let i = 0; i < 4; i++) {
+        const o1 = ctx.createOscillator(); o1.type = 'sine';
+        const g1 = ctx.createGain(); g1.gain.setValueAtTime(NOTE_GAIN[i], now);
+        o1.connect(g1); g1.connect(g);
+        const o2 = ctx.createOscillator(); o2.type = 'sine';
+        const g2 = ctx.createGain(); g2.gain.setValueAtTime(NOTE_GAIN[i] * 0.35, now);
+        o2.connect(g2); g2.connect(g);
+        fund.push(o1); oct.push(o2);
+        nodes.push(o1, o2);
+      }
+      const setChord = (freqs) => {
+        const t = ctx.currentTime;
+        for (let i = 0; i < 4; i++) {
+          fund[i].frequency.setValueAtTime(freqs[i], t);
+          oct[i].frequency.setValueAtTime(freqs[i] * 2, t);
+        }
+      };
+      return { gain: g, setChord };
     };
-    // Helper: a slow pitch-drift LFO bound to an oscillator's frequency
-    const drift = (osc, rateHz, depthHz) => {
-      const lfo = ctx.createOscillator();
-      lfo.type = 'sine';
-      lfo.frequency.setValueAtTime(rateHz, now);
-      const dg = ctx.createGain();
-      dg.gain.setValueAtTime(depthHz, now);
-      lfo.connect(dg);
-      dg.connect(osc.frequency);
-      nodes.push(lfo);
-    };
+    const bankA = makeBank();
+    const bankB = makeBank();
 
-    // ── Layer 1: STATION HUM ──────────────────────────────────────────────────
-    // The dominant voice — the physical mass of the station. Three warm bass
-    // sines behind a gentle lowpass, each drifting independently over minutes.
-    const droneLP = ctx.createBiquadFilter();
-    droneLP.type = 'lowpass';
-    droneLP.frequency.setValueAtTime(400, now);
-    droneLP.Q.setValueAtTime(0.5, now);
-    droneLP.connect(mainGain);
+    // Bass root — an octave below the chord's lowest note, gliding legato.
+    const bassOsc = ctx.createOscillator(); bassOsc.type = 'sine';
+    const bassGain = ctx.createGain(); bassGain.gain.setValueAtTime(0.05, now);
+    const bassLP = ctx.createBiquadFilter();
+    bassLP.type = 'lowpass'; bassLP.frequency.setValueAtTime(220, now);
+    bassOsc.connect(bassLP); bassLP.connect(bassGain); bassGain.connect(mainGain);
+    nodes.push(bassOsc);
 
-    // 110/165/220 Hz — audible on iPhone and up; felt on headphones.
-    [[110,   0.038, 0.009, 0.20],
-     [165,   0.055, 0.013, 0.25],
-     [220,   0.042, 0.008, 0.15]].forEach(([freq, level, rate, depth]) => {
-      const osc = ctx.createOscillator();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq, now);
-      out(osc, level, droneLP);
-      drift(osc, rate, depth);
-      nodes.push(osc);
-    });
-
-    // ── Layer 2: BREATH TONE ──────────────────────────────────────────────────
-    // A 300 Hz sine slowly modulated in amplitude and position — the sensation of
-    // air movement without noise. Pure sine tones sound clean on any speaker;
-    // filtered noise sounds harsh on iPhone and small laptop speakers.
-    const breathOsc = ctx.createOscillator();
-    breathOsc.type = 'sine';
-    breathOsc.frequency.setValueAtTime(300, now);
-    const breathGain = ctx.createGain();
-    breathGain.gain.setValueAtTime(0.012, now);
-    const breathLfo = ctx.createOscillator();
-    breathLfo.type = 'sine';
-    breathLfo.frequency.setValueAtTime(0.008, now);
-    const breathDepth = ctx.createGain();
-    breathDepth.gain.setValueAtTime(0.008, now);
-    breathLfo.connect(breathDepth);
-    breathDepth.connect(breathGain.gain);
-    const breathPan = ctx.createStereoPanner();
-    const breathPanLfo = ctx.createOscillator();
-    breathPanLfo.type = 'sine';
-    breathPanLfo.frequency.setValueAtTime(0.018, now);
-    const breathPanDepth = ctx.createGain();
-    breathPanDepth.gain.setValueAtTime(0.35, now);
-    breathPanLfo.connect(breathPanDepth);
-    breathPanDepth.connect(breathPan.pan);
-    breathOsc.connect(breathGain);
-    breathGain.connect(breathPan);
-    breathPan.connect(mainGain);
-    nodes.push(breathOsc, breathLfo, breathPanLfo);
-
-    // ── Layer 3: HARMONIC CHOIR ───────────────────────────────────────────────
-    // Five sines in the 220–660 Hz range — fully audible on iPhone, warm on
-    // everything. Each has its own amplitude LFO at a different rate so the
-    // chord breathes and shifts colour constantly without settling.
-    // This is the primary voice of the bed on all devices.
-    [[220, 0.032, 0.017, 0.018],
-     [330, 0.028, 0.022, 0.015],
-     [440, 0.022, 0.014, 0.012],
-     [550, 0.014, 0.011, 0.008],
-     [660, 0.009, 0.008, 0.005]].forEach(([freq, base, rate, depth]) => {
-      const osc = ctx.createOscillator();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq, now);
-      const g = ctx.createGain();
-      g.gain.setValueAtTime(base, now);
-      const lfo = ctx.createOscillator();
-      lfo.type = 'sine';
-      lfo.frequency.setValueAtTime(rate, now);
-      const ld = ctx.createGain();
-      ld.gain.setValueAtTime(depth, now);
-      lfo.connect(ld);
-      ld.connect(g.gain);
-      osc.connect(g);
-      g.connect(mainGain);
-      nodes.push(osc, lfo);
-    });
-
-    // ── Layer 4: GLASS INTERFACE ──────────────────────────────────────────────
-    // Ultra-faint high sines through the brightness lowpass. Almost imperceptible
-    // at rest; only surface as added sheen when ambientBrighten() opens the filter.
-    [[880,  0.0040, 0.03, 5],
-     [1320, 0.0028, 0.02, 3]].forEach(([freq, level, rate, depth]) => {
-      const osc = ctx.createOscillator();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq, now);
-      out(osc, level, brightFilter);
-      drift(osc, rate, depth);
-      nodes.push(osc);
-    });
+    // First chord — rise in with the bed.
+    bankA.setChord(CHORDS[0]);
+    bankA.gain.linearRampToValueAtTime(1.0, now + 8.0);
+    bassOsc.frequency.setValueAtTime(CHORDS[0][0] * 0.5, now);
+    this._currentChord = CHORDS[0];
 
     nodes.forEach(n => n.start(now));
 
     this._drone = { nodes, mainGain, brightFilter };
     this._droneActive = true;
 
-    // Scheduled atmospheric events — rare, unhurried.
-    this._scheduleCosmicResonance();
+    // ── Chord stepper — crossfade to the next chord every ~16 s ────────────────
+    const XF = 7.0, HOLD = 16000;
+    let chordIdx = 0, active = bankA, idle = bankB;
+    const stepChord = () => {
+      if (!this._droneActive) return;
+      chordIdx = (chordIdx + 1) % CHORDS.length;
+      const chord = CHORDS[chordIdx];
+      const t = this._ctx.currentTime;
+      idle.setChord(chord);
+      active.gain.cancelScheduledValues(t);
+      active.gain.setValueAtTime(active.gain.value, t);
+      active.gain.linearRampToValueAtTime(0, t + XF);
+      idle.gain.cancelScheduledValues(t);
+      idle.gain.setValueAtTime(idle.gain.value, t);
+      idle.gain.linearRampToValueAtTime(1.0, t + XF);
+      bassOsc.frequency.setTargetAtTime(chord[0] * 0.5, t, 1.5);
+      this._currentChord = chord;
+      [active, idle] = [idle, active];
+      this._chordTimer = setTimeout(stepChord, HOLD);
+    };
+    this._chordTimer = setTimeout(stepChord, HOLD);
+
+    // Scheduled events.
+    this._scheduleArpeggio();
     this._scheduleOrbitalPulse();
   },
 
   /**
-   * _scheduleCosmicResonance() — rare atmospheric events every 15–30 s.
-   * A single distant tonal event surfaces from the void: an overtone bloom,
-   * a spectral shimmer through the observation glass, or a spatial harmonic
-   * drifting from another compartment. Always slow, quiet, and spacious —
-   * noticed only subconsciously.
+   * _scheduleArpeggio() — every 11–20 s the current chord shimmers upward: its
+   * four tones one octave up in sequence, plus a final sparkle two octaves up on
+   * the root. Sparse and soft — the Interstellar twinkle, stars not a clock.
+   * Routed through the brightness filter so it sparkles on interactions and
+   * picks up the reverb tail.
    */
-  _scheduleCosmicResonance() {
+  _scheduleArpeggio() {
     if (this._aiTimer) clearTimeout(this._aiTimer);
-    const delay = 8000 + Math.random() * 10000;
+    const delay = 11000 + Math.random() * 9000;
     this._aiTimer = setTimeout(() => {
-      if (this._droneActive && !this._muted) {
+      if (this._droneActive && !this._muted && this._currentChord) {
         const bright = this._drone?.brightFilter ?? this._master;
-        const pick = Math.floor(Math.random() * 3);
-        if (pick === 0) {
-          // distant overtone — blooms slowly from the void
-          const freq = 330 + Math.random() * 220;
-          this._voice({ type: 'sine', f0: freq, f1: freq, dur: 8.0, peak: 0.010, attack: 2.5 });
-        } else if (pick === 1) {
-          // spectral shimmer — a harmonic pair blooms through the brightness filter
-          this._voice({ type: 'sine', f0: 660, f1: 700, dur: 6.0, peak: 0.009, attack: 2.2, dest: bright });
-          this._voice({ type: 'sine', f0: 990, f1: 990, dur: 5.0, peak: 0.006, attack: 2.8, when: 0.3, dest: bright });
-        } else {
-          // spatial harmonic — tonal drift from a distant compartment
-          this._voice({ type: 'sine', f0: 330, f1: 352, dur: 9.0, peak: 0.009, attack: 3.0 });
-        }
+        const chord = this._currentChord;
+        chord.forEach((f, i) => {
+          this._voice({ type: 'sine', f0: f * 2, f1: f * 2, dur: 1.6, peak: 0.012,
+                        attack: 0.02, when: i * 0.42, dest: bright });
+        });
+        this._voice({ type: 'sine', f0: chord[0] * 4, f1: chord[0] * 4, dur: 1.8,
+                      peak: 0.008, attack: 0.03, when: 4 * 0.42, dest: bright });
       }
-      if (this._droneActive) this._scheduleCosmicResonance();
+      if (this._droneActive) this._scheduleArpeggio();
     }, delay);
   },
 
   /**
-   * _scheduleOrbitalPulse() — every 20–40 s a very low resonance swell at
-   * ≈38–52 Hz (peak 0.004): the station reactor somewhere far below, almost
-   * imperceptible. A smaller echo follows 5 s later as if the pressure wave
-   * reflected off the far hull. Felt more than heard; its absence would make
-   * the station feel dead.
+   * _scheduleOrbitalPulse() — every 20–40 s a low resonance swell at ≈110–165 Hz:
+   * the station reactor somewhere far below. A smaller echo follows 5 s later as
+   * if the pressure wave reflected off the far hull. Felt more than heard; its
+   * absence would make the station feel dead.
    */
   _scheduleOrbitalPulse() {
     if (this._deepTimer) clearTimeout(this._deepTimer);
@@ -285,7 +289,7 @@ const audio = {
     if (!this._droneActive || !this._drone || this._muted) return;
     const f = this._drone.brightFilter;
     const now = this._ctx.currentTime;
-    const base = 1500;
+    const base = 2600;
     f.frequency.cancelScheduledValues(now);
     f.frequency.setValueAtTime(f.frequency.value, now);
     f.frequency.linearRampToValueAtTime(base + addHz, now + 0.15);  // brighten fast
@@ -294,8 +298,9 @@ const audio = {
 
   /** stopAmbient(fadeSec) — ramp mainGain to zero then stop all sources. */
   stopAmbient(fadeSec = 2.5) {
-    if (this._aiTimer)   { clearTimeout(this._aiTimer);   this._aiTimer = null; }
-    if (this._deepTimer) { clearTimeout(this._deepTimer); this._deepTimer = null; }
+    if (this._aiTimer)    { clearTimeout(this._aiTimer);    this._aiTimer = null; }
+    if (this._deepTimer)  { clearTimeout(this._deepTimer);  this._deepTimer = null; }
+    if (this._chordTimer) { clearTimeout(this._chordTimer); this._chordTimer = null; }
     if (!this._droneActive || !this._drone) return;
 
     const ctx = this._ctx;
