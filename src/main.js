@@ -17,6 +17,7 @@ import { CFG } from './config.js';
 import { SLIDES } from './presentation/slides.js';
 import { audio } from './audio.js';
 import { initSkeletonDebug, tickSkeletonDebug } from './character/skeleton-debug.js';
+import { initHeadLook, tickHeadLook } from './character/head-look.js';
 import './gui.js';
 
 // ── Initialise blue world objects + lights ────────────────────────────────────
@@ -79,6 +80,7 @@ function _startApp() {
   initCameraState();
   introScene(); // character starts scattered and reassembles into the blue world
   initSkeletonDebug(modelGroup, scene);
+  initHeadLook(modelGroup);
 
   // ── Wire white-world character reference ────────────────────────────────
   setWhiteWorldCharacterRef(
@@ -173,6 +175,7 @@ function _startApp() {
     tickExplode(delta);
     if (mixer) mixer.update(delta);
     tickSkeletonDebug(); // must be after mixer.update so bone matrices are current
+    tickHeadLook(delta); // runs after skeleton-debug so head-look wins when enabled
 
     // 5. Character cartoon effect + lighting
     const wwAmount = 1.0 - getProgress();

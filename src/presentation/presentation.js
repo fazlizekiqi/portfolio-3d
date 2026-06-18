@@ -12,6 +12,7 @@
  */
 
 import { controls } from '../scene.js';
+import { disableHeadLook } from '../character/head-look.js';
 import { playClip, playFeaturedClip, playClipSequence, cancelIdleLoop, playRandomIdleAnim, modelGroup, spawnPosition, spawnRotation } from '../character/model.js';
 import * as THREE from 'three';
 import { goToWhiteWorld, goToBlueWorld, isWhiteWorld } from '../transition.js';
@@ -180,6 +181,7 @@ export function goToSlide(name) {
   _clearAllTimeouts();
   _clearExpDoneListener();
   hideHowIWorkOverlay();   // idempotent — covers overlay-scheduled-but-not-shown case
+  disableHeadLook();       // skills slide re-enables it via its onEnter hook
 
   // 2. Reset state
   _frozen          = false;
