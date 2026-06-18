@@ -378,12 +378,18 @@ export const nextBtn = _mkLb('→', '_lb-arrow');
 nextBtn.style.display = 'none';
 _bar.appendChild(nextBtn);
 
+// A tiny upward chirp on hover invites interaction (no-op until audio resumes).
+[backBtn, exploreBtn, presentBtn, prevBtn, nextBtn].forEach(btn => {
+  btn.addEventListener('pointerenter', () => audio.playHover());
+});
+
 // ── Audio mute toggle (top-right corner) ─────────────────────────────────────
 const _audioBtn = document.createElement('button');
 _audioBtn.id = '_audio-btn';
 _audioBtn.title = 'Toggle sound';
 _audioBtn.textContent = '♪';
 document.body.appendChild(_audioBtn);
+_audioBtn.addEventListener('pointerenter', () => audio.playHover());
 _audioBtn.addEventListener('click', () => {
   audio.resume();
   const muted = audio.toggle();
@@ -622,6 +628,8 @@ export function showCard(title, body, delay = 550, slideName = '', subtitle = ''
   bodyPanel.style.pointerEvents = 'none';
   setTimeout(() => {
     card.style.opacity = '1';
+    audio.playCardOpen();      // HUD panel deploying
+    audio.playTitleShimmer();  // title materialising under the typewriter
     _timerA = _typeWrite(slideTitle, title, 38, () => {
       if (subtitle) slideSubtitle.textContent = subtitle;
       bodyPanel.style.opacity = '1';

@@ -233,6 +233,7 @@ function _startPresentation() {
   _active = true;
   controls.enabled = false;
   playerReleaseControl();
+  audio.playSectionInit();   // OS booting a new module — matches the intro boot UI
   showPresentingUI();
   prevBtn.style.display  = 'none';
   goToSlide('intro');

@@ -17,6 +17,7 @@ import * as THREE from 'three';
 import { camera, renderer } from '../../scene.js';
 import { LAYER } from '../../layers.js';
 import { trackEvent } from '../../analytics.js';
+import { audio } from '../../audio.js';
 
 // ── Entries ───────────────────────────────────────────────────────────────────
 /** @type {Array<object>} */
@@ -182,13 +183,15 @@ function _onUp(event) {
 
   if (entry.isProject && entry.item.url) {
     trackEvent('project_click', entry.item.label);
+    audio.playButtonClick();
     window.open(entry.item.url, '_blank', 'noopener,noreferrer');
     return;
   }
 
-  // Trigger burst pop
+  // Trigger burst pop — a holographic node dissolving into particles
   entry.popping = true;
   entry.popTime = 0;
+  audio.playBubbleBurst();
 }
 
 function _onMove(event) {
@@ -203,6 +206,7 @@ function _onMove(event) {
   if (newHovered !== _hoveredEntry) {
     _hoveredEntry = newHovered;
     if (_hoveredEntry) {
+      audio.playHover();
       document.dispatchEvent(new CustomEvent('proj-card-hover'));
     }
   }

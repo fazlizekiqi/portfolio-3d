@@ -22,6 +22,7 @@
  */
 
 import { HUD_PANELS, buildPanelHTML, buildHudPanelHTML } from './cta.templates.js';
+import { audio } from '../../../audio.js';
 import './cta.css';
 
 const _base = import.meta.env.BASE_URL.replace(/\/$/, '');
@@ -58,12 +59,18 @@ _resumeBtn.id = '_cta2-resume';
 _resumeBtn.href = `${_base}/cv.pdf`;
 _resumeBtn.download = 'Fazli_Zekiqi_CV.pdf';
 _resumeBtn.textContent = '[ RESUME ]';
+_resumeBtn.addEventListener('pointerenter', () => audio.playHover());
+_resumeBtn.addEventListener('click', () => audio.playSuccess());  // mission accomplished
 _wrap.appendChild(_resumeBtn);
 
 // Left command panel
 const _panel = document.createElement('div');
 _panel.id = '_cta2-panel';
 _panel.innerHTML = buildPanelHTML();
+_panel.querySelectorAll('._cta2-card').forEach(card => {
+  card.addEventListener('pointerenter', () => audio.playHover());
+  card.addEventListener('click', () => audio.playButtonClick());
+});
 _wrap.appendChild(_panel);
 
 // Floating HUD panels + their leader-line elements (geometry filled in by _layout()).
