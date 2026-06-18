@@ -48,34 +48,36 @@ const audio = {
     }
   },
 
-  // ── Ambient bed — "lonely orbital station drifting through deep space" ─────────
+  // ── Ambient bed — observation deck overlooking deep space ────────────────────
 
   /**
-   * startAmbient() — a continuous, evolving space-ambient bed. The visitor should
-   * feel they're inside a sophisticated orbital station overlooking deep space,
-   * with an advanced AI quietly operating in the background: calm, curious,
-   * focused — never excited, stressed, or overwhelmed. No rhythm, no melody, no
-   * loop the ear can latch onto.
+   * startAmbient() — a continuous, evolving space-ambient bed.
+   * 80% space / 20% technology. The visitor sits inside a quiet orbital
+   * observation deck: calm, intelligent, spacious. Nothing demands attention;
+   * everything encourages curiosity. The bed fades into the background after a
+   * minute while still making the experience feel immersive and premium.
+   * No rhythm, no melody, no loop the ear can latch onto.
    *
-   * Five layers, all summed into a single mainGain (fades in over 6 s) so the
-   * bed is already present by the time it's consciously noticed:
+   * Four continuous layers summed into a single mainGain (fades in over 8 s):
    *
-   *   1. SPACE DRONE   warm low sine chord (55 / 82 / 110 Hz) under a lowpass,
-   *                    each tone on its own ultra-slow pitch drift — the hum of
-   *                    a massive station, evolving almost imperceptibly.
-   *   2. COSMIC WIND   soft band-limited noise (highpass 600 → lowpass 2800),
-   *                    panned slowly left↔right, amplitude breathing at 0.05 Hz —
-   *                    solar wind passing across the hull. Soft and expensive,
-   *                    no hiss, no harsh top.
-   *   5. ENERGY FIELD  a faint high sine pair (1600 / 2133 Hz) routed through a
-   *                    shared "brightness" lowpass, so the interface feels alive
-   *                    and reactions can momentarily open it (see ambientBrighten).
+   *   1. STATION HUM    warm bass chord (55 / 82 / 110 Hz) behind a steep lowpass
+   *                     at 200 Hz — the dominant voice; the physical mass of the
+   *                     station. Ultra-slow pitch drift, breathes over minutes.
+   *   2. ATMOSPHERIC    narrow filtered noise (HP 280 → LP 750 Hz) — pressurised
+   *                     air inside the hull. Barely there; prevents dead silence.
+   *   3. HARMONIC       five quiet sines (110–440 Hz) each with its own amplitude
+   *                     LFO at a different rate — the hull's resonance forever
+   *                     shifting colour, never settling into an obvious chord.
+   *   4. GLASS          ultra-faint high sines (1200 / 1800 Hz) through the shared
+   *                     brightness lowpass — the observation window alive with
+   *                     refracted starlight. Only noticed when brightened.
    *
-   * Layers 3 (AI presence, 10–20 s) and 4 (deep space, 30–60 s) are scheduled
-   * intelligent/atmospheric events, started at the bottom of this method.
-   *
-   * The brightness lowpass (`brightFilter`) is the seam the dynamic reactions
-   * pull on: opening it for ~1 s adds harmonic sheen, then it settles back.
+   * Scheduled events:
+   *   Cosmic resonance  15–30 s — a distant tonal event: overtone bloom, spectral
+   *                     shimmer, or spatial harmonic. Rare, unhurried, spacious.
+   *   Orbital pulse     20–40 s — a very low swell (≈40–50 Hz, peak 0.004) then
+   *                     a smaller echo 5 s later: the reactor far below, felt more
+   *                     than heard.
    */
   startAmbient() {
     if (!this._ctx || this._muted) return;
@@ -85,17 +87,18 @@ const audio = {
     const now = ctx.currentTime;
     const nodes = [];
 
-    // Single output gain — fades in over 6 s; stopAmbient ramps it back to 0.
+    // Single output gain — fades in over 8 s so the bed is present before
+    // the visitor consciously notices it.
     const mainGain = ctx.createGain();
     mainGain.gain.setValueAtTime(0, now);
-    mainGain.gain.linearRampToValueAtTime(1.0, now + 6.0);
+    mainGain.gain.linearRampToValueAtTime(1.0, now + 8.0);
     mainGain.connect(this._master);
 
-    // Shared brightness lowpass — Layer 5 (and AI shimmers) pass through it so a
-    // reaction can briefly raise its cutoff to add sheen, then return.
+    // Shared brightness lowpass — glass layer and cosmic shimmer events pass
+    // through it; ambientBrighten() opens it momentarily on interactions.
     const brightFilter = ctx.createBiquadFilter();
     brightFilter.type = 'lowpass';
-    brightFilter.frequency.setValueAtTime(1700, now);
+    brightFilter.frequency.setValueAtTime(1500, now);
     brightFilter.connect(mainGain);
 
     // Helper: osc → gain(level) → destination (mainGain by default)
@@ -117,16 +120,18 @@ const audio = {
       nodes.push(lfo);
     };
 
-    // ── Layer 1: SPACE DRONE ──────────────────────────────────────────────────
-    // Warm low chord, all under 300 Hz, behind a lowpass so nothing is harsh.
+    // ── Layer 1: STATION HUM ──────────────────────────────────────────────────
+    // The dominant voice — the physical mass of the station. Three warm bass
+    // sines behind a gentle lowpass, each drifting independently over minutes.
     const droneLP = ctx.createBiquadFilter();
     droneLP.type = 'lowpass';
-    droneLP.frequency.setValueAtTime(280, now);
+    droneLP.frequency.setValueAtTime(200, now);
+    droneLP.Q.setValueAtTime(0.5, now);
     droneLP.connect(mainGain);
 
-    [[55, 0.050, 0.035, 0.4],
-     [82.41, 0.030, 0.040, 0.5],
-     [110, 0.022, 0.030, 0.6]].forEach(([freq, level, rate, depth]) => {
+    [[55,    0.040, 0.009, 0.18],
+     [82.41, 0.065, 0.012, 0.22],
+     [110,   0.055, 0.007, 0.14]].forEach(([freq, level, rate, depth]) => {
       const osc = ctx.createOscillator();
       osc.type = 'sine';
       osc.frequency.setValueAtTime(freq, now);
@@ -135,37 +140,38 @@ const audio = {
       nodes.push(osc);
     });
 
-    // ── Layer 2: COSMIC WIND ──────────────────────────────────────────────────
-    // Band-limited noise, slowly panned, breathing in amplitude. Soft, distant.
+    // ── Layer 2: ATMOSPHERIC AIR ──────────────────────────────────────────────
+    // Narrow-band noise — pressurised air inside the hull. Barely audible;
+    // prevents the silence feeling dead without adding noise-floor character.
     const windSrc = ctx.createBufferSource();
     windSrc.buffer = this._makeNoiseBuffer(5.0);
     windSrc.loop = true;
 
     const windHP = ctx.createBiquadFilter();
     windHP.type = 'highpass';
-    windHP.frequency.setValueAtTime(600, now);
+    windHP.frequency.setValueAtTime(280, now);
     const windLP = ctx.createBiquadFilter();
     windLP.type = 'lowpass';
-    windLP.frequency.setValueAtTime(2800, now);
+    windLP.frequency.setValueAtTime(750, now);
 
     const windGain = ctx.createGain();
-    windGain.gain.setValueAtTime(0.006, now);
-    // slow amplitude breathing (0.05 Hz, ±0.008)
+    windGain.gain.setValueAtTime(0.004, now);
+    // very slow amplitude breathing (0.025 Hz, ±0.002)
     const windLfo = ctx.createOscillator();
     windLfo.type = 'sine';
-    windLfo.frequency.setValueAtTime(0.05, now);
+    windLfo.frequency.setValueAtTime(0.025, now);
     const windDepth = ctx.createGain();
-    windDepth.gain.setValueAtTime(0.004, now);
+    windDepth.gain.setValueAtTime(0.002, now);
     windLfo.connect(windDepth);
     windDepth.connect(windGain.gain);
 
     const windPan = ctx.createStereoPanner();
-    // slow stereo drift (0.03 Hz, ±0.7)
+    // very slow stereo drift (0.012 Hz, ±0.45)
     const panLfo = ctx.createOscillator();
     panLfo.type = 'sine';
-    panLfo.frequency.setValueAtTime(0.03, now);
+    panLfo.frequency.setValueAtTime(0.012, now);
     const panDepth = ctx.createGain();
-    panDepth.gain.setValueAtTime(0.7, now);
+    panDepth.gain.setValueAtTime(0.45, now);
     panLfo.connect(panDepth);
     panDepth.connect(windPan.pan);
 
@@ -176,17 +182,15 @@ const audio = {
     windGain.connect(mainGain);
     nodes.push(windSrc, windLfo, panLfo);
 
-    // ── Layer 3: HARMONIC PAD ─────────────────────────────────────────────────
-    // Overlapping sines at harmonically related frequencies (an A-minor-ish chord:
-    // root/fifth/octave/etc.) with independent amplitude LFOs at different rates —
-    // their phase offsets constantly differ, so the chord forever shifts colour.
-    // This is now the dominant voice of the bed, carrying it well above the wind.
-    [[110, 0.022, 0.019, 0.012],
-     [165, 0.026, 0.022, 0.015],
-     [220, 0.034, 0.017, 0.020],
-     [275, 0.020, 0.015, 0.012],
-     [330, 0.020, 0.013, 0.012],
-     [440, 0.013, 0.009, 0.008]].forEach(([freq, base, rate, depth]) => {
+    // ── Layer 3: HARMONIC SHIMMER ─────────────────────────────────────────────
+    // Five warm sines (110–440 Hz) with independent amplitude LFOs at different
+    // rates. Never a static chord — colour shifts constantly, like the hull's
+    // metal resonating faintly under the drone.
+    [[110, 0.010, 0.019, 0.006],
+     [165, 0.013, 0.022, 0.008],
+     [220, 0.015, 0.017, 0.009],
+     [330, 0.008, 0.013, 0.005],
+     [440, 0.005, 0.009, 0.003]].forEach(([freq, base, rate, depth]) => {
       const osc = ctx.createOscillator();
       osc.type = 'sine';
       osc.frequency.setValueAtTime(freq, now);
@@ -204,10 +208,11 @@ const audio = {
       nodes.push(osc, lfo);
     });
 
-    // ── Layer 5: ENERGY FIELD ─────────────────────────────────────────────────
-    // Faint high sine pair through the brightness lowpass — the interface, alive.
-    [[1600, 0.0045, 0.04, 9],
-     [2133, 0.0030, 0.03, 7]].forEach(([freq, level, rate, depth]) => {
+    // ── Layer 4: GLASS INTERFACE ──────────────────────────────────────────────
+    // Ultra-faint high sines through the brightness lowpass. Almost imperceptible
+    // at rest; only surface as added sheen when ambientBrighten() opens the filter.
+    [[1200, 0.0022, 0.03, 4],
+     [1800, 0.0015, 0.02, 3]].forEach(([freq, level, rate, depth]) => {
       const osc = ctx.createOscillator();
       osc.type = 'sine';
       osc.frequency.setValueAtTime(freq, now);
@@ -221,73 +226,64 @@ const audio = {
     this._drone = { nodes, mainGain, brightFilter };
     this._droneActive = true;
 
-    // Layers 3 & 4 — intelligent + atmospheric events.
-    this._scheduleAiEvent();
-    this._scheduleDeepEvent();
+    // Scheduled atmospheric events — rare, unhurried.
+    this._scheduleCosmicResonance();
+    this._scheduleOrbitalPulse();
   },
 
   /**
-   * _scheduleAiEvent() — Layer 3 "AI core". Every 10–20 s a subtle electronic
-   * event surfaces: a soft chime, a distant harmonic pulse, a resonance bloom or
-   * a holographic shimmer — an advanced AI quietly processing. Randomised so it
-   * never feels predictable or repetitive, and always soft and slow-blooming.
+   * _scheduleCosmicResonance() — rare atmospheric events every 15–30 s.
+   * A single distant tonal event surfaces from the void: an overtone bloom,
+   * a spectral shimmer through the observation glass, or a spatial harmonic
+   * drifting from another compartment. Always slow, quiet, and spacious —
+   * noticed only subconsciously.
    */
-  _scheduleAiEvent() {
+  _scheduleCosmicResonance() {
     if (this._aiTimer) clearTimeout(this._aiTimer);
-    const delay = 5000 + Math.random() * 6000;
+    const delay = 15000 + Math.random() * 15000;
     this._aiTimer = setTimeout(() => {
       if (this._droneActive && !this._muted) {
         const bright = this._drone?.brightFilter ?? this._master;
-        const pick = Math.floor(Math.random() * 5);
+        const pick = Math.floor(Math.random() * 3);
         if (pick === 0) {
-          // soft two-note chime (perfect fifth), slow attack
-          this._voice({ type: 'sine', f0: 783.99, f1: 783.99, dur: 3.5, peak: 0.013, attack: 0.9, dest: bright });
-          this._voice({ type: 'sine', f0: 1174.66, f1: 1174.66, dur: 3.0, peak: 0.008, attack: 1.1, when: 0.25, dest: bright });
+          // distant overtone — a single tone blooms slowly from the void
+          const freq = 330 + Math.random() * 220;
+          this._voice({ type: 'sine', f0: freq, f1: freq, dur: 8.0, peak: 0.008, attack: 2.5 });
         } else if (pick === 1) {
-          // distant harmonic pulse
-          this._voice({ type: 'sine', f0: 440, f1: 440, dur: 4.0, peak: 0.012, attack: 1.2 });
-        } else if (pick === 2) {
-          // resonance bloom — slight upward glide
-          this._voice({ type: 'sine', f0: 560, f1: 600, dur: 5.0, peak: 0.011, attack: 1.6 });
-        } else if (pick === 3) {
-          // holographic shimmer — airy filtered noise, no transient
-          this._noise({ dur: 1.6, peak: 0.006, attack: 0.5, filter: { type: 'bandpass', freq: 4200, q: 0.6 } });
+          // spectral shimmer — light refracting through the observation glass
+          this._voice({ type: 'sine', f0: 880, f1: 920, dur: 5.0, peak: 0.006, attack: 2.0, dest: bright });
+          this._noise({ dur: 1.2, peak: 0.004, attack: 0.8, when: 0.5,
+                        filter: { type: 'bandpass', freq: 5000, q: 0.5 } });
         } else {
-          // warm harmonic bloom — two low harmonics bloom together, tonal anchor
-          this._voice({ type: 'sine', f0: 220, f1: 220, dur: 5.5, peak: 0.016, attack: 1.8 });
-          this._voice({ type: 'sine', f0: 330, f1: 330, dur: 5.0, peak: 0.010, attack: 2.0, when: 0.2 });
+          // spatial harmonic — tonal drift, as if resonating in a distant compartment
+          this._voice({ type: 'sine', f0: 185, f1: 200, dur: 9.0, peak: 0.007, attack: 3.0 });
         }
       }
-      if (this._droneActive) this._scheduleAiEvent();
+      if (this._droneActive) this._scheduleCosmicResonance();
     }, delay);
   },
 
   /**
-   * _scheduleDeepEvent() — Layer 4 "cosmic distance". Every 30–60 s a slow, deep
-   * atmospheric swell — something enormous beyond the station. The visitor should
-   * not consciously notice it; they should only feel added depth. Long fades,
-   * very low, low-frequency.
+   * _scheduleOrbitalPulse() — every 20–40 s a very low resonance swell at
+   * ≈38–52 Hz (peak 0.004): the station reactor somewhere far below, almost
+   * imperceptible. A smaller echo follows 5 s later as if the pressure wave
+   * reflected off the far hull. Felt more than heard; its absence would make
+   * the station feel dead.
    */
-  _scheduleDeepEvent() {
+  _scheduleOrbitalPulse() {
     if (this._deepTimer) clearTimeout(this._deepTimer);
-    const delay = 30000 + Math.random() * 30000;
+    const delay = 20000 + Math.random() * 20000;
     this._deepTimer = setTimeout(() => {
       if (this._droneActive && !this._muted) {
-        const pick = Math.floor(Math.random() * 3);
-        if (pick === 0) {
-          // low-frequency swell — felt more than heard
-          this._voice({ type: 'sine', f0: 46, f1: 58, dur: 12.0, peak: 0.030, attack: 4.0 });
-        } else if (pick === 1) {
-          // distant tonal bloom
-          this._voice({ type: 'sine', f0: 110, f1: 110, dur: 10.0, peak: 0.016, attack: 3.0,
-                        filter: { type: 'lowpass', freq: 400 } });
-        } else {
-          // far resonance
-          this._voice({ type: 'sine', f0: 165, f1: 155, dur: 9.0, peak: 0.012, attack: 3.0,
-                        filter: { type: 'lowpass', freq: 600 } });
-        }
+        const freq = 38 + Math.random() * 14;
+        // primary swell — reactor pressurising
+        this._voice({ type: 'sine', f0: freq, f1: freq, dur: 9.0, peak: 0.004, attack: 2.5,
+                      filter: { type: 'lowpass', freq: 130 } });
+        // echo — slightly detuned, as if reflecting off the far hull
+        this._voice({ type: 'sine', f0: freq * 0.97, f1: freq * 0.97, dur: 6.5, peak: 0.0025,
+                      attack: 1.8, when: 5.0, filter: { type: 'lowpass', freq: 110 } });
       }
-      if (this._droneActive) this._scheduleDeepEvent();
+      if (this._droneActive) this._scheduleOrbitalPulse();
     }, delay);
   },
 
@@ -301,7 +297,7 @@ const audio = {
     if (!this._droneActive || !this._drone || this._muted) return;
     const f = this._drone.brightFilter;
     const now = this._ctx.currentTime;
-    const base = 1700;
+    const base = 1500;
     f.frequency.cancelScheduledValues(now);
     f.frequency.setValueAtTime(f.frequency.value, now);
     f.frequency.linearRampToValueAtTime(base + addHz, now + 0.15);  // brighten fast
