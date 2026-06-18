@@ -60,6 +60,15 @@ export function initSkeletonDebug(modelGroup, scene) {
   const sk = skinned.skeleton;
   console.log('[SkeletonDebug] bone names:', sk.bones.map(b => b.name));
 
+  // Report morph targets so we know if facial expressions are possible.
+  const morphKeys = skinned.morphTargetDictionary
+    ? Object.keys(skinned.morphTargetDictionary)
+    : [];
+  const morphMsg = morphKeys.length
+    ? 'Morph targets found:\n' + morphKeys.join('\n')
+    : 'No morph targets on this mesh — facial expressions need blend shapes added in Blender.';
+  setTimeout(() => alert(morphMsg), 2000);
+
   // The GLB is scaled to ~2 world units by modelGroup.scale.
   // A bone's local 1 unit ≈ 1 / modelGroup.scale.x world units.
   _invScale = 1 / Math.max(modelGroup.scale.x, 1e-4);
