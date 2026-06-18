@@ -630,6 +630,7 @@ export function showCard(title, body, delay = 550, slideName = '', subtitle = ''
     card.style.opacity = '1';
     audio.playCardOpen();      // HUD panel deploying
     audio.playTitleShimmer();  // title materialising under the typewriter
+    audio.ambientBrighten(1600, 0.8);  // brief shimmer enters the ambient mix
     _timerA = _typeWrite(slideTitle, title, 38, () => {
       if (subtitle) slideSubtitle.textContent = subtitle;
       bodyPanel.style.opacity = '1';
