@@ -14,15 +14,24 @@
 const audio = {
   // ── Internal state ──────────────────────────────────────────────────────────
   _ctx: null,          // AudioContext (lazy)
-  _master: null,       // GainNode → destination
+  _master: null,       // GainNode → destination (global; mute rides this)
+  _sfx: null,          // SFX/UI bus gain → master (separate from ambient bed)
   _drone: null,        // bundle of ambient nodes | null
   _droneActive: false,
+  _layerGains: null,   // { layerName: GainNode } live ambient layer gains | null
   _aiTimer: null,      // setTimeout id for the arpeggio shimmer
   _deepTimer: null,    // setTimeout id for the orbital pulse
   _chordTimer: null,   // setTimeout id for the chord progression stepper
   _currentChord: null, // frequencies of the chord currently sounding (for the arp)
   _stepTimer: 0,       // seconds accumulator for footstep rhythm
   _muted: false,
+  sfxVolume: 1.0,      // UI/SFX bus multiplier (dat.GUI)
+
+  // Ambient mixer — per-layer volume + on/off, all live-editable from dat.GUI.
+  // `master` is the whole bed's level; the rest are per-layer multipliers where
+  // 1.0 ≈ the level each layer was designed at.
+  ambientMix: { master: 0.22, pad: 1.0, bass: 1.0, reverb: 1.0, arp: 1.0, pulse: 1.0, harmonica: 0.9, choir: 0.7 },
+  ambientOn:  { master: true, pad: true, bass: true, reverb: true, arp: true, pulse: true, harmonica: true, choir: true },
 
   // ── Lifecycle ───────────────────────────────────────────────────────────────
 
@@ -43,6 +52,12 @@ const audio = {
       this._master = this._ctx.createGain();
       this._master.gain.setValueAtTime(this._muted ? 0 : 0.42, this._ctx.currentTime);
       this._master.connect(this._ctx.destination);
+
+      // SFX/UI bus — all interaction cues route here so their volume can be
+      // tuned independently of the ambient bed (dat.GUI → audio.sfxVolume).
+      this._sfx = this._ctx.createGain();
+      this._sfx.gain.setValueAtTime(this.sfxVolume, this._ctx.currentTime);
+      this._sfx.connect(this._master);
     }
 
     if (this._ctx.state === 'suspended') {
@@ -88,17 +103,19 @@ const audio = {
     const now = ctx.currentTime;
     const nodes = [];
 
-    // Single output gain — fades in over 8 s so the bed is present before
-    // the visitor consciously notices it.
+    // Ambient master gain — fades in over 8 s; level/on-off live-editable via
+    // dat.GUI (audio.ambientMix.master / audio.ambientOn.master).
+    const initLevel = (name) => (this.ambientOn[name] ? this.ambientMix[name] : 0);
     const mainGain = ctx.createGain();
     mainGain.gain.setValueAtTime(0, now);
-    mainGain.gain.linearRampToValueAtTime(0.28, now + 8.0);
+    mainGain.gain.linearRampToValueAtTime(initLevel('master'), now + 8.0);
     mainGain.connect(this._master);
 
     // ── Cathedral reverb — damped stereo feedback delay ───────────────────────
     // reverbIn feeds two delay lines that cross-feed each other through lowpass
     // damping (warm tail) and pan hard-ish L/R for width. Loop gain < 1 so it
-    // decays over several seconds — a vast, soft space.
+    // decays over several seconds — a vast, soft space. reverbOut is the wet
+    // level knob exposed to the GUI.
     const reverbIn = ctx.createGain();
     const dL = ctx.createDelay(1.0); dL.delayTime.setValueAtTime(0.31, now);
     const dR = ctx.createDelay(1.0); dR.delayTime.setValueAtTime(0.43, now);
@@ -109,11 +126,12 @@ const audio = {
     const panL = ctx.createStereoPanner(); panL.pan.setValueAtTime(-0.5, now);
     const panR = ctx.createStereoPanner(); panR.pan.setValueAtTime(0.5, now);
     const wet  = ctx.createGain(); wet.gain.setValueAtTime(0.38, now);
+    const reverbOut = ctx.createGain(); reverbOut.gain.setValueAtTime(initLevel('reverb'), now);
     reverbIn.connect(dL); reverbIn.connect(dR);
     dL.connect(dampL); dampL.connect(fbL); fbL.connect(dR);
     dR.connect(dampR); dampR.connect(fbR); fbR.connect(dL);
     dL.connect(panL); dR.connect(panR);
-    panL.connect(wet); panR.connect(wet); wet.connect(mainGain);
+    panL.connect(wet); panR.connect(wet); wet.connect(reverbOut); reverbOut.connect(mainGain);
 
     // Shared brightness lowpass — the arpeggio passes through it (dry to mainGain
     // and into the reverb); ambientBrighten() opens it momentarily on interactions.
@@ -122,6 +140,11 @@ const audio = {
     brightFilter.frequency.setValueAtTime(2600, now);
     brightFilter.connect(mainGain);
     brightFilter.connect(reverbIn);
+    // Arpeggio bus (level knob) → brightness filter; orbital-pulse bus → mainGain.
+    const arpGain = ctx.createGain(); arpGain.gain.setValueAtTime(initLevel('arp'), now);
+    arpGain.connect(brightFilter);
+    const pulseGain = ctx.createGain(); pulseGain.gain.setValueAtTime(initLevel('pulse'), now);
+    pulseGain.connect(mainGain);
 
     // ── ORGAN PAD — the harmonic centre ───────────────────────────────────────
     // A slow Interstellar hymn. Each chord is voiced as four notes; common tones
@@ -134,10 +157,10 @@ const audio = {
     ];
     const NOTE_GAIN = [0.060, 0.052, 0.044, 0.032]; // lower notes carry more weight
 
-    // Pad → gentle lowpass → swell (organ breathing) → mainGain, with a send to reverb.
+    // Pad → lowpass → swell (organ breathing) → padOut (level knob) → mainGain,
+    // with a send to reverb that scales with the pad's own level.
     const padSwell = ctx.createGain();
     padSwell.gain.setValueAtTime(0.9, now);
-    padSwell.connect(mainGain);
     const swellLfo = ctx.createOscillator();
     swellLfo.type = 'sine';
     swellLfo.frequency.setValueAtTime(0.04, now);
@@ -151,9 +174,11 @@ const audio = {
     padFilter.type = 'lowpass';
     padFilter.frequency.setValueAtTime(3000, now);
     padFilter.connect(padSwell);
+    const padOut = ctx.createGain(); padOut.gain.setValueAtTime(initLevel('pad'), now);
+    padSwell.connect(padOut); padOut.connect(mainGain);
     const reverbSend = ctx.createGain();
     reverbSend.gain.setValueAtTime(0.3, now);
-    padFilter.connect(reverbSend);
+    padOut.connect(reverbSend);
     reverbSend.connect(reverbIn);
 
     // A bank = four organ voices (fundamental + octave each), summed into one
@@ -190,8 +215,62 @@ const audio = {
     const bassGain = ctx.createGain(); bassGain.gain.setValueAtTime(0.05, now);
     const bassLP = ctx.createBiquadFilter();
     bassLP.type = 'lowpass'; bassLP.frequency.setValueAtTime(220, now);
-    bassOsc.connect(bassLP); bassLP.connect(bassGain); bassGain.connect(mainGain);
+    const bassOut = ctx.createGain(); bassOut.gain.setValueAtTime(initLevel('bass'), now);
+    bassOsc.connect(bassLP); bassLP.connect(bassGain); bassGain.connect(bassOut); bassOut.connect(mainGain);
     nodes.push(bassOsc);
+
+    // ── SPACE HARMONICA — soft reedy double-stop, vibrato, drenched in reverb ──
+    // Two sawtooth voices (chord root + fifth, an octave up) through a bandpass
+    // formant give the breathy free-reed honk; a 5 Hz vibrato and a very slow
+    // tremolo keep it chilled and human. Routed to both mainGain and the reverb.
+    const harmGain = ctx.createGain(); harmGain.gain.setValueAtTime(initLevel('harmonica'), now);
+    harmGain.connect(mainGain); harmGain.connect(reverbIn);
+    const harmTrem = ctx.createGain(); harmTrem.gain.setValueAtTime(0.6, now);
+    harmTrem.connect(harmGain);
+    const tremLfo = ctx.createOscillator(); tremLfo.type = 'sine'; tremLfo.frequency.setValueAtTime(0.07, now);
+    const tremDepth = ctx.createGain(); tremDepth.gain.setValueAtTime(0.25, now);
+    tremLfo.connect(tremDepth); tremDepth.connect(harmTrem.gain); nodes.push(tremLfo);
+    const harmFilter = ctx.createBiquadFilter();
+    harmFilter.type = 'bandpass'; harmFilter.frequency.setValueAtTime(950, now); harmFilter.Q.setValueAtTime(0.8, now);
+    harmFilter.connect(harmTrem);
+    const vibLfo = ctx.createOscillator(); vibLfo.type = 'sine'; vibLfo.frequency.setValueAtTime(5.2, now);
+    const vibDepth = ctx.createGain(); vibDepth.gain.setValueAtTime(3.0, now); // ±3 Hz
+    vibLfo.connect(vibDepth); nodes.push(vibLfo);
+    const harmOscs = [];
+    for (let k = 0; k < 2; k++) {
+      const o = ctx.createOscillator(); o.type = 'sawtooth';
+      const og = ctx.createGain(); og.gain.setValueAtTime(k === 0 ? 0.020 : 0.013, now);
+      vibDepth.connect(o.frequency);
+      o.connect(og); og.connect(harmFilter);
+      harmOscs.push(o); nodes.push(o);
+    }
+    const setHarmonica = (chord) => {
+      const t = ctx.currentTime;
+      harmOscs[0].frequency.setTargetAtTime(chord[0] * 2, t, 1.2);
+      harmOscs[1].frequency.setTargetAtTime(chord[2] * 2, t, 1.2);
+    };
+    setHarmonica(CHORDS[0]);
+
+    // ── COSMIC CHOIR — very soft high airy pad on the chord's upper tones ──────
+    const choirGain = ctx.createGain(); choirGain.gain.setValueAtTime(initLevel('choir'), now);
+    choirGain.connect(mainGain); choirGain.connect(reverbIn);
+    const choirOscs = [];
+    for (let k = 0; k < 3; k++) {
+      const o = ctx.createOscillator(); o.type = 'sine';
+      const og = ctx.createGain(); og.gain.setValueAtTime(0.010 - k * 0.002, now);
+      const lfo = ctx.createOscillator(); lfo.type = 'sine'; lfo.frequency.setValueAtTime(0.05 + k * 0.02, now);
+      const ld = ctx.createGain(); ld.gain.setValueAtTime(0.004, now);
+      lfo.connect(ld); ld.connect(og.gain);
+      o.connect(og); og.connect(choirGain);
+      choirOscs.push(o); nodes.push(o, lfo);
+    }
+    const setChoir = (chord) => {
+      const t = ctx.currentTime;
+      choirOscs[0].frequency.setTargetAtTime(chord[1] * 2, t, 2.0);
+      choirOscs[1].frequency.setTargetAtTime(chord[2] * 2, t, 2.0);
+      choirOscs[2].frequency.setTargetAtTime(chord[3] * 2, t, 2.0);
+    };
+    setChoir(CHORDS[0]);
 
     // First chord — rise in with the bed.
     bankA.setChord(CHORDS[0]);
@@ -202,6 +281,10 @@ const audio = {
     nodes.forEach(n => n.start(now));
 
     this._drone = { nodes, mainGain, brightFilter };
+    this._layerGains = {
+      master: mainGain, pad: padOut, bass: bassOut, reverb: reverbOut,
+      arp: arpGain, pulse: pulseGain, harmonica: harmGain, choir: choirGain,
+    };
     this._droneActive = true;
 
     // ── Chord stepper — crossfade to the next chord every ~16 s ────────────────
@@ -220,6 +303,8 @@ const audio = {
       idle.gain.setValueAtTime(idle.gain.value, t);
       idle.gain.linearRampToValueAtTime(1.0, t + XF);
       bassOsc.frequency.setTargetAtTime(chord[0] * 0.5, t, 1.5);
+      setHarmonica(chord);
+      setChoir(chord);
       this._currentChord = chord;
       [active, idle] = [idle, active];
       this._chordTimer = setTimeout(stepChord, HOLD);
@@ -243,14 +328,14 @@ const audio = {
     const delay = 11000 + Math.random() * 9000;
     this._aiTimer = setTimeout(() => {
       if (this._droneActive && !this._muted && this._currentChord) {
-        const bright = this._drone?.brightFilter ?? this._master;
+        const dest = this._layerGains?.arp ?? this._master;
         const chord = this._currentChord;
         chord.forEach((f, i) => {
           this._voice({ type: 'sine', f0: f * 2, f1: f * 2, dur: 1.6, peak: 0.012,
-                        attack: 0.02, when: i * 0.42, dest: bright });
+                        attack: 0.02, when: i * 0.42, dest });
         });
         this._voice({ type: 'sine', f0: chord[0] * 4, f1: chord[0] * 4, dur: 1.8,
-                      peak: 0.008, attack: 0.03, when: 4 * 0.42, dest: bright });
+                      peak: 0.008, attack: 0.03, when: 4 * 0.42, dest });
       }
       if (this._droneActive) this._scheduleArpeggio();
     }, delay);
@@ -267,13 +352,14 @@ const audio = {
     const delay = 20000 + Math.random() * 20000;
     this._deepTimer = setTimeout(() => {
       if (this._droneActive && !this._muted) {
+        const dest = this._layerGains?.pulse ?? this._master;
         const freq = 110 + Math.random() * 55;  // 110–165 Hz, audible on iPhone and up
         // primary swell — reactor pressurising
         this._voice({ type: 'sine', f0: freq, f1: freq, dur: 9.0, peak: 0.012, attack: 2.5,
-                      filter: { type: 'lowpass', freq: 300 } });
+                      filter: { type: 'lowpass', freq: 300 }, dest });
         // echo — slightly detuned, as if reflecting off the far hull
         this._voice({ type: 'sine', f0: freq * 0.97, f1: freq * 0.97, dur: 6.5, peak: 0.008,
-                      attack: 1.8, when: 5.0, filter: { type: 'lowpass', freq: 260 } });
+                      attack: 1.8, when: 5.0, filter: { type: 'lowpass', freq: 260 }, dest });
       }
       if (this._droneActive) this._scheduleOrbitalPulse();
     }, delay);
@@ -315,7 +401,44 @@ const audio = {
     nodes.forEach(n => { try { n.stop(stopAt); } catch (_) { /* already stopped */ } });
 
     this._drone = null;
+    this._layerGains = null;
     this._droneActive = false;
+  },
+
+  // ── Live mixer (dat.GUI) ──────────────────────────────────────────────────────
+
+  /**
+   * _applyLayer(name) — push the current ambientMix/ambientOn state for one layer
+   * onto its live gain node with a short ramp (no click). No-op if not running.
+   */
+  _applyLayer(name) {
+    const node = this._layerGains?.[name];
+    if (!node || !this._ctx) return;
+    const level = this.ambientOn[name] ? this.ambientMix[name] : 0;
+    const now = this._ctx.currentTime;
+    node.gain.cancelScheduledValues(now);
+    node.gain.setValueAtTime(node.gain.value, now);
+    node.gain.linearRampToValueAtTime(level, now + 0.2);
+  },
+
+  /** setAmbientLevel(name, v) — set a layer's volume (0…2) live. */
+  setAmbientLevel(name, v) {
+    if (name in this.ambientMix) { this.ambientMix[name] = v; this._applyLayer(name); }
+  },
+
+  /** setAmbientEnabled(name, on) — stop/play a single ambient layer. */
+  setAmbientEnabled(name, on) {
+    if (name in this.ambientOn) { this.ambientOn[name] = on; this._applyLayer(name); }
+  },
+
+  /** setSfxVolume(v) — set the UI/SFX bus volume (0…2) live. */
+  setSfxVolume(v) {
+    this.sfxVolume = v;
+    if (!this._sfx) return;
+    const now = this._ctx.currentTime;
+    this._sfx.gain.cancelScheduledValues(now);
+    this._sfx.gain.setValueAtTime(this._sfx.gain.value, now);
+    this._sfx.gain.linearRampToValueAtTime(v, now + 0.1);
   },
 
   // ── UI sounds ─────────────────────────────────────────────────────────────────
@@ -568,7 +691,7 @@ const audio = {
     } else {
       osc.connect(gain);
     }
-    gain.connect(dest || this._master);
+    gain.connect(dest || this._sfx || this._master);
 
     osc.start(t);
     osc.stop(t + dur + 0.02);
@@ -598,7 +721,7 @@ const audio = {
 
     src.connect(f);
     f.connect(gain);
-    gain.connect(this._master);
+    gain.connect(this._sfx || this._master);
 
     src.start(t);
     src.stop(t + dur + 0.02);

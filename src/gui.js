@@ -1,4 +1,5 @@
 import { GUI } from 'dat.gui';
+import { audio } from './audio.js';
 import { wwLightParams } from './world/blueworld.js';
 import { tornadoCamParams, tornadoParams } from './world/tornado-travel.js';
 import { playerParams } from './character/player.js';
@@ -10,6 +11,30 @@ import { applySlideCam } from './presentation/presentation.js';
 // ── dat.gui panel — starts closed ─────────────────────────────────────────────
 const gui = new GUI({ width: 280, closed: true });
 gui.domElement.style.cssText += 'z-index:200;';
+
+// ── Audio folder — live mixer for the ambient bed + UI/SFX ────────────────────
+// Each layer gets a Volume slider (0…max) and an On/Off toggle so the ambient
+// soundscape can be balanced against the interface sounds in real time.
+const fAudio = gui.addFolder('🔊 Audio');
+const AUDIO_LAYERS = [
+  ['master',    'Ambient master', 0.6],
+  ['pad',       'Organ pad',      2.0],
+  ['bass',      'Bass',           2.0],
+  ['reverb',    'Reverb',         2.0],
+  ['arp',       'Arpeggio',       2.0],
+  ['pulse',     'Orbital pulse',  2.0],
+  ['harmonica', 'Space harmonica',2.0],
+  ['choir',     'Cosmic choir',   2.0],
+];
+for (const [key, label, max] of AUDIO_LAYERS) {
+  const sub = fAudio.addFolder(label);
+  sub.add(audio.ambientMix, key, 0, max, 0.01).name('Volume')
+     .onChange(v => audio.setAmbientLevel(key, v));
+  sub.add(audio.ambientOn, key).name('On')
+     .onChange(v => audio.setAmbientEnabled(key, v));
+}
+fAudio.add(audio, 'sfxVolume', 0, 2, 0.01).name('UI / SFX vol')
+      .onChange(v => audio.setSfxVolume(v));
 
 // ── White-world lighting folder ───────────────────────────────────────────────
 const fWL = gui.addFolder('☀ White World Lighting');
