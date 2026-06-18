@@ -196,6 +196,7 @@ export function goToSlide(name) {
   trackSlide(name);
   audio.playSlideWhoosh();
   audio.ambientBrighten();   // background lifts in harmonic brightness for ~1 s
+  audio.setArpStyle(name);   // switch arpeggio character to match this slide
 
   // 3. Build ctx — carries presentation-internal state accessors + constants
   const { pos, target } = _resolveCamera(slide);

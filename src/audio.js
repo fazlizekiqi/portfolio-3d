@@ -25,13 +25,14 @@ const audio = {
   _currentChord: null, // frequencies of the chord currently sounding (for the arp)
   _stepTimer: 0,       // seconds accumulator for footstep rhythm
   _muted: false,
-  sfxVolume: 1.0,      // UI/SFX bus multiplier (dat.GUI)
+  sfxVolume: 0.76,     // UI/SFX bus multiplier (dat.GUI)
+  _arpStyle: 'default', // current arpeggio style, set per-slide via setArpStyle()
 
   // Ambient mixer — per-layer volume + on/off, all live-editable from dat.GUI.
   // `master` is the whole bed's level; the rest are per-layer multipliers where
   // 1.0 ≈ the level each layer was designed at.
-  ambientMix: { master: 0.22, pad: 1.0, bass: 1.0, reverb: 1.0, arp: 1.0, pulse: 1.0, harmonica: 0.9, choir: 0.7 },
-  ambientOn:  { master: true, pad: true, bass: true, reverb: true, arp: true, pulse: true, harmonica: true, choir: true },
+  ambientMix: { master: 0.44, pad: 0.11, bass: 0.24, reverb: 0.71, arp: 2.0, pulse: 0.3, harmonica: 0.46, choir: 0.98 },
+  ambientOn:  { master: true, pad: true, bass: false, reverb: true, arp: true, pulse: false, harmonica: false, choir: true },
 
   // ── Lifecycle ───────────────────────────────────────────────────────────────
 
@@ -317,28 +318,131 @@ const audio = {
   },
 
   /**
-   * _scheduleArpeggio() — every 11–20 s the current chord shimmers upward: its
-   * four tones one octave up in sequence, plus a final sparkle two octaves up on
-   * the root. Sparse and soft — the Interstellar twinkle, stars not a clock.
-   * Routed through the brightness filter so it sparkles on interactions and
-   * picks up the reverb tail.
+   * _scheduleArpeggio() — schedules the next arpeggio burst based on the current
+   * _arpStyle (set per-slide via setArpStyle). Each style has its own timing range
+   * and pattern character so the music adapts to each slide's mood.
    */
   _scheduleArpeggio() {
     if (this._aiTimer) clearTimeout(this._aiTimer);
-    const delay = 11000 + Math.random() * 9000;
+    const style = this._arpStyle;
+
+    // Per-style timing [minMs, maxMs] — cascade/invitation are more frequent since
+    // those slides are lively; breath/starfield are sparse for calm slides.
+    const TIMING = {
+      starfield:  [10000, 18000],
+      cascade:    [4000,   7000],
+      fanfare:    [6000,  10000],
+      breath:     [12000, 18000],
+      timeline:   [5000,   9000],
+      scan:       [7000,  11000],
+      invitation: [5000,   8000],
+      ascent:     [6000,  10000],
+      default:    [6000,  11000],
+    };
+    const [tMin, tMax] = TIMING[style] ?? TIMING.default;
+    const delay = tMin + Math.random() * (tMax - tMin);
+
     this._aiTimer = setTimeout(() => {
       if (this._droneActive && !this._muted && this._currentChord) {
         const dest = this._layerGains?.arp ?? this._master;
-        const chord = this._currentChord;
-        chord.forEach((f, i) => {
-          this._voice({ type: 'sine', f0: f * 2, f1: f * 2, dur: 1.6, peak: 0.012,
-                        attack: 0.02, when: i * 0.42, dest });
-        });
-        this._voice({ type: 'sine', f0: chord[0] * 4, f1: chord[0] * 4, dur: 1.8,
-                      peak: 0.008, attack: 0.03, when: 4 * 0.42, dest });
+        const ALL = ['starfield','cascade','fanfare','breath','timeline','scan','invitation','ascent'];
+        const s = style === 'default' ? ALL[Math.floor(Math.random() * ALL.length)] : style;
+        this._playArpPattern(s, this._currentChord, dest);
       }
       if (this._droneActive) this._scheduleArpeggio();
     }, delay);
+  },
+
+  /**
+   * _playArpPattern(style, chord, dest) — play one arpeggio burst.
+   * Each style has a distinct character matched to a slide's mood.
+   */
+  _playArpPattern(style, chord, dest) {
+    switch (style) {
+      case 'starfield': {
+        // Sparse 2-3 notes, very high register, long decay — Intro: starfield drifting
+        const notes = [...chord].sort(() => Math.random() - 0.5).slice(0, 2 + Math.floor(Math.random() * 2));
+        notes.forEach((f, i) => {
+          this._voice({ type: 'sine', f0: f * 4, f1: f * 4, dur: 2.5, peak: 0.008, attack: 0.1, when: i * 0.9, dest });
+        });
+        break;
+      }
+      case 'cascade': {
+        // Fast ascending run up two octaves + high sparkle — Skills: energetic, lively
+        const step = 0.18;
+        chord.forEach((f, i) => {
+          this._voice({ type: 'sine', f0: f * 2, f1: f * 2, dur: 1.2, peak: 0.014, attack: 0.01, when: i * step, dest });
+          this._voice({ type: 'sine', f0: f * 4, f1: f * 4, dur: 0.8, peak: 0.008, attack: 0.01, when: i * step + 0.08, dest });
+        });
+        this._voice({ type: 'sine', f0: chord[0] * 8, f1: chord[0] * 8, dur: 1.0, peak: 0.006, attack: 0.02, when: chord.length * step + 0.1, dest });
+        break;
+      }
+      case 'fanfare': {
+        // Near-simultaneous chord bloom — Projects: confident, decisive
+        chord.forEach((f, i) => {
+          this._voice({ type: 'sine', f0: f * 2, f1: f * 2, dur: 2.2, peak: 0.013, attack: 0.04, when: i * 0.12, dest });
+        });
+        this._voice({ type: 'sine', f0: chord[0] * 4, f1: chord[0] * 4, dur: 1.8, peak: 0.010, attack: 0.08, when: 0.7, dest });
+        break;
+      }
+      case 'breath': {
+        // Very slow wide spread, long sustain — Mindset: contemplative, spacious
+        chord.forEach((f, i) => {
+          this._voice({ type: 'sine', f0: f * 2, f1: f * 2, dur: 3.0, peak: 0.010, attack: 0.3, when: i * 0.8, dest });
+        });
+        break;
+      }
+      case 'timeline': {
+        // Rhythmic ping-pong between low and high pairs — Experience: steady, measured
+        const pairs = [
+          [chord[0] * 2, chord[2] * 2],
+          [chord[1] * 2, chord[3] * 2],
+          [chord[0] * 2, chord[2] * 2],
+        ];
+        pairs.forEach(([lo, hi], i) => {
+          this._voice({ type: 'sine', f0: lo, f1: lo, dur: 1.0, peak: 0.012, attack: 0.01, when: i * 0.5, dest });
+          this._voice({ type: 'sine', f0: hi, f1: hi, dur: 1.0, peak: 0.010, attack: 0.01, when: i * 0.5 + 0.25, dest });
+        });
+        break;
+      }
+      case 'scan': {
+        // Non-sequential order (3-1-4-2) with bandpass tint + eerie high tail — About: mysterious
+        const order = [chord[2], chord[0], chord[3], chord[1]];
+        order.forEach((f, i) => {
+          this._voice({ type: 'sine', f0: f * 2, f1: f * 2, dur: 1.4, peak: 0.011, attack: 0.02,
+                        when: i * 0.35, filter: { type: 'bandpass', freq: f * 2.5, q: 1.5 }, dest });
+        });
+        this._voice({ type: 'sine', f0: chord[1] * 4, f1: chord[3] * 4, dur: 1.6, peak: 0.007, attack: 0.05, when: 4 * 0.35, dest });
+        break;
+      }
+      case 'invitation': {
+        // Warm ascending shimmer + two extra sparkles at top — CTA: welcoming, warm
+        chord.forEach((f, i) => {
+          this._voice({ type: 'sine', f0: f * 2, f1: f * 2, dur: 1.8, peak: 0.013, attack: 0.025, when: i * 0.38, dest });
+        });
+        this._voice({ type: 'sine', f0: chord[0] * 4, f1: chord[0] * 4, dur: 1.4, peak: 0.010, attack: 0.02, when: chord.length * 0.38, dest });
+        this._voice({ type: 'sine', f0: chord[2] * 4, f1: chord[2] * 4, dur: 1.2, peak: 0.008, attack: 0.02, when: chord.length * 0.38 + 0.2, dest });
+        break;
+      }
+      case 'ascent': {
+        // Two-octave walk: first octave then second — MyWorld: expanding wonder
+        chord.forEach((f, i) => {
+          this._voice({ type: 'sine', f0: f * 2, f1: f * 2, dur: 1.5, peak: 0.012, attack: 0.02, when: i * 0.3, dest });
+        });
+        chord.forEach((f, i) => {
+          this._voice({ type: 'sine', f0: f * 4, f1: f * 4, dur: 1.2, peak: 0.009, attack: 0.02, when: chord.length * 0.3 + i * 0.25, dest });
+        });
+        break;
+      }
+      default: {
+        // Original ascending shimmer — safe fallback
+        chord.forEach((f, i) => {
+          this._voice({ type: 'sine', f0: f * 2, f1: f * 2, dur: 1.6, peak: 0.012, attack: 0.02, when: i * 0.42, dest });
+        });
+        this._voice({ type: 'sine', f0: chord[0] * 4, f1: chord[0] * 4, dur: 1.8, peak: 0.008, attack: 0.03, when: 4 * 0.42, dest });
+        break;
+      }
+    }
   },
 
   /**
@@ -439,6 +543,28 @@ const audio = {
     this._sfx.gain.cancelScheduledValues(now);
     this._sfx.gain.setValueAtTime(this._sfx.gain.value, now);
     this._sfx.gain.linearRampToValueAtTime(v, now + 0.1);
+  },
+
+  /**
+   * setArpStyle(slideName) — switch the arpeggio character to match a slide.
+   * Reschedules the pending arpeggio timer so the new timing takes effect
+   * immediately rather than waiting out the previous style's interval.
+   */
+  setArpStyle(slideName) {
+    const MAP = {
+      intro:      'starfield',
+      skills:     'cascade',
+      projects:   'fanfare',
+      mindset:    'breath',
+      experience: 'timeline',
+      about:      'scan',
+      cta:        'invitation',
+      myworld:    'ascent',
+    };
+    const next = MAP[slideName] ?? 'default';
+    if (this._arpStyle === next) return;
+    this._arpStyle = next;
+    if (this._droneActive) this._scheduleArpeggio();
   },
 
   // ── UI sounds ─────────────────────────────────────────────────────────────────
