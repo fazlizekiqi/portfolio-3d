@@ -47,17 +47,32 @@ const audio = {
     }
   },
 
-  // ── Ambient bed (4 layers) ────────────────────────────────────────────────────
+  // ── Ambient bed ───────────────────────────────────────────────────────────────
 
   /**
-   * startAmbient() — the most important sound. A deep, almost-static bed that
-   * evolves slowly with no rhythm or melody, like an AI core idling in a quiet
-   * server room. Four layers:
-   *   1. low sine drone (48 + 72 Hz) with a slow pitch LFO
-   *   2. soft high-passed noise (airy texture)
-   *   3. slow shimmering pad (220 + 330 Hz) under a drifting lowpass
-   *   4. an occasional distant digital pulse (scheduled separately)
-   * Everything fades in over ~3 s and sits extremely low in the mix.
+   * startAmbient() — a meditative, breathing sound-bed that makes the interface
+   * feel alive without calling attention to itself. Design principles:
+   *
+   *   BREATHE  — a 0.10 Hz amplitude LFO (~6 breaths/min, the parasympathetic
+   *              resonance rate) on the warm noise layer.  Visitors won't notice
+   *              it consciously; they'll feel the room is breathing with them.
+   *
+   *   RESONATE — pure sine waves only (no square/saw). Two root tones 8 Hz apart
+   *              create a gentle alpha-wave beating — the rhythm of relaxed,
+   *              meditative attention. Perfect-fifth and octave overtones above
+   *              them sit in a consonant, restful chord.
+   *
+   *   EMERGE   — 5-second master fade-in. The sound should already be present
+   *              when the visitor first notices it.
+   *
+   *   CRYSTALLINE — a soft singing-bowl tone surfaces every 20–40 s, fades in
+   *              over 1.5 s and dissolves over the following 5 s. Never percussive.
+   *
+   * Four layers, all routed to a single mainGain for clean teardown:
+   *   1. Root drone (130 + 138 Hz) — alpha beating + slow frequency drift
+   *   2. Harmonic overtones (195 + 260 Hz) — perfect fifth + octave
+   *   3. Warm breath-noise (bandpass 220 Hz, AM at 0.10 Hz)
+   *   4. Crystalline shimmer (520 Hz sine, ultra-slow vibrato)
    */
   startAmbient() {
     if (!this._ctx || this._muted) return;
@@ -65,135 +80,147 @@ const audio = {
 
     const ctx = this._ctx;
     const now = ctx.currentTime;
-    const nodes = [];   // oscillators/sources to stop on teardown
-    const gains = [];   // output gains to fade on teardown
+    const nodes = [];
 
-    // ── Layer 1: low sine drone ──────────────────────────────────────────────
-    const droneFilter = ctx.createBiquadFilter();
-    droneFilter.type = 'lowpass';
-    droneFilter.frequency.setValueAtTime(320, now);
+    // Single output gain — fades in to unity over 5 s; stopAmbient ramps it to 0.
+    const mainGain = ctx.createGain();
+    mainGain.gain.setValueAtTime(0, now);
+    mainGain.gain.linearRampToValueAtTime(1.0, now + 5.0);
+    mainGain.connect(this._master);
 
-    const droneGain = ctx.createGain();
-    droneGain.gain.setValueAtTime(0, now);
-    droneGain.gain.linearRampToValueAtTime(0.050, now + 3.0);
-    droneFilter.connect(droneGain);
-    droneGain.connect(this._master);
-    gains.push(droneGain);
+    // Helper: route osc → gain(gainVal) → mainGain
+    const out = (osc, gainVal) => {
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(gainVal, now);
+      osc.connect(g);
+      g.connect(mainGain);
+    };
 
-    const osc1 = ctx.createOscillator();
-    osc1.type = 'sine';
-    osc1.frequency.setValueAtTime(48, now);
-    osc1.connect(droneFilter);
-    osc1.start(now);
-    nodes.push(osc1);
+    // ── Layer 1: alpha-wave resonance ─────────────────────────────────────────
+    // 130 Hz and 138 Hz sit 8 Hz apart → gentle beating at alpha frequency.
+    // This is the tonal centre: warm, not bass-heavy.
+    const root1 = ctx.createOscillator();
+    root1.type = 'sine';
+    root1.frequency.setValueAtTime(130, now);
 
-    const osc2 = ctx.createOscillator();
-    osc2.type = 'sine';
-    osc2.frequency.setValueAtTime(72, now);
-    osc2.connect(droneFilter);
-    osc2.start(now);
-    nodes.push(osc2);
+    const root2 = ctx.createOscillator();
+    root2.type = 'sine';
+    root2.frequency.setValueAtTime(138, now);
 
-    // Slow pitch LFO (0.1 Hz, ±1.2 Hz) — gentle harmonic movement
-    const lfo = ctx.createOscillator();
-    lfo.type = 'sine';
-    lfo.frequency.setValueAtTime(0.10, now);
-    const lfoGain = ctx.createGain();
-    lfoGain.gain.setValueAtTime(1.2, now);
-    lfo.connect(lfoGain);
-    lfoGain.connect(osc1.frequency);
-    lfo.start(now);
-    nodes.push(lfo);
+    // Slow natural drift on root1 (0.07 Hz, ±0.7 Hz) — like a bowl's resonance
+    // wandering as it rings. Keeps it from feeling static.
+    const driftLfo = ctx.createOscillator();
+    driftLfo.type = 'sine';
+    driftLfo.frequency.setValueAtTime(0.07, now);
+    const driftGain = ctx.createGain();
+    driftGain.gain.setValueAtTime(0.7, now);
+    driftLfo.connect(driftGain);
+    driftGain.connect(root1.frequency);
 
-    // ── Layer 2: soft high-passed noise ──────────────────────────────────────
-    const noiseSrc = ctx.createBufferSource();
-    noiseSrc.buffer = this._makeNoiseBuffer(2.0);
-    noiseSrc.loop = true;
-    const noiseHP = ctx.createBiquadFilter();
-    noiseHP.type = 'highpass';
-    noiseHP.frequency.setValueAtTime(2200, now);
-    const noiseGain = ctx.createGain();
-    noiseGain.gain.setValueAtTime(0, now);
-    noiseGain.gain.linearRampToValueAtTime(0.006, now + 3.5);
-    noiseSrc.connect(noiseHP);
-    noiseHP.connect(noiseGain);
-    noiseGain.connect(this._master);
-    noiseSrc.start(now);
-    nodes.push(noiseSrc);
-    gains.push(noiseGain);
+    out(root1, 0.038);
+    out(root2, 0.038);
+    nodes.push(root1, root2, driftLfo);
 
-    // ── Layer 3: slow shimmering pad ─────────────────────────────────────────
-    const padFilter = ctx.createBiquadFilter();
-    padFilter.type = 'lowpass';
-    padFilter.frequency.setValueAtTime(600, now);
-    const padGain = ctx.createGain();
-    padGain.gain.setValueAtTime(0, now);
-    padGain.gain.linearRampToValueAtTime(0.012, now + 4.0);
-    padFilter.connect(padGain);
-    padGain.connect(this._master);
-    gains.push(padGain);
+    // ── Layer 2: harmonic overtones ───────────────────────────────────────────
+    // Perfect fifth (195 Hz) and octave (260 Hz) above the root.
+    // Pure consonance — the ear finds rest in these intervals.
+    const fifth = ctx.createOscillator();
+    fifth.type = 'sine';
+    fifth.frequency.setValueAtTime(195, now);
 
-    const pad1 = ctx.createOscillator();
-    pad1.type = 'sine';
-    pad1.frequency.setValueAtTime(220, now);
-    pad1.connect(padFilter);
-    pad1.start(now);
-    nodes.push(pad1);
+    const octave = ctx.createOscillator();
+    octave.type = 'sine';
+    octave.frequency.setValueAtTime(260, now);
 
-    const pad2 = ctx.createOscillator();
-    pad2.type = 'sine';
-    pad2.frequency.setValueAtTime(330, now);
-    pad2.connect(padFilter);
-    pad2.start(now);
-    nodes.push(pad2);
+    out(fifth,  0.016);
+    out(octave, 0.010);
+    nodes.push(fifth, octave);
 
-    // Drifting filter LFO for the pad (0.05 Hz) — slow shimmer
-    const padLfo = ctx.createOscillator();
-    padLfo.type = 'sine';
-    padLfo.frequency.setValueAtTime(0.05, now);
-    const padLfoGain = ctx.createGain();
-    padLfoGain.gain.setValueAtTime(260, now);
-    padLfo.connect(padLfoGain);
-    padLfoGain.connect(padFilter.frequency);
-    padLfo.start(now);
-    nodes.push(padLfo);
+    // ── Layer 3: breathing warm noise ─────────────────────────────────────────
+    // The meditative anchor. Bandpass noise at 220 Hz (warm, not harsh) with
+    // amplitude modulated at 0.10 Hz — exactly 6 cycles/min, the "resonance
+    // breathing" rate that activates the parasympathetic nervous system.
+    // Visitors feel the space breathing with them without knowing why.
+    const nbuf = ctx.createBufferSource();
+    nbuf.buffer = this._makeNoiseBuffer(4.0);
+    nbuf.loop = true;
 
-    this._drone = { nodes, gains };
+    const nbp = ctx.createBiquadFilter();
+    nbp.type = 'bandpass';
+    nbp.frequency.setValueAtTime(220, now);
+    nbp.Q.setValueAtTime(0.35, now);
+
+    const nGain = ctx.createGain();
+    nGain.gain.setValueAtTime(0.026, now);  // base level
+
+    // Breathing LFO: output ±0.018 added to 0.026 → gain swells 0.008 → 0.044
+    const breathLfo = ctx.createOscillator();
+    breathLfo.type = 'sine';
+    breathLfo.frequency.setValueAtTime(0.10, now);
+    const breathDepth = ctx.createGain();
+    breathDepth.gain.setValueAtTime(0.018, now);
+    breathLfo.connect(breathDepth);
+    breathDepth.connect(nGain.gain);
+
+    nbuf.connect(nbp);
+    nbp.connect(nGain);
+    nGain.connect(mainGain);
+    nodes.push(nbuf, breathLfo);
+
+    // ── Layer 4: crystalline shimmer ──────────────────────────────────────────
+    // A pure 520 Hz sine (C5) with an ultra-slow vibrato (0.04 Hz, ±7 Hz).
+    // Adds spaciousness and 'alive' quality — barely audible, just felt.
+    const shimmer = ctx.createOscillator();
+    shimmer.type = 'sine';
+    shimmer.frequency.setValueAtTime(520, now);
+
+    const shimLfo = ctx.createOscillator();
+    shimLfo.type = 'sine';
+    shimLfo.frequency.setValueAtTime(0.04, now);
+    const shimLfoG = ctx.createGain();
+    shimLfoG.gain.setValueAtTime(7, now);
+    shimLfo.connect(shimLfoG);
+    shimLfoG.connect(shimmer.frequency);
+
+    out(shimmer, 0.008);
+    nodes.push(shimmer, shimLfo);
+
+    nodes.forEach(n => n.start(now));
+
+    this._drone = { nodes, mainGain };
     this._droneActive = true;
-
-    // ── Layer 4: occasional distant digital pulse ────────────────────────────
     this._scheduleAmbientPulse();
   },
 
-  /** Schedule the next faint background pulse 8–16 s out, then re-arm. */
+  /**
+   * _scheduleAmbientPulse() — a soft singing-bowl tone surfaces every 20–40 s.
+   * It fades in slowly (1.5 s), holds briefly, then dissolves (total 7 s).
+   * Never percussive. Like a monk softly striking a bowl across the room.
+   */
   _scheduleAmbientPulse() {
     if (this._pulseTimer) clearTimeout(this._pulseTimer);
-    const delay = 8000 + Math.random() * 8000;
+    const delay = 20000 + Math.random() * 20000;
     this._pulseTimer = setTimeout(() => {
       if (this._droneActive && !this._muted) {
-        this._voice({
-          type: 'sine', f0: 520, f1: 360, dur: 0.9, peak: 0.018, attack: 0.04,
-          filter: { type: 'lowpass', freq: 1200 },
-        });
+        // 432 Hz — commonly used in meditation and sound-healing practice
+        this._voice({ type: 'sine', f0: 432, f1: 432, dur: 7.0, peak: 0.016, attack: 1.5 });
       }
       if (this._droneActive) this._scheduleAmbientPulse();
     }, delay);
   },
 
-  /** stopAmbient(fadeSec) — fade out every layer then stop its sources. */
+  /** stopAmbient(fadeSec) — ramp mainGain to zero then stop all sources. */
   stopAmbient(fadeSec = 2.5) {
     if (this._pulseTimer) { clearTimeout(this._pulseTimer); this._pulseTimer = null; }
     if (!this._droneActive || !this._drone) return;
 
     const ctx = this._ctx;
     const now = ctx.currentTime;
-    const { nodes, gains } = this._drone;
+    const { nodes, mainGain } = this._drone;
 
-    gains.forEach(g => {
-      g.gain.cancelScheduledValues(now);
-      g.gain.setValueAtTime(g.gain.value, now);
-      g.gain.linearRampToValueAtTime(0, now + fadeSec);
-    });
+    mainGain.gain.cancelScheduledValues(now);
+    mainGain.gain.setValueAtTime(mainGain.gain.value, now);
+    mainGain.gain.linearRampToValueAtTime(0, now + fadeSec);
 
     const stopAt = now + fadeSec + 0.05;
     nodes.forEach(n => { try { n.stop(stopAt); } catch (_) { /* already stopped */ } });
