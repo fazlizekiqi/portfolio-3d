@@ -41,16 +41,18 @@ fCamTgt.add(controls.target, 'y').step(0.01).listen();
 fCamTgt.add(controls.target, 'z').step(0.01).listen();
 
 const RAD2DEG = 180 / Math.PI;
-fCam.add({ logCamera: () => {
+fCam.add({ copyCamera: () => {
   const p = camera.position, t = controls.target, r = camera.rotation;
   const f = (n) => Number(n.toFixed(3));
-  console.log(
-    '[Camera] slide-cam block:\n' +
-    `pos:    { x: ${f(p.x)}, y: ${f(p.y)}, z: ${f(p.z)} },\n` +
-    `target: { x: ${f(t.x)}, y: ${f(t.y)}, z: ${f(t.z)} },\n` +
-    `rotation(deg): { x: ${f(r.x * RAD2DEG)}, y: ${f(r.y * RAD2DEG)}, z: ${f(r.z * RAD2DEG)} }`,
-  );
-} }, 'logCamera').name('📋 Log camera');
+  const text =
+    `pos:    { x: ${f(p.x)}, y: ${f(p.y)}, z: ${f(p.z)} }\n` +
+    `target: { x: ${f(t.x)}, y: ${f(t.y)}, z: ${f(t.z)} }\n` +
+    `rot(°): { x: ${f(r.x * RAD2DEG)}, y: ${f(r.y * RAD2DEG)}, z: ${f(r.z * RAD2DEG)} }`;
+  navigator.clipboard?.writeText(text).then(
+    ()  => alert('Camera values copied to clipboard!'),
+    ()  => alert(text),   // fallback: show in alert so values are readable on mobile
+  ) ?? alert(text);
+} }, 'copyCamera').name('📋 Copy camera values');
 
 // Keep the derived degree readout in sync with the live camera rotation.
 function _tickCamReadout() {
