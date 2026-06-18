@@ -149,13 +149,13 @@ const audio = {
     windLP.frequency.setValueAtTime(2800, now);
 
     const windGain = ctx.createGain();
-    windGain.gain.setValueAtTime(0.010, now);
+    windGain.gain.setValueAtTime(0.006, now);
     // slow amplitude breathing (0.05 Hz, ±0.008)
     const windLfo = ctx.createOscillator();
     windLfo.type = 'sine';
     windLfo.frequency.setValueAtTime(0.05, now);
     const windDepth = ctx.createGain();
-    windDepth.gain.setValueAtTime(0.008, now);
+    windDepth.gain.setValueAtTime(0.004, now);
     windLfo.connect(windDepth);
     windDepth.connect(windGain.gain);
 
@@ -177,13 +177,16 @@ const audio = {
     nodes.push(windSrc, windLfo, panLfo);
 
     // ── Layer 3: HARMONIC PAD ─────────────────────────────────────────────────
-    // Four overlapping sines at harmonically related frequencies with independent
-    // amplitude LFOs at different rates — their phase offsets constantly differ,
-    // creating shifting tonal warmth that prevents the "all white noise" feel.
-    [[165, 0.013, 0.022, 0.008],
-     [220, 0.018, 0.017, 0.011],
-     [330, 0.009, 0.013, 0.006],
-     [440, 0.006, 0.009, 0.004]].forEach(([freq, base, rate, depth]) => {
+    // Overlapping sines at harmonically related frequencies (an A-minor-ish chord:
+    // root/fifth/octave/etc.) with independent amplitude LFOs at different rates —
+    // their phase offsets constantly differ, so the chord forever shifts colour.
+    // This is now the dominant voice of the bed, carrying it well above the wind.
+    [[110, 0.022, 0.019, 0.012],
+     [165, 0.026, 0.022, 0.015],
+     [220, 0.034, 0.017, 0.020],
+     [275, 0.020, 0.015, 0.012],
+     [330, 0.020, 0.013, 0.012],
+     [440, 0.013, 0.009, 0.008]].forEach(([freq, base, rate, depth]) => {
       const osc = ctx.createOscillator();
       osc.type = 'sine';
       osc.frequency.setValueAtTime(freq, now);
