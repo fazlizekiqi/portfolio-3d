@@ -1,5 +1,6 @@
 import { GUI } from 'dat.gui';
 import { audio } from './audio.js';
+import { skeletonDebugParams, applyParams, hideDebugOverlay } from './character/skeleton-debug.js';
 import { wwLightParams } from './world/blueworld.js';
 import { tornadoCamParams, tornadoParams } from './world/tornado-travel.js';
 import { playerParams } from './character/player.js';
@@ -35,6 +36,32 @@ for (const [key, label, max] of AUDIO_LAYERS) {
 }
 fAudio.add(audio, 'sfxVolume', 0, 2, 0.01).name('UI / SFX vol')
       .onChange(v => audio.setSfxVolume(v));
+
+// ── Skeleton debug folder ─────────────────────────────────────────────────────
+// Toggles + XYZ sliders for eye dots, head ring, and the full SkeletonHelper.
+// Positions are in modelGroup local space (Y=0 = feet, Y≈2 = top of head).
+// Use "Hide all" once everything is positioned to clean up the view.
+const fSkel = gui.addFolder('🦴 Skeleton Debug');
+fSkel.add(skeletonDebugParams, 'showSkeleton').name('Show skeleton').onChange(applyParams);
+fSkel.add(skeletonDebugParams, 'showEyes'    ).name('Show eyes'    ).onChange(applyParams);
+fSkel.add(skeletonDebugParams, 'showHeadRing').name('Show head ring').onChange(applyParams);
+fSkel.add({ hideDebugOverlay }, 'hideDebugOverlay').name('Hide all');
+
+const fEyeL = fSkel.addFolder('Eye L (cyan)');
+fEyeL.add(skeletonDebugParams.eyeL, 'x', -0.4, 0.4, 0.005).name('X').onChange(applyParams);
+fEyeL.add(skeletonDebugParams.eyeL, 'y', -0.2, 2.2, 0.005).name('Y').onChange(applyParams);
+fEyeL.add(skeletonDebugParams.eyeL, 'z', -0.4, 0.4, 0.005).name('Z').onChange(applyParams);
+
+const fEyeR = fSkel.addFolder('Eye R (cyan)');
+fEyeR.add(skeletonDebugParams.eyeR, 'x', -0.4, 0.4, 0.005).name('X').onChange(applyParams);
+fEyeR.add(skeletonDebugParams.eyeR, 'y', -0.2, 2.2, 0.005).name('Y').onChange(applyParams);
+fEyeR.add(skeletonDebugParams.eyeR, 'z', -0.4, 0.4, 0.005).name('Z').onChange(applyParams);
+
+const fHead = fSkel.addFolder('Head ring (magenta)');
+fHead.add(skeletonDebugParams.head, 'x',      -0.4,  0.4, 0.005).name('X'     ).onChange(applyParams);
+fHead.add(skeletonDebugParams.head, 'y',      -0.2,  2.2, 0.005).name('Y'     ).onChange(applyParams);
+fHead.add(skeletonDebugParams.head, 'z',      -0.4,  0.4, 0.005).name('Z'     ).onChange(applyParams);
+fHead.add(skeletonDebugParams.head, 'radius',  0.05, 0.30, 0.005).name('Radius').onChange(applyParams);
 
 // ── White-world lighting folder ───────────────────────────────────────────────
 const fWL = gui.addFolder('☀ White World Lighting');

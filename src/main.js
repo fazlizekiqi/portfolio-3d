@@ -16,6 +16,7 @@ import { initJoystick } from './joystick.js';
 import { CFG } from './config.js';
 import { SLIDES } from './presentation/slides.js';
 import { audio } from './audio.js';
+import { initSkeletonDebug } from './character/skeleton-debug.js';
 import './gui.js';
 
 // ── Initialise blue world objects + lights ────────────────────────────────────
@@ -77,6 +78,7 @@ document.addEventListener('touchstart', _onFirstInteraction, { once: false, pass
 function _startApp() {
   initCameraState();
   introScene(); // character starts scattered and reassembles into the blue world
+  initSkeletonDebug(modelGroup, scene);
 
   // ── Wire white-world character reference ────────────────────────────────
   setWhiteWorldCharacterRef(
