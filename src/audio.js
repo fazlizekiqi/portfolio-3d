@@ -180,7 +180,7 @@ const audio = {
           oct[i].frequency.setValueAtTime(freqs[i] * 2, t);
         }
       };
-      return { gain: g, setChord };
+      return { gain: g.gain, setChord };
     };
     const bankA = makeBank();
     const bankB = makeBank();
