@@ -88,11 +88,11 @@ const audio = {
     const now = ctx.currentTime;
     const nodes = [];
 
-    // Single output gain — fades in over 8 s so the bed is present before
-    // the visitor consciously notices it.
+    // Single output gain — gentle 4 s fade-in (the only fade; the pad itself
+    // starts at full so the harmony is clearly present within a second or two).
     const mainGain = ctx.createGain();
     mainGain.gain.setValueAtTime(0, now);
-    mainGain.gain.linearRampToValueAtTime(1.0, now + 8.0);
+    mainGain.gain.linearRampToValueAtTime(1.0, now + 4.0);
     mainGain.connect(this._master);
 
     // ── Cathedral reverb — damped stereo feedback delay ───────────────────────
@@ -132,7 +132,7 @@ const audio = {
       [174.61, 261.63, 349.23, 440.00], // F maj   (F  C  F  A)
       [196.00, 293.66, 392.00, 493.88], // G maj   (G  D  G  B)
     ];
-    const NOTE_GAIN = [0.060, 0.052, 0.044, 0.032]; // lower notes carry more weight
+    const NOTE_GAIN = [0.085, 0.075, 0.062, 0.046]; // lower notes carry more weight
 
     // Pad → gentle lowpass → swell (organ breathing) → mainGain, with a send to reverb.
     const padSwell = ctx.createGain();
@@ -168,7 +168,7 @@ const audio = {
         const g1 = ctx.createGain(); g1.gain.setValueAtTime(NOTE_GAIN[i], now);
         o1.connect(g1); g1.connect(g);
         const o2 = ctx.createOscillator(); o2.type = 'sine';
-        const g2 = ctx.createGain(); g2.gain.setValueAtTime(NOTE_GAIN[i] * 0.35, now);
+        const g2 = ctx.createGain(); g2.gain.setValueAtTime(NOTE_GAIN[i] * 0.4, now);
         o2.connect(g2); g2.connect(g);
         fund.push(o1); oct.push(o2);
         nodes.push(o1, o2);
@@ -193,9 +193,9 @@ const audio = {
     bassOsc.connect(bassLP); bassLP.connect(bassGain); bassGain.connect(mainGain);
     nodes.push(bassOsc);
 
-    // First chord — rise in with the bed.
+    // First chord — bank at full immediately; the mainGain fade does the easing.
     bankA.setChord(CHORDS[0]);
-    bankA.gain.linearRampToValueAtTime(1.0, now + 8.0);
+    bankA.gain.setValueAtTime(1.0, now);
     bassOsc.frequency.setValueAtTime(CHORDS[0][0] * 0.5, now);
     this._currentChord = CHORDS[0];
 
@@ -204,8 +204,8 @@ const audio = {
     this._drone = { nodes, mainGain, brightFilter };
     this._droneActive = true;
 
-    // ── Chord stepper — crossfade to the next chord every ~16 s ────────────────
-    const XF = 7.0, HOLD = 16000;
+    // ── Chord stepper — crossfade to the next chord every ~14 s ────────────────
+    const XF = 6.0, HOLD = 14000;
     let chordIdx = 0, active = bankA, idle = bankB;
     const stepChord = () => {
       if (!this._droneActive) return;
@@ -226,8 +226,9 @@ const audio = {
     };
     this._chordTimer = setTimeout(stepChord, HOLD);
 
-    // Scheduled events.
-    this._scheduleArpeggio();
+    // Scheduled events — first arpeggio comes in early so the shimmer is present
+    // soon after the bed fades in.
+    this._scheduleArpeggio(4000);
     this._scheduleOrbitalPulse();
   },
 
@@ -238,9 +239,9 @@ const audio = {
    * Routed through the brightness filter so it sparkles on interactions and
    * picks up the reverb tail.
    */
-  _scheduleArpeggio() {
+  _scheduleArpeggio(firstDelay = null) {
     if (this._aiTimer) clearTimeout(this._aiTimer);
-    const delay = 11000 + Math.random() * 9000;
+    const delay = firstDelay ?? (11000 + Math.random() * 9000);
     this._aiTimer = setTimeout(() => {
       if (this._droneActive && !this._muted && this._currentChord) {
         const bright = this._drone?.brightFilter ?? this._master;
