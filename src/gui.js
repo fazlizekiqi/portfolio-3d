@@ -42,23 +42,26 @@ fAudio.add(audio, 'sfxVolume', 0, 2, 0.01).name('UI / SFX vol')
 // Offsets: x=left/right, y=up/down, z=forward — relative to each bone's facing.
 // Adjust offsets until each marker sits on the right spot, then "Hide all".
 const fSkel = gui.addFolder('🦴 Skeleton Debug');
+fSkel.open(); // open by default so debug overlay is immediately accessible
 fSkel.add(skeletonDebugParams, 'showJoints').name('Show joints (all bones)').onChange(applyParams);
 fSkel.add(skeletonDebugParams, 'showLines' ).name('Show skeleton lines'    ).onChange(applyParams);
-fSkel.add(skeletonDebugParams, 'jointSize',  0.005, 0.06, 0.001).name('Joint size').onChange(applyParams);
+fSkel.add(skeletonDebugParams, 'jointSize',  0.005, 0.10, 0.002).name('Joint size').onChange(applyParams);
 fSkel.add({ hideDebugOverlay }, 'hideDebugOverlay').name('Hide all');
 
+// [key, label, hasRadius, openByDefault]
 const SKEL_LANDMARKS = [
-  ['eyeL',  'Eye L (cyan)',     false],
-  ['eyeR',  'Eye R (cyan)',     false],
-  ['head',  'Head ring (pink)', true ],  // has extra radius slider
-  ['chest', 'Chest (yellow)',   false],
-  ['handL', 'Hand L (orange)',  false],
-  ['handR', 'Hand R (orange)',  false],
-  ['footL', 'Foot L (green)',   false],
-  ['footR', 'Foot R (green)',   false],
+  ['eyeL',  'Eye L (cyan)',     false, true ],
+  ['eyeR',  'Eye R (cyan)',     false, true ],
+  ['head',  'Head ring (pink)', true,  true ],
+  ['chest', 'Chest (orange)',   false, false],
+  ['handL', 'Hand L (orange)',  false, false],
+  ['handR', 'Hand R (orange)',  false, false],
+  ['footL', 'Foot L (green)',   false, false],
+  ['footR', 'Foot R (green)',   false, false],
 ];
-for (const [key, label, hasRadius] of SKEL_LANDMARKS) {
+for (const [key, label, hasRadius, openByDefault] of SKEL_LANDMARKS) {
   const f = fSkel.addFolder(label);
+  if (openByDefault) f.open();
   f.add(skeletonDebugParams[key], 'on'             ).name('Show'  ).onChange(applyParams);
   f.add(skeletonDebugParams[key], 'x', -0.4, 0.4, 0.005).name('X (←→)').onChange(applyParams);
   f.add(skeletonDebugParams[key], 'y', -0.4, 0.4, 0.005).name('Y (↑↓)').onChange(applyParams);

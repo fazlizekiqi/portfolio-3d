@@ -1,13 +1,11 @@
 import * as THREE from 'three';
 
-// Offsets are in the bone's local orientation:
-//   x = left/right relative to that bone's facing
-//   y = up along the bone's axis
-//   z = forward relative to that bone (towards camera for the head)
+// All sliders use world-space units (metres at character scale).
+// Internally, positions are multiplied by _invScale to convert to bone-local space.
 export const skeletonDebugParams = {
-  showJoints: true,          // white sphere at every bone
-  showLines:  true,          // SkeletonHelper lines
-  jointSize:  0.022,
+  showJoints: true,
+  showLines:  true,
+  jointSize:  0.035,                                // world radius of each joint sphere
   eyeL:  { on: true,  x: -0.05, y:  0.04, z:  0.09 },
   eyeR:  { on: true,  x:  0.05, y:  0.04, z:  0.09 },
   head:  { on: true,  x:  0.00, y:  0.06, z:  0.00, radius: 0.12 },
@@ -18,18 +16,16 @@ export const skeletonDebugParams = {
   footR: { on: true,  x:  0.00, y:  0.00, z:  0.00 },
 };
 
-// Reused scratch objects to avoid per-frame allocations
-const _wp  = new THREE.Vector3();
-const _wq  = new THREE.Quaternion();
-const _off = new THREE.Vector3();
-
-let _skinned  = null;
+// Bone-local units are typically much larger than world units because the GLB
+// model is scaled down (2 / maxDimension) by modelGroup. We record the inverse
+// so GUI params (world units) can be converted to bone-local positions.
+let _invScale = 1;
 let _helper   = null;
 let _headRing = null;
-const _joints    = [];   // THREE.Mesh, one per bone
-const _landmarks = [];   // { mesh, bone, params, oriented }
+const _joints    = [];  // { mesh } — parented to their bone, scale updated by GUI
+const _landmarks = [];  // { mesh, params } — parented to their bone, position from GUI
 
-// Fuzzy bone search: tries exact suffix match first, then substring.
+// Bone name search: try exact suffix first (mixamorigHead → 'head'), then substring.
 function _find(sk, ...keys) {
   for (const k of keys) {
     const b = sk.bones.find(o => o.name.toLowerCase().endsWith(k));
@@ -39,111 +35,115 @@ function _find(sk, ...keys) {
     const b = sk.bones.find(o => o.name.toLowerCase().includes(k));
     if (b) return b;
   }
-  return sk.bones[0]; // fallback to root if bone not found
+  return sk.bones[0]; // fallback to root bone if no match
 }
 
 function _dot(color) {
   return new THREE.Mesh(
-    new THREE.SphereGeometry(0.018, 8, 8),
+    new THREE.SphereGeometry(0.02 * _invScale, 8, 8),
     new THREE.MeshBasicMaterial({ color, depthTest: false, depthWrite: false }),
   );
 }
 
 export function initSkeletonDebug(modelGroup, scene) {
-  modelGroup.traverse(o => { if (o.isSkinnedMesh && !_skinned) _skinned = o; });
-  if (!_skinned) return;
+  let skinned = null;
+  modelGroup.traverse(o => { if (o.isSkinnedMesh && !skinned) skinned = o; });
+  if (!skinned) { console.warn('[SkeletonDebug] no SkinnedMesh found in modelGroup'); return; }
 
-  const sk = _skinned.skeleton;
+  const sk = skinned.skeleton;
   console.log('[SkeletonDebug] bone names:', sk.bones.map(b => b.name));
 
-  // Bright skeleton lines — SkeletonHelper auto-reads bone matrixWorld each frame
-  _helper = new THREE.SkeletonHelper(_skinned);
+  // The GLB is scaled to ~2 world units by modelGroup.scale.
+  // A bone's local 1 unit ≈ 1 / modelGroup.scale.x world units.
+  _invScale = 1 / Math.max(modelGroup.scale.x, 1e-4);
+
+  // SkeletonHelper — draws lines between parent→child bones, lives in scene space.
+  // Three.js updates its geometry automatically each render by reading bone.matrixWorld.
+  _helper = new THREE.SkeletonHelper(skinned);
   _helper.material.depthTest  = false;
   _helper.material.depthWrite = false;
   _helper.renderOrder = 999;
   scene.add(_helper);
 
-  // White joint sphere at every bone (unit sphere, scaled per frame via jointSize)
-  const jGeo = new THREE.SphereGeometry(1, 6, 6);
-  const jMat = new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false, depthWrite: false });
-  for (let i = 0; i < sk.bones.length; i++) {
+  // One yellow sphere per bone, PARENTED TO THE BONE — follows every animation
+  // automatically via the scene graph. No tick positioning needed.
+  const jGeo = new THREE.SphereGeometry(1, 6, 6); // unit sphere; scale set per-frame
+  const jMat = new THREE.MeshBasicMaterial({ color: 0xffff00, depthTest: false, depthWrite: false });
+  for (const bone of sk.bones) {
     const m = new THREE.Mesh(jGeo, jMat);
+    m.scale.setScalar(skeletonDebugParams.jointSize * _invScale);
     m.renderOrder = 999;
-    scene.add(m);
+    bone.add(m);                    // ← parented to bone
     _joints.push(m);
   }
 
-  // Named landmark markers. Each tracks a specific bone and applies a
-  // dat.GUI-controlled offset. oriented=true: offset is rotated by the bone's
-  // world quaternion so "z = forward" always means "in front of that bone",
-  // regardless of how the limb is posed. The head ring uses oriented=false
-  // so it stays horizontal (flat ring around the head, not tilted by head nod).
-  const register = (key, bone, mesh, oriented = true) => {
+  // Named landmark markers: each is parented to a specific bone.
+  // The mesh's LOCAL position (in bone space) is the offset from the bone.
+  const _addLandmark = (key, bone, mesh) => {
+    const p = skeletonDebugParams[key];
+    mesh.position.set(p.x * _invScale, p.y * _invScale, p.z * _invScale);
     mesh.renderOrder = 999;
-    scene.add(mesh);
-    _landmarks.push({ mesh, bone: bone ?? sk.bones[0], params: skeletonDebugParams[key], oriented });
+    bone.add(mesh);                 // ← parented to bone
+    _landmarks.push({ mesh, params: p });
   };
 
   const head  = _find(sk, 'head');
   const spine = _find(sk, 'spine2', 'spine1', 'spine', 'chest');
-  register('eyeL',  head,                                _dot(0x00ffff));
-  register('eyeR',  head,                                _dot(0x00ffff));
-  register('chest', spine,                               _dot(0xffff00));
-  register('handL', _find(sk, 'lefthand'),               _dot(0xff8800));
-  register('handR', _find(sk, 'righthand'),              _dot(0xff8800));
-  register('footL', _find(sk, 'leftfoot', 'lefttoe'),    _dot(0x00ff00));
-  register('footR', _find(sk, 'rightfoot', 'righttoe'),  _dot(0x00ff00));
+  _addLandmark('eyeL',  head,                               _dot(0x00ffff));
+  _addLandmark('eyeR',  head,                               _dot(0x00ffff));
+  _addLandmark('chest', spine,                              _dot(0xffaa00));
+  _addLandmark('handL', _find(sk, 'lefthand'),              _dot(0xff6600));
+  _addLandmark('handR', _find(sk, 'righthand'),             _dot(0xff6600));
+  _addLandmark('footL', _find(sk, 'leftfoot', 'lefttoe'),   _dot(0x00ff44));
+  _addLandmark('footR', _find(sk, 'rightfoot', 'righttoe'), _dot(0x00ff44));
 
-  // Head ring sits at head bone position + Y offset, stays horizontal
+  // Head ring: parented to head bone; rotation.x makes it lie in the XZ plane
   _headRing = new THREE.Mesh(
-    new THREE.TorusGeometry(skeletonDebugParams.head.radius, 0.004, 8, 24),
+    new THREE.TorusGeometry(skeletonDebugParams.head.radius * _invScale, 0.005 * _invScale, 8, 24),
     new THREE.MeshBasicMaterial({ color: 0xff44ff, depthTest: false, depthWrite: false }),
   );
-  _headRing.rotation.x = Math.PI / 2; // flat ring in XZ plane
-  register('head', head, _headRing, false);
+  _headRing.rotation.x = Math.PI / 2;
+  _addLandmark('head', head, _headRing);
 
   applyParams();
 }
 
-// Call every frame AFTER mixer.update(delta) so bone matrices are current.
-export function tickSkeletonDebug() {
-  if (!_skinned) return;
+// Nothing to tick — all objects follow bones via the scene graph.
+// Kept as an export so main.js import is stable.
+export function tickSkeletonDebug() {}
 
-  const s  = skeletonDebugParams.jointSize;
-  const sk = _skinned.skeleton;
-  for (let i = 0; i < _joints.length; i++) {
-    if (!_joints[i].visible) continue;
-    sk.bones[i].getWorldPosition(_wp);
-    _joints[i].position.copy(_wp);
-    _joints[i].scale.setScalar(s);
+// Called by every dat.GUI onChange to push visibility + offset changes live.
+export function applyParams() {
+  if (!_invScale) return;
+  if (_helper) _helper.visible = skeletonDebugParams.showLines;
+
+  for (const m of _joints) {
+    m.visible = skeletonDebugParams.showJoints;
+    m.scale.setScalar(skeletonDebugParams.jointSize * _invScale);
   }
 
   for (const lm of _landmarks) {
-    if (!lm.mesh.visible) continue;
-    lm.bone.getWorldPosition(_wp);
-    lm.bone.getWorldQuaternion(_wq);
-    _off.set(lm.params.x, lm.params.y, lm.params.z);
-    if (lm.oriented) _off.applyQuaternion(_wq);
-    lm.mesh.position.copy(_wp).add(_off);
+    lm.mesh.visible = lm.params.on;
+    lm.mesh.position.set(
+      lm.params.x * _invScale,
+      lm.params.y * _invScale,
+      lm.params.z * _invScale,
+    );
   }
-}
 
-// Called by every dat.GUI onChange — apply visibility toggles and head-ring radius.
-export function applyParams() {
-  if (_helper) _helper.visible = skeletonDebugParams.showLines;
-  for (const j of _joints) j.visible = skeletonDebugParams.showJoints;
-  for (const lm of _landmarks) lm.mesh.visible = lm.params.on;
   if (_headRing) {
     _headRing.geometry.dispose();
-    _headRing.geometry = new THREE.TorusGeometry(skeletonDebugParams.head.radius, 0.004, 8, 24);
+    _headRing.geometry = new THREE.TorusGeometry(
+      skeletonDebugParams.head.radius * _invScale, 0.005 * _invScale, 8, 24,
+    );
   }
 }
 
 export function hideDebugOverlay() {
   skeletonDebugParams.showJoints = false;
   skeletonDebugParams.showLines  = false;
-  for (const val of Object.values(skeletonDebugParams)) {
-    if (val && typeof val === 'object' && 'on' in val) val.on = false;
+  for (const v of Object.values(skeletonDebugParams)) {
+    if (v && typeof v === 'object' && 'on' in v) v.on = false;
   }
   applyParams();
 }
