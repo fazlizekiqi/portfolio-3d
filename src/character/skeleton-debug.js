@@ -6,9 +6,9 @@ export const skeletonDebugParams = {
   showJoints: true,
   showLines:  true,
   jointSize:  0.035,                                // world radius of each joint sphere
-  eyeL:  { on: true,  x: -0.05, y:  0.04, z:  0.09 },
-  eyeR:  { on: true,  x:  0.05, y:  0.04, z:  0.09 },
-  head:  { on: true,  x:  0.00, y:  0.06, z:  0.00, radius: 0.12 },
+  eyeL:  { on: true,  x: -0.08, y:  0.14, z:  0.09 },
+  eyeR:  { on: true,  x:  0.08, y:  0.14, z:  0.09 },
+  head:  { on: true,  x:  0.00, y:  0.23, z:  0.00, radius: 0.12 },
   chest: { on: true,  x:  0.00, y:  0.00, z:  0.09 },
   handL: { on: true,  x:  0.00, y:  0.00, z:  0.00 },
   handR: { on: true,  x:  0.00, y:  0.00, z:  0.00 },
@@ -16,12 +16,19 @@ export const skeletonDebugParams = {
   footR: { on: true,  x:  0.00, y:  0.00, z:  0.00 },
 };
 
+// Head bone rotation override (degrees). Non-zero values layer on top of the
+// animation clip's head rotation — applied in tickSkeletonDebug() after mixer.update().
+export const headRotation = { x: 0, y: 0, z: 0 };
+
+const DEG2RAD = Math.PI / 180;
+
 // Bone-local units are typically much larger than world units because the GLB
 // model is scaled down (2 / maxDimension) by modelGroup. We record the inverse
 // so GUI params (world units) can be converted to bone-local positions.
 let _invScale = 1;
 let _helper   = null;
 let _headRing = null;
+let _headBone = null;
 const _joints    = [];  // { mesh } — parented to their bone, scale updated by GUI
 const _landmarks = [];  // { mesh, params } — parented to their bone, position from GUI
 
@@ -88,6 +95,7 @@ export function initSkeletonDebug(modelGroup, scene) {
   };
 
   const head  = _find(sk, 'head');
+  _headBone   = head;
   const spine = _find(sk, 'spine2', 'spine1', 'spine', 'chest');
   _addLandmark('eyeL',  head,                               _dot(0x00ffff));
   _addLandmark('eyeR',  head,                               _dot(0x00ffff));
@@ -108,9 +116,15 @@ export function initSkeletonDebug(modelGroup, scene) {
   applyParams();
 }
 
-// Nothing to tick — all objects follow bones via the scene graph.
-// Kept as an export so main.js import is stable.
-export function tickSkeletonDebug() {}
+// Called every frame after mixer.update(delta). Applies GUI head rotation on top
+// of the animation clip — non-zero values override that axis of the head animation.
+export function tickSkeletonDebug() {
+  if (_headBone) {
+    _headBone.rotation.x = headRotation.x * DEG2RAD;
+    _headBone.rotation.y = headRotation.y * DEG2RAD;
+    _headBone.rotation.z = headRotation.z * DEG2RAD;
+  }
+}
 
 // Called by every dat.GUI onChange to push visibility + offset changes live.
 export function applyParams() {

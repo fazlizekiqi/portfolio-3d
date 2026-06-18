@@ -1,7 +1,7 @@
 import { GUI } from 'dat.gui';
 import { audio } from './audio.js';
 import { camera, controls } from './scene.js';
-import { skeletonDebugParams, applyParams, hideDebugOverlay } from './character/skeleton-debug.js';
+import { skeletonDebugParams, headRotation, applyParams, hideDebugOverlay } from './character/skeleton-debug.js';
 import { wwLightParams } from './world/blueworld.js';
 import { tornadoCamParams, tornadoParams } from './world/tornado-travel.js';
 import { playerParams } from './character/player.js';
@@ -119,6 +119,11 @@ for (const [key, label, hasRadius, openByDefault] of SKEL_LANDMARKS) {
   if (hasRadius)
     f.add(skeletonDebugParams[key], 'radius', 0.04, 0.30, 0.005).name('Radius').onChange(applyParams);
 }
+
+const fHead = fSkel.addFolder('Head Bone');
+fHead.add(headRotation, 'x', -90, 90, 1).name('rotate X (nod)');
+fHead.add(headRotation, 'y', -90, 90, 1).name('rotate Y (turn)');
+fHead.add(headRotation, 'z', -90, 90, 1).name('rotate Z (tilt)');
 
 // ── White-world lighting folder ───────────────────────────────────────────────
 const fWL = gui.addFolder('☀ White World Lighting');
