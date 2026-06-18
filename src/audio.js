@@ -92,7 +92,7 @@ const audio = {
     // the visitor consciously notices it.
     const mainGain = ctx.createGain();
     mainGain.gain.setValueAtTime(0, now);
-    mainGain.gain.linearRampToValueAtTime(1.0, now + 8.0);
+    mainGain.gain.linearRampToValueAtTime(0.28, now + 8.0);
     mainGain.connect(this._master);
 
     // ── Cathedral reverb — damped stereo feedback delay ───────────────────────
