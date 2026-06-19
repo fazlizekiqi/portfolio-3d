@@ -1,9 +1,11 @@
 import * as THREE from 'three';
+import { isMobile } from '../constants.js';
 
 const MAX_YAW    = 35;   // degrees left/right — comfortable human head turn
 const MAX_PITCH  = 38;   // degrees up/down
 const LERP_SPEED = 4;    // higher = snappier
 
+const TAU = Math.PI * 2;
 const DEG2RAD = Math.PI / 180;
 
 let _headBone     = null;
@@ -11,6 +13,7 @@ let _enabled      = false;
 let _lerpingOut   = false;
 let _currentYaw   = 0;
 let _currentPitch = 0;
+let _autoT        = 0;   // time accumulator for the mobile procedural look
 
 const _mouse = { x: 0, y: 0, inside: false };
 
@@ -35,6 +38,7 @@ export function initHeadLook(modelGroup) {
 export function enableHeadLook() {
   _enabled    = true;
   _lerpingOut = false;
+  _autoT      = 0;  // start the procedural sweep from centre (sin(0) = 0)
 }
 
 export function disableHeadLook() {
@@ -45,8 +49,21 @@ export function disableHeadLook() {
 export function tickHeadLook(delta) {
   if (!_headBone || (!_enabled && !_lerpingOut)) return;
 
-  const targetYaw   = (_enabled && _mouse.inside) ? _mouse.x * MAX_YAW   : 0;
-  const targetPitch = (_enabled && _mouse.inside) ? _mouse.y * MAX_PITCH : 0;
+  let targetYaw = 0, targetPitch = 0;
+
+  if (_enabled) {
+    if (isMobile()) {
+      // No mouse on touch devices — drive a procedural look:
+      // a slow wide scan turn blended with a gentle quicker look-around sway.
+      _autoT += delta;
+      targetYaw   = 18 * Math.sin(_autoT * TAU / 14)   // slow scan to each side
+                  +  6 * Math.sin(_autoT * TAU / 4.5);  // small look-around sway
+      targetPitch =  5 * Math.sin(_autoT * TAU / 8);    // subtle up/down
+    } else if (_mouse.inside) {
+      targetYaw   = _mouse.x * MAX_YAW;
+      targetPitch = _mouse.y * MAX_PITCH;
+    }
+  }
 
   const t = Math.min(1, LERP_SPEED * delta);
   _currentYaw   += (targetYaw   - _currentYaw)   * t;
