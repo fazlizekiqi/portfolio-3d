@@ -1,4 +1,5 @@
 import { isWhiteWorld, isTransitioning } from './transition.js';
+import { isMobile } from './constants.js';
 
 const POOL = 32;
 const MSGS = ['STANDBY', 'SCANNING', 'ANALYZING', 'TARGET LOCKED'];
@@ -79,8 +80,8 @@ const CSS = `
 * { cursor: none !important; }
 
 #_cur {
-  position:fixed; top:0; left:0; width:170px; height:170px;
-  margin:-85px 0 0 -85px;
+  position:fixed; top:0; left:0; width:136px; height:136px;
+  margin:-68px 0 0 -68px;
   pointer-events:none; z-index:99999;
   transition:opacity .35s ease;
   will-change:transform;
@@ -88,25 +89,25 @@ const CSS = `
 #_cur svg { position:absolute; inset:0; width:100%; height:100%; overflow:visible; }
 
 #_cur .core {
-  position:absolute; top:50%; left:50%; width:14px; height:14px; margin:-7px 0 0 -7px;
+  position:absolute; top:50%; left:50%; width:11px; height:11px; margin:-6px 0 0 -6px;
   border-radius:50%;
   background:radial-gradient(circle,#fff 0%,#aef6ff 30%,#00e5ff 55%,#0077ff 100%);
   box-shadow:0 0 8px 3px #39e6ff,0 0 18px 7px #00aaff,0 0 36px 12px rgba(0,140,255,.5);
   animation:_cp 1.9s ease-in-out infinite;
   transition:width .2s,height .2s,margin .2s;
 }
-#_cur.h .core { width:18px; height:18px; margin:-9px 0 0 -9px;
+#_cur.h .core { width:14px; height:14px; margin:-7px 0 0 -7px;
   box-shadow:0 0 12px 5px #39e6ff,0 0 28px 10px #00bbff,0 0 50px 18px rgba(0,180,255,.65); }
 
 #_cur .glow {
-  position:absolute; top:50%; left:50%; width:90px; height:90px; margin:-45px 0 0 -45px;
+  position:absolute; top:50%; left:50%; width:72px; height:72px; margin:-36px 0 0 -36px;
   border-radius:50%;
   background:radial-gradient(circle,rgba(0,200,255,.10) 0%,transparent 68%);
   animation:_cp 3.4s ease-in-out infinite;
 }
 
 #_cur .radar {
-  position:absolute; top:50%; left:50%; width:88px; height:88px; margin:-44px 0 0 -44px;
+  position:absolute; top:50%; left:50%; width:70px; height:70px; margin:-35px 0 0 -35px;
   border-radius:50%; overflow:hidden;
   background:conic-gradient(from 0deg, rgba(0,230,255,0) 0deg, rgba(0,230,255,0) 296deg, rgba(0,230,255,.28) 352deg, rgba(140,250,255,.5) 360deg);
   -webkit-mask:radial-gradient(circle, #000 62%, transparent 63%);
@@ -115,7 +116,7 @@ const CSS = `
 }
 
 #_cur .sonar {
-  position:absolute; top:50%; left:50%; width:120px; height:120px; margin:-60px 0 0 -60px;
+  position:absolute; top:50%; left:50%; width:96px; height:96px; margin:-48px 0 0 -48px;
   border-radius:50%; border:1px solid rgba(0,210,255,.5);
   animation:_sonar 3.2s ease-out infinite;
 }
@@ -190,6 +191,8 @@ function _setHot(on) {
 }
 
 export function initCursor() {
+  if (isMobile()) return;
+
   const s = document.createElement('style');
   s.textContent = CSS;
   document.head.appendChild(s);
@@ -229,6 +232,7 @@ export function initCursor() {
 }
 
 export function tickCursor() {
+  if (!_el) return;
   const show = !isWhiteWorld() && !isTransitioning();
   if (show !== _vis) {
     _vis = show;
