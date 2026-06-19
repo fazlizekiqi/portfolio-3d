@@ -21,9 +21,15 @@
  *   hideCtaHud()
  */
 
+import * as THREE from 'three';
 import { HUD_PANELS, buildPanelHTML, buildHudPanelHTML } from './cta.templates.js';
 import { audio } from '../../../audio.js';
+import { camera } from '../../../scene.js';
+import { spawnPosition } from '../../../character/model.js';
 import './cta.css';
+
+// World-space reference point: character's torso (approximately chest height).
+const _torso = new THREE.Vector3();
 
 const _base = import.meta.env.BASE_URL.replace(/\/$/, '');
 
@@ -99,8 +105,12 @@ function _layout() {
   const w = window.innerWidth, h = window.innerHeight;
   _radar.setAttribute('viewBox', `0 0 ${w} ${h}`);
 
-  // Radar: faint concentric circles + crosshair, fixed near the character's area.
-  const rcx = w * 0.64, rcy = h * 0.48;
+  // Project character's torso into screen space so the radar rings stay
+  // centred on the character regardless of viewport size (desktop only).
+  _torso.set(spawnPosition.x, spawnPosition.y + 1.35, spawnPosition.z);
+  _torso.project(camera);
+  const rcx = (_torso.x  + 1) / 2 * w;
+  const rcy = (-_torso.y + 1) / 2 * h;
   const secondRingR = 6 * Math.min(w, h) * 0.04;
   _radar.innerHTML = [3, 6, 9].map(n =>
     `<circle class="_cta2-radar-ring" cx="${rcx}" cy="${rcy}" r="${n * Math.min(w, h) * 0.04}"></circle>`
@@ -159,4 +169,9 @@ export function showCtaHud() {
 export function hideCtaHud() {
   _showing = false;
   _wrap.classList.remove('cta2-visible');
+}
+
+/** Call every frame while the CTA slide is active (desktop only). */
+export function tickCtaLayout() {
+  if (_showing) _layout();
 }

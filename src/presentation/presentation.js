@@ -248,6 +248,7 @@ export function startPresentation() { _startPresentation(); }
 function _endPresentation() {
   _active = false;
   _clearAllTimeouts();
+  disableHeadLook();
 
   hideBubbles();
   hideCard();
@@ -272,6 +273,7 @@ function _returnHome() {
   controls.enabled = false;
   playerStop();
   _clearAllTimeouts();
+  disableHeadLook();
 
   resetPresentBtn();
   hideCard();
