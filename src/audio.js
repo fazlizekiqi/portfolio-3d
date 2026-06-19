@@ -406,13 +406,12 @@ const audio = {
         break;
       }
       case 'scan': {
-        // Non-sequential order (3-1-4-2) with bandpass tint + eerie high tail — About: mysterious
+        // Non-sequential order (3-1-4-2) with bandpass tint — About: mysterious
         const order = [chord[2], chord[0], chord[3], chord[1]];
         order.forEach((f, i) => {
           this._voice({ type: 'sine', f0: f * 2, f1: f * 2, dur: 1.4, peak: 0.011, attack: 0.02,
                         when: i * 0.35, filter: { type: 'bandpass', freq: f * 2.5, q: 1.5 }, dest });
         });
-        this._voice({ type: 'sine', f0: chord[1] * 4, f1: chord[3] * 4, dur: 1.6, peak: 0.007, attack: 0.05, when: 4 * 0.35, dest });
         break;
       }
       case 'invitation': {
@@ -443,6 +442,22 @@ const audio = {
         break;
       }
     }
+
+    // Eerie high tail — the soft gliding sine that originally ended the About
+    // "scan" arpeggio, now under every style. Long attack + low peak + the arp
+    // bus's reverb send keep it sitting smoothly in the background rather than
+    // standing out as a distinct note.
+    this._playArpTail(chord, dest);
+  },
+
+  /**
+   * _playArpTail(chord, dest) — a single soft, slow high sine gliding between
+   * two upper chord tones. Swells in gently and lingers, bathed in reverb, so
+   * each arpeggio drifts off into a faint ethereal shimmer.
+   */
+  _playArpTail(chord, dest) {
+    this._voice({ type: 'sine', f0: chord[1] * 4, f1: chord[3] * 4, dur: 3.0, peak: 0.005,
+                  attack: 0.8, when: 0.4, filter: { type: 'bandpass', freq: chord[2] * 3, q: 0.7 }, dest });
   },
 
   /**
