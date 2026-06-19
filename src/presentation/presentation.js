@@ -262,7 +262,7 @@ function _endPresentation() {
 
   controls.enabled     = false;
   controls.maxDistance = 20;
-  playClip(slideByName['intro'].anim.clip);
+  playRandomIdleAnim();
   const dur = _glideHome();
   setTimeout(() => { controls.enabled = true; }, dur + 200);
 }
@@ -284,6 +284,7 @@ function _returnHome() {
   if (!isWhiteWorld()) {
     controls.maxDistance = 20;
     _frozen = false;
+    playRandomIdleAnim();
     const dur = _glideHome();
     setTimeout(() => { controls.enabled = true; showIdleUI(); }, dur + 200);
     return;
