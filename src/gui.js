@@ -87,6 +87,44 @@ for (const [key, label, max] of AUDIO_LAYERS) {
 fAudio.add(audio, 'sfxVolume', 0, 2, 0.01).name('UI / SFX vol')
       .onChange(v => audio.setSfxVolume(v));
 
+// ── Audio preview — play any sound on demand for auditioning ─────────────────
+const fAP = fAudio.addFolder('🎧 Preview sounds');
+fAP.open();
+
+const FALLBACK_CHORD = [261.63, 329.63, 392.00, 587.33]; // C add9
+const _ensureAudio = () => audio.resume();
+
+fAP.add({ play: () => { _ensureAudio(); audio.playScanBeep(); } }, 'play')
+   .name('▶ Scan beep ×1');
+fAP.add({
+  play: () => {
+    _ensureAudio();
+    for (let i = 0; i < 4; i++) setTimeout(() => audio.playScanBeep(), i * 220);
+  },
+}, 'play').name('▶ Scan beep ×4  (About sequence)');
+
+const _arp = (style) => {
+  _ensureAudio();
+  const chord = audio._currentChord || FALLBACK_CHORD;
+  const dest  = audio._sfx || audio._master;
+  if (!dest) return;
+  audio._playArpPattern(style, chord, dest);
+};
+
+const ARPS = [
+  ['starfield',  'Intro — starfield'],
+  ['cascade',    'Skills — cascade'],
+  ['fanfare',    'Projects — fanfare'],
+  ['breath',     'Mindset — breath'],
+  ['timeline',   'Experience — timeline'],
+  ['scan',       'About ★ — scan'],
+  ['invitation', 'CTA — invitation'],
+  ['ascent',     'MyWorld — ascent'],
+];
+for (const [style, label] of ARPS) {
+  fAP.add({ play: () => _arp(style) }, 'play').name(`▶ Arp: ${label}`);
+}
+
 // ── Skeleton debug folder ─────────────────────────────────────────────────────
 // Markers track actual skeleton bones every frame — they follow all animations.
 // Offsets: x=left/right, y=up/down, z=forward — relative to each bone's facing.
