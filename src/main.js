@@ -18,6 +18,7 @@ import { SLIDES } from './presentation/slides.js';
 import { audio } from './audio.js';
 import { initSkeletonDebug, tickSkeletonDebug } from './character/skeleton-debug.js';
 import { initHeadLook, tickHeadLook } from './character/head-look.js';
+import { initCursor, tickCursor } from './cursor.js';
 import './gui.js';
 
 // ── Initialise blue world objects + lights ────────────────────────────────────
@@ -81,6 +82,7 @@ function _startApp() {
   introScene(); // character starts scattered and reassembles into the blue world
   initSkeletonDebug(modelGroup, scene);
   initHeadLook(modelGroup);
+  initCursor();
 
   // ── Wire white-world character reference ────────────────────────────────
   setWhiteWorldCharacterRef(
@@ -183,6 +185,7 @@ function _startApp() {
     tickLightsForWorld(1.0 - wwAmount, modelGroup);
 
     tickFps();
+    tickCursor();
 
     // 6. Main scene render
     let whiteWasEnabled = false;
