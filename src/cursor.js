@@ -139,7 +139,7 @@ function buildSVG() {
 }
 
 const CSS = `
-* { cursor: none !important; }
+body._curhide, body._curhide * { cursor: none !important; }
 
 #_cur {
   position:fixed; top:0; left:0; width:136px; height:136px;
@@ -271,6 +271,7 @@ export function initCursor() {
   const s = document.createElement('style');
   s.textContent = CSS;
   document.head.appendChild(s);
+  document.body.classList.add('_curhide'); // hide native cursor in the blue world
 
   _wrap = document.createElement('div');
   _wrap.className = '_ctwrap';
@@ -314,6 +315,9 @@ export function tickCursor() {
     _vis = show;
     _el.style.opacity   = show ? '1' : '0';
     _wrap.style.opacity = show ? '1' : '0';
+    // White world / transition: drop the custom cursor and bring the native
+    // pointer back so buttons and controls are usable.
+    document.body.classList.toggle('_curhide', show);
   }
   _el.style.transform = `translate(${_mx}px,${_my}px)`;
 }
