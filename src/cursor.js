@@ -1,175 +1,174 @@
 import { isWhiteWorld, isTransitioning } from './transition.js';
 
-const POOL = 28;
-const MSGS = ['STANDBY', 'SCANNING...', 'ANALYZING...', 'TARGET LOCKED'];
+const POOL = 32;
+const MSGS = ['STANDBY', 'SCANNING', 'ANALYZING', 'TARGET LOCKED'];
 
-let _el, _data, _wrap;
+let _el, _wrap, _coord, _status;
 let _pool = [], _pi = 0;
-let _mx = -300, _my = -300;
+let _mx = -400, _my = -400;
 let _lx = -999, _ly = -999;
 let _hot = false, _cycle = null, _mi = 0;
 let _vis = true;
 
+// ── Geometry helpers (viewBox 0 0 200 200, centre 100,100) ────────────────────
+const C = 100;
+const pt = (a, r) => {
+  const rad = (a - 90) * Math.PI / 180;
+  return [C + r * Math.cos(rad), C + r * Math.sin(rad)];
+};
+
+function ticks(r1, r2, count, w, op) {
+  let s = '';
+  for (let i = 0; i < count; i++) {
+    const a = (360 / count) * i;
+    const [x1, y1] = pt(a, r1);
+    const [x2, y2] = pt(a, r2);
+    s += `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="#39e6ff" stroke-width="${w}" stroke-opacity="${op}"/>`;
+  }
+  return s;
+}
+
+function buildSVG() {
+  return `<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+    <!-- outer scanning ring (breathing) -->
+    <g class="_brk">
+      <circle cx="100" cy="100" r="80" fill="none" stroke="#2ec8ff" stroke-width=".6" stroke-opacity=".35"/>
+      <circle cx="100" cy="100" r="80" fill="none" stroke="#39e6ff" stroke-width="1" stroke-opacity=".5"
+              stroke-dasharray="1.2 9.27" stroke-linecap="round"/>
+      ${ticks(73, 80, 12, 1.4, .55)}
+    </g>
+
+    <!-- broken geometric ring, slow CCW -->
+    <g class="_sp _ccwSlow">
+      <circle cx="100" cy="100" r="60" fill="none" stroke="#1fb4ff" stroke-width="1.4" stroke-opacity=".45"
+              stroke-dasharray="36 16 22 28 30 18" stroke-linecap="round"/>
+      ${ticks(54, 60, 8, 1.6, .6)}
+    </g>
+
+    <!-- segmented radar arcs, fast CW -->
+    <g class="_sp _cwMed">
+      <circle cx="100" cy="100" r="44" fill="none" stroke="#39e6ff" stroke-width="2" stroke-opacity=".7"
+              stroke-dasharray="48 21" stroke-linecap="round"/>
+    </g>
+
+    <!-- inner precision ring + calibration ticks every 15°, slow CW -->
+    <g class="_sp _cwSlow">
+      <circle cx="100" cy="100" r="30" fill="none" stroke="#7af4ff" stroke-width="1" stroke-opacity=".8"/>
+      ${ticks(26, 30, 24, 1, .7)}
+      ${ticks(24, 31, 4, 1.6, .95)}
+    </g>
+
+    <!-- orbiting particles -->
+    <g class="_sp _cwMed2"><circle cx="100" cy="38" r="2.3" fill="#bff8ff"/></g>
+    <g class="_sp _ccwFast"><circle cx="100" cy="52" r="1.8" fill="#39e6ff"/></g>
+    <g class="_sp _cwFast"><circle cx="100" cy="70" r="1.6" fill="#7af4ff"/></g>
+
+    <!-- neural flash lines -->
+    <g class="_sp _ccwSlow">
+      <line class="_nl" x1="100" y1="100" x2="100" y2="40" stroke="#9ff" stroke-width=".5"/>
+      <line class="_nl _nl2" x1="100" y1="100" x2="100" y2="58" stroke="#9ff" stroke-width=".5"/>
+    </g>
+
+    <!-- static readouts -->
+    <text class="_coord" x="100" y="11" text-anchor="middle">X:0000 Y:0000</text>
+    <text class="_st" x="100" y="196" text-anchor="middle">STANDBY</text>
+  </svg>`;
+}
+
 const CSS = `
-*  { cursor: none !important; }
+* { cursor: none !important; }
 
 #_cur {
-  position: fixed; top:0; left:0;
-  width:60px; height:60px;
+  position:fixed; top:0; left:0; width:170px; height:170px;
+  margin:-85px 0 0 -85px;
   pointer-events:none; z-index:99999;
-  transition: opacity .35s ease;
-  will-change: transform;
+  transition:opacity .35s ease;
+  will-change:transform;
 }
+#_cur svg { position:absolute; inset:0; width:100%; height:100%; overflow:visible; }
 
-._cc {
-  position:absolute; top:50%; left:50%;
-  width:12px; height:12px; margin:-6px 0 0 -6px;
+#_cur .core {
+  position:absolute; top:50%; left:50%; width:14px; height:14px; margin:-7px 0 0 -7px;
   border-radius:50%;
-  background: radial-gradient(circle, #fff 0%, #00ffff 45%, #0077ff 100%);
-  box-shadow: 0 0 6px 2px #00ffff, 0 0 14px 5px #0077ff, 0 0 28px 8px rgba(0,120,255,.45);
-  animation: _cp 1.9s ease-in-out infinite;
-  transition: width .18s, height .18s, margin .18s, box-shadow .18s;
-  z-index:2;
+  background:radial-gradient(circle,#fff 0%,#aef6ff 30%,#00e5ff 55%,#0077ff 100%);
+  box-shadow:0 0 8px 3px #39e6ff,0 0 18px 7px #00aaff,0 0 36px 12px rgba(0,140,255,.5);
+  animation:_cp 1.9s ease-in-out infinite;
+  transition:width .2s,height .2s,margin .2s;
 }
-#_cur.h ._cc {
-  width:16px; height:16px; margin:-8px 0 0 -8px;
-  box-shadow: 0 0 10px 4px #00ffff, 0 0 22px 8px #0077ff, 0 0 40px 14px rgba(0,180,255,.6);
-}
+#_cur.h .core { width:18px; height:18px; margin:-9px 0 0 -9px;
+  box-shadow:0 0 12px 5px #39e6ff,0 0 28px 10px #00bbff,0 0 50px 18px rgba(0,180,255,.65); }
 
-._cg {
-  position:absolute; top:50%; left:50%;
-  width:36px; height:36px; margin:-18px 0 0 -18px;
+#_cur .glow {
+  position:absolute; top:50%; left:50%; width:90px; height:90px; margin:-45px 0 0 -45px;
   border-radius:50%;
-  background: radial-gradient(circle, rgba(0,200,255,.12) 0%, transparent 70%);
-  animation: _cp 1.9s ease-in-out infinite reverse;
-  transition: width .2s, height .2s, margin .2s;
-}
-#_cur.h ._cg { width:56px; height:56px; margin:-28px 0 0 -28px; }
-
-._cr1 {
-  position:absolute; top:50%; left:50%;
-  width:32px; height:32px; margin:-16px 0 0 -16px;
-  border-radius:50%;
-  border:1.5px solid rgba(0,220,255,.75);
-  border-top-color:transparent; border-right-color:rgba(0,200,255,.25);
-  animation:_rccw 2.8s linear infinite;
-  transition: width .2s, height .2s, margin .2s, border-color .15s;
-}
-#_cur.h ._cr1 {
-  width:52px; height:52px; margin:-26px 0 0 -26px;
-  border-color:rgba(0,255,200,.95); border-top-color:transparent;
-  animation:_rccw 1.1s linear infinite;
+  background:radial-gradient(circle,rgba(0,200,255,.10) 0%,transparent 68%);
+  animation:_cp 3.4s ease-in-out infinite;
 }
 
-._cr2 {
-  position:absolute; top:50%; left:50%;
-  width:22px; height:22px; margin:-11px 0 0 -11px;
-  border-radius:50%;
-  border:1px dashed rgba(0,170,255,.5);
-  animation:_rcw 1.6s linear infinite;
-  transition: width .2s, height .2s, margin .2s, border-color .15s;
-}
-#_cur.h ._cr2 {
-  width:40px; height:40px; margin:-20px 0 0 -20px;
-  border-color:rgba(0,255,180,.8);
-  animation:_rcw .8s linear infinite;
+#_cur .radar {
+  position:absolute; top:50%; left:50%; width:88px; height:88px; margin:-44px 0 0 -44px;
+  border-radius:50%; overflow:hidden;
+  background:conic-gradient(from 0deg, rgba(0,230,255,0) 0deg, rgba(0,230,255,0) 296deg, rgba(0,230,255,.28) 352deg, rgba(140,250,255,.5) 360deg);
+  -webkit-mask:radial-gradient(circle, #000 62%, transparent 63%);
+          mask:radial-gradient(circle, #000 62%, transparent 63%);
+  animation:_cw 3s linear infinite;
 }
 
-._cr3 {
-  position:absolute; top:50%; left:50%;
-  width:42px; height:42px; margin:-21px 0 0 -21px;
-  border-radius:50%;
-  border:.8px solid rgba(0,140,255,.22);
-  border-bottom-color:rgba(0,220,255,.6); border-top-color:transparent;
-  animation:_rcw 5s linear infinite;
-  opacity:0; transition:opacity .2s, width .2s, height .2s, margin .2s;
+#_cur .sonar {
+  position:absolute; top:50%; left:50%; width:120px; height:120px; margin:-60px 0 0 -60px;
+  border-radius:50%; border:1px solid rgba(0,210,255,.5);
+  animation:_sonar 3.2s ease-out infinite;
 }
-#_cur.h ._cr3 {
-  width:60px; height:60px; margin:-30px 0 0 -30px;
-  opacity:1; border-color:rgba(0,200,255,.3); border-bottom-color:rgba(0,255,180,.7);
-}
+#_cur .sonar.s2 { animation-delay:1.6s; }
 
-._csc {
-  position:absolute; top:50%; left:50%;
-  width:30px; margin-left:-15px; height:1px;
-  background:linear-gradient(90deg,transparent,rgba(0,220,255,.75),transparent);
-  animation:_scan 2.2s ease-in-out infinite;
-  transition: width .2s, margin .2s;
-}
-#_cur.h ._csc { width:50px; margin-left:-25px; }
+/* SVG rotation groups (origin = viewBox centre) */
+#_cur .core, #_cur .glow, #_cur .radar { will-change:transform; }
+._sp, ._brk { transform-box:view-box; transform-origin:100px 100px; }
+._cwSlow  { animation:_cw  9s   linear infinite; }
+._cwMed   { animation:_cw  3.6s linear infinite; }
+._cwMed2  { animation:_cw  5s   linear infinite; }
+._cwFast  { animation:_cw  2.4s linear infinite; }
+._ccwSlow { animation:_ccw 14s  linear infinite; }
+._ccwFast { animation:_ccw 3.2s linear infinite; }
+._brk     { animation:_breathe 3.2s ease-in-out infinite; }
 
-._crt {
-  position:absolute; top:50%; left:50%;
-  width:26px; height:26px; margin:-13px 0 0 -13px;
-  transition: width .2s, height .2s, margin .2s;
-}
-#_cur.h ._crt { width:46px; height:46px; margin:-23px 0 0 -23px; }
+._nl  { animation:_flash 2.6s ease-in-out infinite; }
+._nl2 { animation:_flash 2.6s ease-in-out infinite 1.3s; }
 
-._crt i {
-  position:absolute; width:7px; height:7px;
-  border:0 solid rgba(0,220,255,.9); transition:all .2s;
+._coord, ._st {
+  font:700 7px 'Share Tech Mono',monospace; fill:#39e6ff;
+  letter-spacing:.12em;
+  filter:drop-shadow(0 0 4px rgba(0,200,255,.9));
 }
-#_cur.h ._crt i { width:9px; height:9px; border-color:rgba(0,255,200,1); }
-._crt i:nth-child(1){ top:0;    left:0;   border-top-width:1.5px; border-left-width:1.5px; }
-._crt i:nth-child(2){ top:0;    right:0;  border-top-width:1.5px; border-right-width:1.5px; }
-._crt i:nth-child(3){ bottom:0; left:0;   border-bottom-width:1.5px; border-left-width:1.5px; }
-._crt i:nth-child(4){ bottom:0; right:0;  border-bottom-width:1.5px; border-right-width:1.5px; }
+._st { fill:#39e6ff; transition:fill .15s; }
+#_cur.h ._st { fill:#39ffc8; }
 
-._cdt {
-  position:absolute; top:calc(50% + 24px); left:50%;
-  transform:translateX(-50%);
-  font:700 7px 'Share Tech Mono',monospace;
-  color:rgba(0,210,255,.85); letter-spacing:.14em;
-  white-space:nowrap; text-shadow:0 0 7px rgba(0,200,255,.9);
-  transition: top .2s, color .15s;
-}
-#_cur.h ._cdt { top:calc(50% + 34px); color:rgba(0,255,190,1); }
+#_cur svg     { transition:transform .2s ease; }
+#_cur.h svg   { transform:scale(1.14); }
+#_cur.h .radar{ animation:_cw 1.3s linear infinite; }
 
-/* Data segs — 3 small tick marks around ring */
-._cds {
-  position:absolute; top:50%; left:50%;
-  width:40px; height:40px; margin:-20px 0 0 -20px;
-  opacity:0; transition:opacity .2s;
-}
-#_cur.h ._cds { opacity:1; }
-._cds span {
-  position:absolute; width:5px; height:1px;
-  background:rgba(0,220,255,.6);
-}
-._cds span:nth-child(1){ top:0; left:50%; margin-left:-2px; }
-._cds span:nth-child(2){ bottom:0; left:50%; margin-left:-2px; }
-._cds span:nth-child(3){ left:0; top:50%; width:1px; height:5px; margin-top:-2px; }
-
-/* Trail */
+/* trail */
 ._ctwrap { position:fixed; top:0; left:0; pointer-events:none; z-index:99998; transition:opacity .35s; }
 ._ctp {
-  position:fixed; width:4px; height:4px; margin:-2px 0 0 -2px;
-  border-radius:50%; background:rgba(0,200,255,.75);
-  box-shadow:0 0 4px 1px rgba(0,160,255,.5);
-  pointer-events:none; opacity:0;
+  position:fixed; width:4px; height:4px; margin:-2px 0 0 -2px; border-radius:50%;
+  background:rgba(0,210,255,.75); box-shadow:0 0 5px 1px rgba(0,170,255,.5);
+  opacity:0;
 }
-._ctp.go { animation:_prtcl .5s ease-out forwards; }
+._ctp.go { animation:_prtcl .55s ease-out forwards; }
 
-@keyframes _cp   { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.3);opacity:.8} }
-@keyframes _rccw { to{transform:rotate(-360deg)} }
-@keyframes _rcw  { to{transform:rotate(360deg)} }
-@keyframes _scan {
-  0%  {transform:translateY(-11px);opacity:0}
-  20% {opacity:.85} 80%{opacity:.85}
-  100%{transform:translateY(11px);opacity:0}
-}
-@keyframes _prtcl {
-  0%  {opacity:.85;transform:scale(1)}
-  100%{opacity:0;transform:scale(.1)}
-}
+@keyframes _cp     { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.28);opacity:.82} }
+@keyframes _cw     { to{transform:rotate(360deg)} }
+@keyframes _ccw    { to{transform:rotate(-360deg)} }
+@keyframes _breathe{ 0%,100%{transform:scale(1);opacity:.85} 50%{transform:scale(1.07);opacity:1} }
+@keyframes _sonar  { 0%{transform:scale(.55);opacity:.8} 100%{transform:scale(1.25);opacity:0} }
+@keyframes _flash  { 0%,72%,100%{opacity:0} 80%{opacity:.55} }
+@keyframes _prtcl  { 0%{opacity:.8;transform:scale(1)} 100%{opacity:0;transform:scale(.1)} }
 `;
 
 function _spawn(x, y) {
-  const p = _pool[_pi % POOL];
-  _pi++;
+  const p = _pool[_pi % POOL]; _pi++;
   p.classList.remove('go');
-  p.style.left = x + 'px';
-  p.style.top  = y + 'px';
+  p.style.left = x + 'px'; p.style.top = y + 'px';
   void p.offsetWidth;
   p.classList.add('go');
 }
@@ -179,14 +178,14 @@ function _setHot(on) {
   _hot = on;
   _el.classList.toggle('h', on);
   if (on) {
-    _mi = 1; _data.textContent = MSGS[1];
+    _mi = 1; _status.textContent = MSGS[1];
     _cycle = setInterval(() => {
       _mi = _mi >= MSGS.length - 1 ? 1 : _mi + 1;
-      _data.textContent = MSGS[_mi];
+      _status.textContent = MSGS[_mi];
     }, 520);
   } else {
     clearInterval(_cycle); _cycle = null;
-    _data.textContent = MSGS[0];
+    _status.textContent = MSGS[0];
   }
 }
 
@@ -200,30 +199,28 @@ export function initCursor() {
   for (let i = 0; i < POOL; i++) {
     const p = document.createElement('div');
     p.className = '_ctp';
-    _wrap.appendChild(p);
-    _pool.push(p);
+    _wrap.appendChild(p); _pool.push(p);
   }
   document.body.appendChild(_wrap);
 
   _el = document.createElement('div');
   _el.id = '_cur';
   _el.innerHTML =
-    '<div class="_cg"></div>' +
-    '<div class="_cr3"></div>' +
-    '<div class="_cr1"></div>' +
-    '<div class="_cr2"></div>' +
-    '<div class="_crt"><i></i><i></i><i></i><i></i></div>' +
-    '<div class="_cds"><span></span><span></span><span></span></div>' +
-    '<div class="_csc"></div>' +
-    '<div class="_cc"></div>' +
-    '<div class="_cdt">STANDBY</div>';
+    '<div class="glow"></div>' +
+    '<div class="sonar"></div><div class="sonar s2"></div>' +
+    '<div class="radar"></div>' +
+    buildSVG() +
+    '<div class="core"></div>';
   document.body.appendChild(_el);
-  _data = _el.querySelector('._cdt');
+  _coord  = _el.querySelector('._coord');
+  _status = _el.querySelector('._st');
 
   window.addEventListener('mousemove', (e) => {
     _mx = e.clientX; _my = e.clientY;
     const dx = _mx - _lx, dy = _my - _ly;
     if (dx * dx + dy * dy > 64) { _spawn(_mx, _my); _lx = _mx; _ly = _my; }
+    _coord.textContent =
+      `X:${String(_mx).padStart(4, '0')} Y:${String(_my).padStart(4, '0')}`;
     const t = document.elementFromPoint(_mx, _my);
     _setHot(!!(t && t.closest('a,button,[role="button"],label,input,select')));
   }, { passive: true });
@@ -238,5 +235,5 @@ export function tickCursor() {
     _el.style.opacity   = show ? '1' : '0';
     _wrap.style.opacity = show ? '1' : '0';
   }
-  _el.style.transform = `translate(${_mx - 30}px,${_my - 30}px)`;
+  _el.style.transform = `translate(${_mx}px,${_my}px)`;
 }
