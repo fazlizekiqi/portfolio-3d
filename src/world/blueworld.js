@@ -17,6 +17,7 @@
 import * as THREE from 'three';
 import { scene, camera } from '../scene.js';
 import { LAYER, setWorldLayer } from '../layers.js';
+import { isMobile } from '../constants.js';
 import VERT_BG from '../shaders/background.vert.glsl?raw';
 import FRAG_BG from '../shaders/background.frag.glsl?raw';
 
@@ -50,8 +51,8 @@ const _ambient = new THREE.AmbientLight(0x8899bb, 0.6);
 
 const _keyLight = new THREE.DirectionalLight(0xfff0dd, 1.6);
 _keyLight.position.set(3, 5, 4);
-_keyLight.castShadow = true;
-_keyLight.shadow.mapSize.set(2048, 2048);
+_keyLight.castShadow = !isMobile();
+_keyLight.shadow.mapSize.set(isMobile() ? 1024 : 2048, isMobile() ? 1024 : 2048);
 _keyLight.shadow.camera.near   =  0.5;
 _keyLight.shadow.camera.far    = 20;
 _keyLight.shadow.camera.left   = -3;
@@ -136,6 +137,7 @@ export const wwLightParams = {
 // ── Cached colour helpers (avoid per-frame allocations) ──────────────────────
 const _colA = new THREE.Color();
 const _colB = new THREE.Color();
+const _FILL_OFFSET = new THREE.Vector3(-2, 1, 0);
 
 /**
  * Cross-fade all scene lights between worlds.
@@ -228,5 +230,5 @@ export function tickBlueWorld(renderer, delta, elapsed) {
   _ring2.rotation.z = -elapsed * 0.18;
 
   // Fill light tracks camera
-  _fillLight.position.copy(camera.position).multiplyScalar(0.6).add(new THREE.Vector3(-2, 1, 0));
+  _fillLight.position.copy(camera.position).multiplyScalar(0.6).add(_FILL_OFFSET);
 }

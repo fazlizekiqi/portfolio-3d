@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { scene, camera, renderer } from '../scene.js';
 import { LAYER } from '../layers.js';
+import { isMobile } from '../constants.js';
 import { aimLights } from '../world/blueworld.js';
 import { initExplode, setOnReassembled, setExplodeCartoon } from './explode.js';
 import { initAboutWireframe } from '../presentation/slides/about/about-view.js';
@@ -355,7 +356,7 @@ export function loadModel(onReady, onProgress) {
           mat.envMapIntensity = 0.5;
 
           // Anisotropic filtering + mipmaps for all texture slots
-          const _maxAniso = Math.min(renderer.capabilities.maxAnisotropy, 4);
+          const _maxAniso = isMobile() ? 1 : Math.min(renderer.capabilities.maxAnisotropy, 4);
           ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'emissiveMap', 'aoMap'].forEach(slot => {
             const tex = mat[slot];
             if (!tex) return;
@@ -388,7 +389,7 @@ export function loadModel(onReady, onProgress) {
 
           mat.needsUpdate = true;
         });
-        child.castShadow    = true;
+        child.castShadow    = !isMobile();
         child.receiveShadow = false;
       });
 

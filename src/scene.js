@@ -1,15 +1,16 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { LAYER } from './layers.js';
+import { isMobile } from './constants.js';
 
 // ── Renderer ──────────────────────────────────────────────────────────────────
-export const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+export const renderer = new THREE.WebGLRenderer({ antialias: !isMobile(), alpha: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.shadowMap.enabled = true;
+renderer.setPixelRatio(isMobile() ? 1 : Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = !isMobile();
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMapping = isMobile() ? THREE.NoToneMapping : THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.1;
 renderer.autoClear = false; // we manually clear each frame so the shader bg persists
 document.body.appendChild(renderer.domElement);
@@ -45,6 +46,6 @@ window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setPixelRatio(isMobile() ? 1 : Math.min(window.devicePixelRatio, 2));
 });
 
