@@ -18,7 +18,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { scene } from '../scene.js';
-import { isMobile } from '../constants.js';
 import { LAYER, setWorldLayer } from '../layers.js';
 import { getProgress, isTransitioning, isWhiteWorld, getElapsed } from '../transition.js';
 import { tickTornado, isTornadoActive, disposeCloud, focusSpawnAndTravel } from './tornado-travel.js';
@@ -88,7 +87,7 @@ const _waterMat = new THREE.ShaderMaterial({
 });
 
 // Large flat plane — sits just below y=0 so it fills all gaps around the island
-const _waterGeo  = new THREE.PlaneGeometry(600, 600, isMobile() ? 20 : 80, isMobile() ? 20 : 80);
+const _waterGeo  = new THREE.PlaneGeometry(600, 600, 80, 80);
 const _waterMesh = new THREE.Mesh(_waterGeo, _waterMat);
 _waterMesh.rotation.x = -Math.PI / 2;
 _waterMesh.position.y = -0.35;
@@ -393,15 +392,15 @@ function _syncIrisUniforms() {
 export function tickWhiteWorld(delta = 0) {
   _syncIrisUniforms();
 
-  if (isWhiteWorld() || isTransitioning()) {
-    // Sync water params → uniforms + mesh
-    _waterUniforms.uTime.value    += delta * waterParams.speed;
-    _waterUniforms.uRippling.value = waterParams.rippling;
-    _waterUniforms.uFoamScale.value= waterParams.foamScale;
-    _waterUniforms.uBaseColor.value.set(waterParams.baseColor);
-    _waterUniforms.uMainColor.value.set(waterParams.mainColor);
-    _waterMesh.position.y          = waterParams.posY;
+  // Sync water params → uniforms + mesh
+  _waterUniforms.uTime.value    += delta * waterParams.speed;
+  _waterUniforms.uRippling.value = waterParams.rippling;
+  _waterUniforms.uFoamScale.value= waterParams.foamScale;
+  _waterUniforms.uBaseColor.value.set(waterParams.baseColor);
+  _waterUniforms.uMainColor.value.set(waterParams.mainColor);
+  _waterMesh.position.y          = waterParams.posY;
 
+  if (isWhiteWorld() || isTransitioning()) {
     tickTornado(delta);
   }
 }

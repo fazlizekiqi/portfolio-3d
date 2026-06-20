@@ -66,7 +66,7 @@ function _bubbleSizeForLabel(label) {
 // ── Canvas texture ────────────────────────────────────────────────────────────
 function _makeLabelTexture(label, groupKey) {
     const c   = GROUP_COLOR[groupKey] ?? GROUP_COLOR.tooling;
-    const SZ  = isMobile() ? 256 : 1024;
+    const SZ  = 1024;
     const cv  = document.createElement('canvas');
     cv.width  = cv.height = SZ;
     const ctx = cv.getContext('2d');
@@ -180,7 +180,7 @@ function _skillPositions(n) {
     }
 
     const MIN_D = 1.2 * _bubbleScale();
-    for (let iter = 0; iter < (isMobile() ? 30 : 80); iter++) {
+    for (let iter = 0; iter < 80; iter++) {
         for (let a = 0; a < pts.length; a++) {
             for (let b = a + 1; b < pts.length; b++) {
                 const d = pts[a].distanceTo(pts[b]);
@@ -203,7 +203,7 @@ function _skillPositions(n) {
 function _spawnSphere(item, pos3, seed) {
     const c   = GROUP_COLOR[item.group] ?? GROUP_COLOR.tooling;
     const { r, planeSize } = _bubbleSizeForLabel(item.label);
-    const geo = new THREE.SphereGeometry(r, isMobile() ? 16 : 64, isMobile() ? 10 : 32);
+    const geo = new THREE.SphereGeometry(r, 64, 32);
 
     const mat = new THREE.ShaderMaterial({
         vertexShader:   BUBBLE_VERT,
