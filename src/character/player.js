@@ -56,8 +56,8 @@ export const playerParams = {
   walkSpeed:    2.8,
   runSpeed:     6.2,
   rotateSpeed:  2.2,
-  camDistance:  5,
-  camHeight:    1.5,
+  camDistance:  9.3,
+  camHeight:    2.7,
   camLerp:      6.0,
   camEntryTime: 0.6,   // seconds to smoothly glide into position on takeover
   stepHeight:   0.25,  // max upward step — small rocks ok, building walls blocked

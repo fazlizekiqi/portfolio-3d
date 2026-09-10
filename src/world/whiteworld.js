@@ -17,10 +17,11 @@
 
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { scene } from '../scene.js';
+import { scene, camera } from '../scene.js';
 import { LAYER, setWorldLayer } from '../layers.js';
 import { getProgress, isTransitioning, isWhiteWorld, getElapsed } from '../transition.js';
 import { tickTornado, isTornadoActive, disposeCloud, focusSpawnAndTravel } from './tornado-travel.js';
+import { audio } from '../audio.js';
 import IRIS_ALPHA_GLSL from '../shaders/whiteworld.iris.glsl?raw';
 import VERT            from '../shaders/whiteworld.vert.glsl?raw';
 import FRAG_BODY       from '../shaders/whiteworld.frag.glsl?raw';
@@ -764,6 +765,7 @@ const _ICON = {
   dumbbell: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="9" width="3" height="6" rx="1"/><rect x="19" y="9" width="3" height="6" rx="1"/><line x1="5" y1="12" x2="19" y2="12"/><rect x="6.2" y="7" width="2.6" height="10" rx="1"/><rect x="15.2" y="7" width="2.6" height="10" rx="1"/></svg>`,
   flask:    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 3h5"/><path d="M10.2 3v6.3L4.9 18c-.8 1.4.2 3.2 1.8 3.2h10.6c1.6 0 2.6-1.8 1.8-3.2l-5.3-8.7V3"/><path d="M7.6 15.3h8.8"/></svg>`,
   compass:  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M15.3 8.7l-2.1 4.9-4.9 2.1 2.1-4.9 4.9-2.1z"/></svg>`,
+  pin:      `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6.5-6.02-6.5-11A6.5 6.5 0 0 1 18.5 10c0 4.98-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.2"/></svg>`,
 };
 
 /**
@@ -1103,12 +1105,81 @@ export function showWaypointButtons() {
   void _ftPanel.offsetWidth;
   _ftPanel.classList.add('ft-in');
   _setButtonsEnabled(true);
+  _showDevBadge();
 }
 
 export function hideWaypointButtons() {
   _ftPanel.classList.remove('ft-in');
   disposeCloud();
   _ftHideTimer = setTimeout(() => { _ftPanel.style.display = 'none'; }, 260);
+  _hideDevBadge();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  "Under development" notice — small, unobtrusive, same toon-ink language as
+//  the Fast Travel panel. Docked top-left on desktop (the only fully free
+//  corner: audio button is top-right, FT panel is right/top-row, Back is
+//  bottom-center). On touch devices it drops below the Fast Travel icon row
+//  instead of overlapping it.
+// ─────────────────────────────────────────────────────────────────────────────
+function _injectDevBadgeStyles() {
+  if (document.getElementById('dev-badge-style')) return;
+  const style = document.createElement('style');
+  style.id = 'dev-badge-style';
+  style.textContent = `
+#dev-badge {
+  position:fixed;top:16px;left:16px;z-index:18;display:none;
+  align-items:center;gap:6px;
+  padding:6px 11px 6px 9px;border-radius:999px;
+  background:#fdfbf6;border:2px solid #241d15;
+  box-shadow:2px 3px 0 #241d15;
+  font-family:'Share Tech Mono','Courier New',monospace;
+  font-size:10px;font-weight:700;letter-spacing:.04em;color:#241d15;
+  opacity:0;transform:translateY(-6px);
+  transition:opacity 300ms ease, transform 300ms ease;
+  pointer-events:none;
+  white-space:nowrap;
+}
+#dev-badge.dev-badge-in { opacity:.92;transform:translateY(0); }
+#dev-badge .dev-badge-dot {
+  width:6px;height:6px;border-radius:50%;flex:0 0 auto;
+  background:#e08a2e;border:1.5px solid #241d15;
+  animation:devBadgePulse 1.8s ease-in-out infinite;
+}
+@keyframes devBadgePulse { 0%,100% { opacity:.55; } 50% { opacity:1; } }
+
+@media (pointer:coarse) {
+  #dev-badge { top:64px;left:12px;font-size:9px;padding:5px 9px 5px 7px; }
+}
+@media (max-width:360px) {
+  #dev-badge { font-size:8.3px; }
+}
+`;
+  document.head.appendChild(style);
+}
+
+function _createDevBadge() {
+  const badge = document.createElement('div');
+  badge.id = 'dev-badge';
+  badge.innerHTML = `<span class="dev-badge-dot"></span><span>World still under construction</span>`;
+  document.body.appendChild(badge);
+  return badge;
+}
+
+_injectDevBadgeStyles();
+const _devBadge = _createDevBadge();
+let _devBadgeHideTimer = null;
+
+function _showDevBadge() {
+  if (_devBadgeHideTimer) { clearTimeout(_devBadgeHideTimer); _devBadgeHideTimer = null; }
+  _devBadge.style.display = 'flex';
+  void _devBadge.offsetWidth; // force reflow so the transition plays
+  _devBadge.classList.add('dev-badge-in');
+}
+
+function _hideDevBadge() {
+  _devBadge.classList.remove('dev-badge-in');
+  _devBadgeHideTimer = setTimeout(() => { _devBadge.style.display = 'none'; }, 300);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1141,6 +1212,403 @@ function _onWaypointClick(index) {
 
 function _hasCharacterRef() {
   return !!(_getCharPos && _getCharMeshes && _setCharPos);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  World-space discovery markers — Sweden / Kosovo / The Lab
+//  NOT a UI card. A tiny marker floats above each location in actual 3D space
+//  (projected every frame from its world X/Y/Z through the camera), grows into
+//  a compact label as the player approaches, offers a quiet "E · Explore" /
+//  "Tap to explore" affordance once close enough, and only THEN reveals a
+//  short description — as a small world-anchored tooltip on desktop, or a
+//  compact bottom sheet on mobile. Walk away and it fades back to nothing.
+//  Only one location is ever surfaced at a time (the nearest in range).
+// ─────────────────────────────────────────────────────────────────────────────
+const _isPoiTouch = navigator.maxTouchPoints > 0 || 'ontouchstart' in window;
+
+const POI_ZONES = [
+  {
+    key: 'lab', title: 'The Lab', subtitle: 'Unreleased', icon: _ICON.flask,
+    accent: '#1798ab', anchorOffsetY: 2.1,
+    detectRadius: 20, interactRadius: 9,
+    getCenter: () => (_labHasCenter ? _labCenter : null),
+    body: `Mechanics, robotics and electronics — a personal playground for experimenting, prototyping and rebuilding things. Nothing here has shipped publicly yet.`,
+  },
+  {
+    key: 'kosovo', title: 'Kosovo', subtitle: 'Origin', icon: _ICON.pin,
+    accent: '#3a5fd9', anchorOffsetY: 1.5,
+    detectRadius: 18, interactRadius: 8,
+    getCenter: () => WAYPOINTS[1],
+    body: `Born and raised here, surrounded by close family and a hard-working community that shaped who I am — resilience I still lean on as an engineer today.`,
+  },
+  {
+    key: 'sweden', title: 'Sweden', subtitle: 'Home', icon: _ICON.pin,
+    accent: '#1f7fc2', anchorOffsetY: 1.5,
+    detectRadius: 18, interactRadius: 8,
+    getCenter: () => WAYPOINTS[0],
+    body: `Home since 2017. I learned the language, finished my software engineering education, and landed my first developer job here in 2020 — my second home.`,
+  },
+];
+
+let _poiActiveKey  = null;    // key of the zone currently surfaced (nearest in range)
+let _poiInRange    = false;   // is the player within THAT zone's interactRadius
+let _poiExpanded   = false;   // has the player interacted (E / tap) to see the description
+let _poiHideTimer  = null;    // delayed display:none after fade-out finishes
+
+function _injectPoiStyles() {
+  if (document.getElementById('poi-style')) return;
+  const style = document.createElement('style');
+  style.id = 'poi-style';
+  style.textContent = `
+/* ── world-anchored marker — position is set every frame via left/top.
+   Toon-ink visual language (warm paper, black ink outline, offset shadow) —
+   the SAME family as the Fast Travel panel / BACK key-cap / joystick, so a
+   discovery here reads as part of THIS world, not an imported HUD. ───────── */
+#poi-marker {
+  position:fixed;left:0;top:0;
+  z-index:16;display:none;
+  transform:translate(-50%,-100%);
+  display:flex;flex-direction:column;align-items:center;
+  font-family:'Share Tech Mono','Courier New',monospace;
+  pointer-events:none;
+  opacity:0;
+  transition:opacity 260ms ease;
+  --poi-accent:#3a5fd9;
+  --poi-ink:#241d15;
+}
+#poi-marker.poi-shown { opacity:1; }
+
+/* world-space tooltip (desktop expanded state) — grows upward above the label */
+#poi-marker .poi-tooltip {
+  width:212px;margin-bottom:9px;
+  padding:11px 13px;border-radius:12px;
+  background:#fdfbf6;
+  border:2px solid var(--poi-ink);
+  box-shadow:3px 4px 0 var(--poi-ink);
+  opacity:0;transform:translateY(6px) scale(.97);transform-origin:bottom center;
+  transition:opacity 260ms ease, transform 260ms ease;
+  pointer-events:none;
+}
+#poi-marker .poi-tooltip-head { display:flex;align-items:center;gap:8px;margin-bottom:6px; }
+#poi-marker .poi-tooltip-icon {
+  width:20px;height:20px;flex:0 0 auto;padding:3px;box-sizing:content-box;
+  color:#fff;background:var(--poi-accent);
+  border:1.5px solid var(--poi-ink);border-radius:7px;
+}
+#poi-marker .poi-tooltip-icon svg { width:100%;height:100%;display:block; }
+#poi-marker .poi-tooltip-title {
+  font-size:13px;font-weight:700;color:var(--poi-ink);letter-spacing:.01em;
+}
+#poi-marker .poi-tooltip-subtitle {
+  font-size:9px;font-weight:700;letter-spacing:.10em;text-transform:uppercase;
+  color:var(--poi-accent);opacity:.9;margin-top:1px;
+}
+#poi-marker .poi-tooltip-body {
+  margin:0;font-size:11.5px;line-height:1.55;color:var(--poi-ink);opacity:.82;
+}
+@media (hover:hover) and (pointer:fine) {
+  #poi-marker.poi-expanded .poi-tooltip {
+    opacity:1;transform:translateY(0) scale(1);pointer-events:auto;
+  }
+}
+@media (pointer:coarse) {
+  #poi-marker .poi-tooltip { display:none; } /* mobile uses the bottom sheet instead */
+}
+
+/* compact floating label — icon + title + subtitle */
+#poi-marker .poi-label {
+  display:flex;align-items:center;gap:7px;
+  padding:6px 12px 6px 6px;border-radius:999px;
+  background:#fdfbf6;
+  border:2px solid var(--poi-ink);
+  box-shadow:2px 3px 0 var(--poi-ink);
+  opacity:0;transform:translateY(5px) scale(.94);
+  transition:opacity 300ms ease, transform 300ms ease, box-shadow 120ms ease, background 120ms ease;
+  pointer-events:none;
+  cursor:default;
+  font:inherit;color:inherit;
+}
+#poi-marker.poi-shown .poi-label {
+  opacity:1;transform:translateY(0) scale(1);
+  transition-delay:160ms;
+}
+#poi-marker.poi-inrange .poi-label { pointer-events:auto;cursor:pointer; }
+#poi-marker.poi-inrange .poi-label:hover { background:#f1e9d8; }
+#poi-marker.poi-inrange .poi-label:active { transform:translate(1px,2px); box-shadow:1px 1px 0 var(--poi-ink); }
+#poi-marker .poi-label-icon {
+  width:22px;height:22px;flex:0 0 auto;padding:3px;box-sizing:content-box;
+  display:flex;align-items:center;justify-content:center;
+  color:#fff;background:var(--poi-accent);
+  border:1.5px solid var(--poi-ink);border-radius:50%;
+}
+#poi-marker .poi-label-icon svg { width:100%;height:100%;display:block; }
+#poi-marker .poi-label-title {
+  font-size:12.5px;font-weight:700;letter-spacing:.01em;color:var(--poi-ink);white-space:nowrap;
+}
+#poi-marker .poi-label-sub {
+  font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--poi-accent);opacity:.85;white-space:nowrap;
+}
+#poi-marker .poi-label-sub::before { content:'• '; }
+
+/* interaction hint — appears only inside interactRadius, disappears once expanded */
+#poi-marker .poi-hint {
+  display:flex;align-items:center;gap:5px;margin-top:7px;
+  font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--poi-ink);opacity:0;transform:translateY(3px);
+  transition:opacity 220ms ease, transform 220ms ease;
+  pointer-events:none;
+}
+#poi-marker.poi-inrange:not(.poi-expanded) .poi-hint {
+  opacity:.85;transform:translateY(0);transition-delay:120ms;
+}
+/* the "E" reads as an actual key-cap — same toon style as the WASD/BACK caps */
+#poi-marker .poi-hint kbd {
+  display:inline-flex;align-items:center;justify-content:center;
+  min-width:15px;height:15px;padding:0 3px;border-radius:4px;
+  background:#fff;border:1.5px solid var(--poi-ink);box-shadow:1px 1px 0 var(--poi-ink);
+  font:inherit;font-size:9px;font-weight:700;color:var(--poi-ink);
+}
+@media (pointer:coarse) { #poi-marker .poi-hint kbd { display:none; } }
+
+/* connector — thin ink line + small dot pinned exactly to the world anchor */
+#poi-marker .poi-connector {
+  width:2px;height:14px;margin-top:2px;
+  background:var(--poi-ink);opacity:.3;
+  transform:scaleY(0);transform-origin:top;
+  transition:transform 280ms ease;
+}
+#poi-marker.poi-shown .poi-connector { transform:scaleY(1); }
+#poi-marker .poi-dot {
+  width:8px;height:8px;border-radius:50%;margin-top:-1px;
+  background:var(--poi-accent);border:1.5px solid var(--poi-ink);
+  opacity:0;transition:opacity 200ms ease;
+}
+#poi-marker.poi-shown .poi-dot { opacity:1; }
+
+/* ── mobile bottom sheet (expanded state on touch devices) — same warm
+   paper / ink-outline family, docked with a top border like a drawn card.
+   z-index sits ABOVE the joystick (50) so it isn't shown poking out from
+   underneath the movement controls while it's open. ─────────────────────── */
+#poi-sheet {
+  position:fixed;left:0;right:0;bottom:0;z-index:55;
+  display:none;
+  max-height:30vh;
+  padding:10px 18px calc(16px + env(safe-area-inset-bottom, 0px));
+  border-radius:18px 18px 0 0;
+  background:#fdfbf6;
+  border:2px solid var(--poi-ink,#241d15);
+  border-bottom:none;
+  box-shadow:0 -6px 0 0 var(--poi-ink,#241d15);
+  font-family:'Share Tech Mono','Courier New',monospace;
+  transform:translateY(100%);
+  transition:transform 320ms cubic-bezier(.22,.61,.36,1);
+  color:#241d15;
+}
+@media (pointer:coarse) {
+  #poi-sheet { display:block; }
+  #poi-sheet.is-open { transform:translateY(0); }
+}
+#poi-sheet .poi-sheet-handle {
+  width:36px;height:4px;border-radius:2px;margin:2px auto 10px;
+  background:rgba(36,29,21,0.25);
+}
+#poi-sheet .poi-sheet-head { display:flex;align-items:center;gap:10px; }
+#poi-sheet .poi-sheet-icon {
+  width:26px;height:26px;flex:0 0 auto;padding:4px;box-sizing:content-box;
+  color:#fff;background:var(--poi-sheet-accent,#3a5fd9);
+  border:1.5px solid #241d15;border-radius:8px;
+}
+#poi-sheet .poi-sheet-icon svg { width:100%;height:100%;display:block; }
+#poi-sheet .poi-sheet-title { font-size:16px;font-weight:700;color:#241d15; }
+#poi-sheet .poi-sheet-subtitle {
+  font-size:9.5px;font-weight:700;letter-spacing:.10em;text-transform:uppercase;
+  color:var(--poi-sheet-accent,#3a5fd9);opacity:.9;margin-top:1px;
+}
+#poi-sheet .poi-sheet-close {
+  margin-left:auto;flex:0 0 auto;width:26px;height:26px;border-radius:7px;
+  border:1.5px solid #241d15;background:#fff;box-shadow:1.5px 1.5px 0 #241d15;
+  color:#241d15;font-size:15px;line-height:1;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:transform .1s ease, box-shadow .1s ease;
+}
+#poi-sheet .poi-sheet-close:active { transform:translate(1px,1px); box-shadow:0.5px 0.5px 0 #241d15; }
+#poi-sheet .poi-sheet-body {
+  margin:10px 0 0;font-size:12.5px;line-height:1.58;color:#241d15;opacity:.9;
+}
+`;
+  document.head.appendChild(style);
+}
+
+
+function _createPoiDom() {
+  const marker = document.createElement('div');
+  marker.id = 'poi-marker';
+  marker.innerHTML = `
+    <div class="poi-tooltip">
+      <div class="poi-tooltip-head">
+        <span class="poi-tooltip-icon"></span>
+        <div>
+          <div class="poi-tooltip-title"></div>
+          <div class="poi-tooltip-subtitle"></div>
+        </div>
+      </div>
+      <p class="poi-tooltip-body"></p>
+    </div>
+    <button type="button" class="poi-label">
+      <span class="poi-label-icon"></span>
+      <span class="poi-label-title"></span>
+      <span class="poi-label-sub"></span>
+    </button>
+    <div class="poi-hint">${_isPoiTouch ? '<span>Tap to explore</span>' : '<kbd>E</kbd><span>Explore</span>'}</div>
+    <div class="poi-connector"></div>
+    <div class="poi-dot"></div>`;
+  document.body.appendChild(marker);
+
+  const sheet = document.createElement('div');
+  sheet.id = 'poi-sheet';
+  sheet.innerHTML = `
+    <div class="poi-sheet-handle"></div>
+    <div class="poi-sheet-head">
+      <span class="poi-sheet-icon"></span>
+      <div>
+        <div class="poi-sheet-title"></div>
+        <div class="poi-sheet-subtitle"></div>
+      </div>
+      <button type="button" class="poi-sheet-close" aria-label="Close">×</button>
+    </div>
+    <p class="poi-sheet-body"></p>`;
+  document.body.appendChild(sheet);
+
+  marker.querySelector('.poi-label').addEventListener('click', () => {
+    if (!_poiInRange) return;
+    audio.playHover();
+    _setPoiExpanded(!_poiExpanded);
+  });
+  sheet.querySelector('.poi-sheet-close').addEventListener('click', () => {
+    audio.playButtonClick();
+    _setPoiExpanded(false);
+  });
+
+  return { marker, sheet };
+}
+
+_injectPoiStyles();
+const { marker: _poiMarkerEl, sheet: _poiSheetEl } = _createPoiDom();
+
+function _setPoiExpanded(expanded) {
+  if (_poiExpanded === expanded) return;
+  _poiExpanded = expanded;
+  _poiMarkerEl.classList.toggle('poi-expanded', expanded);
+  _poiSheetEl.classList.toggle('is-open', expanded);
+  if (expanded) audio.playCardOpen();
+}
+
+// Desktop: press E while inside a location's interact radius to reveal it.
+window.addEventListener('keydown', (e) => {
+  if (e.code !== 'KeyE' || e.repeat) return;
+  if (!_poiActiveKey || !_poiInRange) return;
+  _setPoiExpanded(!_poiExpanded);
+});
+
+const _poiAnchorWorld = new THREE.Vector3();
+const _poiAnchorProj  = new THREE.Vector3();
+
+/** Populate the marker DOM (icon/title/subtitle/body/accent) for `zone`. */
+function _populatePoiMarker(zone) {
+  _poiMarkerEl.style.setProperty('--poi-accent', zone.accent);
+  _poiSheetEl.style.setProperty('--poi-sheet-accent', zone.accent);
+
+  _poiMarkerEl.querySelector('.poi-label-icon').innerHTML  = zone.icon;
+  _poiMarkerEl.querySelector('.poi-label-title').textContent = zone.title;
+  _poiMarkerEl.querySelector('.poi-label-sub').textContent   = zone.subtitle;
+  _poiMarkerEl.querySelector('.poi-tooltip-icon').innerHTML  = zone.icon;
+  _poiMarkerEl.querySelector('.poi-tooltip-title').textContent    = zone.title;
+  _poiMarkerEl.querySelector('.poi-tooltip-subtitle').textContent = zone.subtitle;
+  _poiMarkerEl.querySelector('.poi-tooltip-body').textContent     = zone.body;
+
+  _poiSheetEl.querySelector('.poi-sheet-icon').innerHTML  = zone.icon;
+  _poiSheetEl.querySelector('.poi-sheet-title').textContent    = zone.title;
+  _poiSheetEl.querySelector('.poi-sheet-subtitle').textContent = zone.subtitle;
+  _poiSheetEl.querySelector('.poi-sheet-body').textContent     = zone.body;
+}
+
+function _hidePoiMarker() {
+  _poiMarkerEl.classList.remove('poi-shown', 'poi-inrange');
+  _setPoiExpanded(false);
+  if (_poiHideTimer) clearTimeout(_poiHideTimer);
+  _poiHideTimer = setTimeout(() => {
+    if (!_poiActiveKey) _poiMarkerEl.style.display = 'none';
+  }, 300);
+}
+
+/** Called every frame — finds the nearest in-range zone, projects it to screen
+ *  space, and drives the reveal/hint/expand states. This is the whole
+ *  "world-space discovery" system: no fixed screen position, no persistent
+ *  overlay — it only exists where and while the location does. */
+function _tickPoiProximity() {
+  if (!isWhiteWorld() && !isTransitioning()) {
+    if (_poiActiveKey) { _poiActiveKey = null; _hidePoiMarker(); }
+    return;
+  }
+
+  const mg = _getModelGroup ? _getModelGroup() : null;
+  if (!mg) return;
+
+  let closest     = null;
+  let closestDist = Infinity;
+  for (const zone of POI_ZONES) {
+    const c = zone.getCenter();
+    if (!c) continue;
+    const dx   = mg.position.x - c.x;
+    const dz   = mg.position.z - c.z;
+    const dist = Math.sqrt(dx * dx + dz * dz);
+    if (dist <= zone.detectRadius && dist < closestDist) {
+      closestDist = dist;
+      closest     = zone;
+    }
+  }
+
+  const key = closest ? closest.key : null;
+  if (key !== _poiActiveKey) {
+    _poiActiveKey = key;
+    if (closest) {
+      if (_poiHideTimer) { clearTimeout(_poiHideTimer); _poiHideTimer = null; }
+      _populatePoiMarker(closest);
+      _poiMarkerEl.style.display = 'flex';
+      void _poiMarkerEl.offsetWidth; // force reflow so the transition plays
+      _poiMarkerEl.classList.add('poi-shown');
+    } else {
+      _hidePoiMarker();
+    }
+  }
+
+  if (!closest) return;
+
+  // Inside-radius state drives the "E · Explore" hint independently of the
+  // reveal animation above (pure distance check, re-evaluated every frame).
+  _poiInRange = closestDist <= closest.interactRadius;
+  _poiMarkerEl.classList.toggle('poi-inrange', _poiInRange);
+  if (!_poiInRange && _poiExpanded) _setPoiExpanded(false);
+
+  // Project the anchor (world position, lifted above the location) to screen
+  // space every frame so the marker tracks the camera exactly like a real
+  // object in the scene, not a screen-locked UI element.
+  const c = closest.getCenter();
+  _poiAnchorWorld.set(c.x, c.y + closest.anchorOffsetY, c.z);
+  _poiAnchorProj.copy(_poiAnchorWorld).project(camera);
+
+  if (_poiAnchorProj.z > 1) { _poiMarkerEl.style.opacity = '0'; return; }
+
+  const sx = (_poiAnchorProj.x * 0.5 + 0.5) * window.innerWidth;
+  const sy = (1 - (_poiAnchorProj.y * 0.5 + 0.5)) * window.innerHeight;
+  _poiMarkerEl.style.left = `${sx}px`;
+  _poiMarkerEl.style.top  = `${sy}px`;
+
+  // Soft edge fade in the outer ring of the detect radius so the threshold
+  // never pops — "approaching increases visibility, moving away fades".
+  const edge = _smoothstep(closest.detectRadius * 0.82, closest.detectRadius, closestDist);
+  _poiMarkerEl.style.opacity = String(1 - edge * 0.8);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1189,6 +1657,7 @@ export function tickWhiteWorld(delta = 0) {
   _syncEnvLights();
   _syncSun();
   _tickLabAnimations(delta);
+  _tickPoiProximity();
 
   // Sync water params → uniforms + mesh
   _waterUniforms.uTime.value    += delta * waterParams.speed;
