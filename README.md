@@ -4,7 +4,7 @@ An interactive 3D portfolio built with **Three.js + Vite** — instead of a stat
 
 ### 🔗 Live site
 
-**https://fazlizekiqi.github.io/portfolio-3d/**
+**https://fazlizekiqi.dev/**
 
 ## Running locally
 

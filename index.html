@@ -12,6 +12,12 @@
     <meta name="keywords"
           content="Fazli Zekiqi, software engineer, Stockholm, Sweden, Java developer, Kotlin developer, JavaScript, Python, Spring Boot, Quarkus, microservices, cloud computing, AWS, Docker, Kubernetes, K8s, OpenShift, CI/CD, DevOps, Kafka, event-driven architecture, messaging, AI, ML, machine learning, artificial intelligence, RDBMS, PostgreSQL, MySQL, NoSQL, MongoDB, Redis, Git, Jira, Bash, shell scripting, automation, 3D portfolio, Three.js, backend engineer, full-stack developer"/>
     <meta name="robots" content="index, follow"/>
+    <!--
+      This verification token belongs to the old fazlizekiqi.github.io/portfolio-3d property.
+      Once you add https://fazlizekiqi.dev as a property in Google Search Console, replace the
+      content value below with the NEW token Google gives you (or verify via DNS TXT record instead,
+      which also verifies the whole domain in one go — recommended).
+    -->
     <meta name="google-site-verification" content="ss9R-vbijXpO0foFrSOd-YPK9oNBbzbs_qoMDMPXgHY"/>
     <!-- ── Geo / location signals ────────────────────────────────────── -->
     <meta name="geo.region" content="SE-AB"/>
@@ -20,12 +26,13 @@
 
     <!-- ── Open Graph (LinkedIn / social previews) ───────────────────── -->
     <meta property="og:type" content="website"/>
+    <meta property="og:site_name" content="Fazli Zekiqi"/>
     <meta property="og:title"
           content="Fazli Zekiqi – Software Engineer | Java · Kotlin · Cloud · AI/ML · Microservices"/>
     <meta property="og:description"
           content="Fazli Zekiqi is a software engineer based in Stockholm, Sweden, specialising in Java, Kotlin, Spring Boot, Quarkus, cloud-native microservices, Docker, Kubernetes, Kafka, CI/CD, and AI/ML. Explore his interactive 3D portfolio."/>
-    <meta property="og:url" content="https://fazlizekiqi.github.io/portfolio-3d/"/>
-    <meta property="og:image" content="https://fazlizekiqi.github.io/portfolio-3d/favicon.svg"/>
+    <meta property="og:url" content="https://fazlizekiqi.dev/"/>
+    <meta property="og:image" content="https://fazlizekiqi.dev/character-icon.png"/>
 
     <!-- ── Twitter card ─────────────────────────────────────────────── -->
     <meta name="twitter:card" content="summary"/>
@@ -38,7 +45,18 @@
     <!-- ── Favicon ──────────────────────────────────────────────────── -->
     <link rel="icon" type="image/png" href="/character-icon.png"/>
 
-    <link rel="canonical" href="https://fazlizekiqi.github.io/portfolio-3d/"/>
+    <link rel="canonical" href="https://fazlizekiqi.dev/"/>
+
+    <!-- ── Structured data — WebSite schema (helps Google surface a sitelinks searchbox / site name) ── -->
+    <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@type": "WebSite",
+            "name": "Fazli Zekiqi",
+            "alternateName": "Fazli Zekiqi Portfolio",
+            "url": "https://fazlizekiqi.dev/"
+        }
+    </script>
 
     <!-- ── Structured data — Person schema ──────────────────────────── -->
     <script type="application/ld+json">
@@ -46,8 +64,15 @@
             "@context": "https://schema.org",
             "@type": "Person",
             "name": "Fazli Zekiqi",
-            "url": "https://fazlizekiqi.github.io/portfolio-3d/",
+            "url": "https://fazlizekiqi.dev/",
+            "mainEntityOfPage": "https://fazlizekiqi.dev/",
+            "image": "https://fazlizekiqi.dev/character-icon.png",
             "jobTitle": "Software Engineer",
+            "address": {
+                "@type": "PostalAddress",
+                "addressLocality": "Stockholm",
+                "addressCountry": "SE"
+            },
             "description": "Fazli Zekiqi is a software engineer with deep expertise in Java, Kotlin, JavaScript, and Python. He designs and builds cloud-native microservices using Spring Boot and Quarkus, containerises workloads with Docker and orchestrates them on Kubernetes and OpenShift, and engineers reliable CI/CD pipelines. He integrates AI/ML capabilities, designs event-driven systems with Apache Kafka, and works with both relational databases (PostgreSQL, MySQL) and non-relational stores (MongoDB, Redis). He also applies Bash scripting and automation to streamline developer workflows.",
             "sameAs": [
                 "https://www.linkedin.com/in/fazli-zekiqi/",
